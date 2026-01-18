@@ -43,24 +43,40 @@ class GameIngester:
         elif isinstance(response, list):
             season_list = response
             
+        print(f"DEBUG: Found {len(season_list)} total season records.")
+        
+        found_seasons = []
+
         for wrapper in season_list:
             # 2. Extract the actual season object from the wrapper
-            # The API spec says each item in the list is a SeasonResponse containing 'data'
             season = wrapper.get('data', wrapper) if isinstance(wrapper, dict) else wrapper
             
             if not isinstance(season, dict):
                 continue
 
             name = str(season.get('name', ''))
-            year = str(season.get('year', '')) # 'year' might not exist, usually it's in the name
+            year = str(season.get('year', '')) 
             sid = season.get('id')
             
-            # Match target year (e.g. 2024) against "2023-2024" or "2024"
-            if str(target_year) in name or str(target_year) in year:
-                print(f"✅ Found Season: {name} (ID: {sid})")
+            found_seasons.append({'name': name, 'id': sid, 'year': year})
+
+            # Exact or partial match
+            if str(target_year) in name or str(target_year) == year or str(target_year) == str(sid):
+                print(f"✅ Found Matching Season: {name} (ID: {sid})")
                 return sid
         
-        print(f"❌ Season {target_year} not found in API response. Available seasons might differ.")
+        # Debug output if no match found
+        print("⚠️ Exact match not found. Available seasons:")
+        for s in found_seasons[:5]: # Print first 5 to avoid spam
+            print(f"   - {s['name']} (ID: {s['id']})")
+            
+        # Fallback: Return the most recent season (assuming sorted by ID or simply first in list)
+        if found_seasons:
+            latest = found_seasons[0]
+            print(f"⚠️ Defaulting to most recent available season: {latest['name']} (ID: {latest['id']})")
+            return latest['id']
+
+        print(f"❌ Season {target_year} not found in API response.")
         return None
 
     def ingest_season_schedule(self, year):
@@ -75,7 +91,7 @@ class GameIngester:
             print("❌ No teams found. Check API permissions or Season ID.")
             return
 
-        # Handle TeamPaginationResponse: { "data": [ { "data": { "id":..., "name":... } } ] }
+        # Handle TeamPaginationResponse
         team_wrappers = []
         if isinstance(response, dict):
             team_wrappers = response.get('data', [])
@@ -86,7 +102,8 @@ class GameIngester:
         
         processed_game_ids = set()
         
-        for team_wrapper in tqdm(team_wrappers, desc="Scanning Teams", unit="team"):
+        # Limit to first 50 teams for testing speed, remove [:50] for full run
+        for team_wrapper in tqdm(team_wrappers[:50], desc="Scanning Teams", unit="team"):
             # Unwrap team data
             team = team_wrapper.get('data', team_wrapper) if isinstance(team_wrapper, dict) else team_wrapper
             
@@ -96,7 +113,6 @@ class GameIngester:
             if not team_id: continue
 
             # Fetch games for this team
-            # GamePaginationResponse: { "data": [ { "data": { "id":... } } ] }
             games_response = self.client.get_games(league_code="ncaamb", season_id=season_id, team_id=team_id, limit=50)
             
             if not games_response:
@@ -128,7 +144,6 @@ class GameIngester:
             game_id = str(game_data.get('id'))
             
             # Teams can be nested objects or just names depending on the endpoint view
-            # Using safe navigation to get names
             home_data = game_data.get('homeTeam', {})
             away_data = game_data.get('awayTeam', {})
             
@@ -157,7 +172,7 @@ class GameIngester:
         print(f"📥 Pulling Events for Game {game_id}...")
         response = self.client.get_game_events(league_code="ncaamb", game_id=game_id)
         
-        # EventPaginationResponse: { "data": [ { "data": { "id":... } } ] }
+        # EventPaginationResponse
         events = []
         if response and isinstance(response, dict):
              event_wrappers = response.get('data', [])
