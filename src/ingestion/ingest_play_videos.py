@@ -49,6 +49,10 @@ class PlayVideoIngester:
 
         play_ids = self.play_collection.get()["ids"]
 
+        if not play_ids:
+            print("⚠ No plays found in skout_game_plays — did you ingest plays first?")
+            return
+
         if limit:
             play_ids = play_ids[:limit]
 
