@@ -5,7 +5,6 @@ pandas
 streamlit
 datetime
 torch
-  --index-url https://download.pytorch.org/whl/cu121
 transformers
 opencv-python
 pillow
