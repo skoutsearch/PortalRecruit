@@ -3,7 +3,7 @@ python-dotenv
 pandas
 streamlit
 datetime
-torch==2.5.1+cu121 \
+torch
   --index-url https://download.pytorch.org/whl/cu121
 transformers
 opencv-python
