@@ -1,7 +1,19 @@
 # Ignore data and secrets
 data/
 *.env
+
+# Python
 __pycache__/
-.DS_Store
+*.py[cod]
+*.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 venv/
+.venv/
+
+# OS
+.DS_Store
+
+# Project
 emails/
