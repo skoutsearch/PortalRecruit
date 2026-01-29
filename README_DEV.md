@@ -30,11 +30,25 @@ pip install -r requirements.txt
 
 ### GPU / CUDA
 
-Install GPU torch following PyTorch’s official instructions for your CUDA version:
+Default on this host:
+- NVIDIA driver: 555.58.02
+- CUDA reported by nvidia-smi: 12.5
 
-- https://pytorch.org/get-started/locally/
+Recommended GPU install on this host (installs CUDA-enabled torch first, then repo deps):
 
-Then install project requirements:
+```bash
+./scripts/bootstrap_gpu.sh
+```
+
+You can override the torch wheel index if needed:
+
+```bash
+TORCH_INDEX_URL=https://download.pytorch.org/whl/cu124 FORCE_RECREATE=1 ./scripts/bootstrap_gpu.sh
+```
+
+(We default to cu124 wheels which are compatible with CUDA 12.5-class drivers.)
+
+If you prefer to install torch manually, use PyTorch’s selector and then run requirements:
 
 ```bash
 pip install -r requirements.txt
