@@ -1,40 +1,55 @@
-import requests
 import os
-import sys
 import time
 
-# Ensure we can import from config
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
-from config.settings import SYNERGY_API_KEY, BASE_URL
+import requests
+
+from config.settings import BASE_URL
+
 
 class SynergyClient:
-    def __init__(self):
-        if not SYNERGY_API_KEY:
-            raise ValueError("❌ ERROR: SYNERGY_API_KEY not found in .env")
-        
+    def __init__(self, api_key: str | None = None):
+        self.api_key = api_key or os.getenv("SYNERGY_API_KEY")
+        if not self.api_key:
+            raise ValueError("❌ ERROR: SYNERGY_API_KEY not found (env/secrets missing)")
+
         self.base_url = BASE_URL
         self.headers = {
-            "x-api-key": SYNERGY_API_KEY,
-            "Content-Type": "application/json"
+            "x-api-key": self.api_key,
+            "Content-Type": "application/json",
         }
 
+        # Introspection for callers (capabilities, UI, etc.)
+        self.last_status_code: int | None = None
+        self.last_error: str | None = None
+
     def _get(self, endpoint, params=None, retries=4):
+        """Executes a GET request with strict 429 Rate Limit handling.
+
+        Returns:
+            Parsed JSON (dict/list) on success, else None.
+
+        Side effects:
+            Populates last_status_code and last_error for callers.
         """
-        Executes a GET request with strict 429 Rate Limit handling.
-        """
+
         url = f"{self.base_url}{endpoint}"
         print(f"  > Requesting URL: {url} with params: {params}")
+        self.last_status_code = None
+        self.last_error = None
+
         for attempt in range(retries):
             try:
-                response = requests.get(url, headers=self.headers, params=params)
+                response = requests.get(url, headers=self.headers, params=params, timeout=30)
+                self.last_status_code = response.status_code
                 print(f"  < Status Code: {response.status_code}")
+
                 # 1. Handle Rate Limiting (429)
                 if response.status_code == 429:
-                    wait_time = (attempt + 1) * 2.5 # Backoff: 2.5s, 5s, 7.5s...
+                    wait_time = (attempt + 1) * 2.5  # Backoff: 2.5s, 5s, 7.5s...
                     print(f"      ⚠️ Rate limit hit (429). Pausing for {wait_time}s...")
                     time.sleep(wait_time)
-                    continue # Retry
-                
+                    continue
+
                 # 2. Handle Server Errors (5xx)
                 if response.status_code >= 500:
                     print(f"      ⚠️ Server Error ({response.status_code}). Retrying...")
@@ -43,11 +58,27 @@ class SynergyClient:
 
                 response.raise_for_status()
                 return response.json()
-            
-            except Exception as e:
+
+            except requests.HTTPError as e:
+                # Non-retry for 401/403/404-ish (no point hammering)
+                self.last_error = str(e)
+                if response is not None:
+                    self.last_status_code = response.status_code
+
+                if response is not None and response.status_code in {401, 403, 404}:
+                    print(f"❌ API Failed on {endpoint}: {e}")
+                    return None
+
                 if attempt == retries - 1:
                     print(f"❌ API Failed on {endpoint}: {e}")
                     return None
+
+            except Exception as e:
+                self.last_error = str(e)
+                if attempt == retries - 1:
+                    print(f"❌ API Failed on {endpoint}: {e}")
+                    return None
+
         return None
 
     def get_seasons(self, league_code="ncaamb"):
