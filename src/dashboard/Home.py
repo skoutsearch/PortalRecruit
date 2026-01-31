@@ -54,7 +54,7 @@ def inject_custom_css() -> None:
             width: 100vw;
             height: 100vh;
             overflow: hidden;
-            z-index: -1;
+            z-index: 0; /* avoid negative z-index quirks */
             pointer-events: none; /* critical: never block clicks */
         }}
         .bg-video-wrap * {{
@@ -62,7 +62,7 @@ def inject_custom_css() -> None:
         }}
         .stApp {{
             position: relative;
-            z-index: 0;
+            z-index: 1; /* ensure UI paints above background */
         }}
 
         .bg-video {{
