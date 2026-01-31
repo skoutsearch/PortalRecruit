@@ -9,50 +9,32 @@ from datetime import datetime
 
 # --- PATH CONFIGURATION ---
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, '../../'))
-sys.path.append(PROJECT_ROOT) 
+PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, "../../"))
+sys.path.append(PROJECT_ROOT)
 
-DB_PATH = os.path.join(PROJECT_ROOT, "data/skout.db")
-VECTOR_DB_PATH = os.path.join(PROJECT_ROOT, "data/vector_db")
+DB_PATH = os.path.join(PROJECT_ROOT, "data", "skout.db")
+VECTOR_DB_PATH = os.path.join(PROJECT_ROOT, "data", "vector_db")
 LOGO_PATH = os.path.join(PROJECT_ROOT, "www", "PORTALRECRUIT_LOGO.png")
 BG_VIDEO_PATH = os.path.join(PROJECT_ROOT, "www", "PORTALRECRUIT_ANIMATED_LOGO.mp4")
 
-# --- LOAD LEAGUE CONFIG ---
-try:
-    from config.ncaa_di_mens_basketball import NCAA_DI_MENS_BASKETBALL
-    from config.ncaa_dii_mens_basketball import NCAA_DII_MENS_BASKETBALL
-    from config.ncaa_diii_mens_basketball import NCAA_DIII_MENS_BASKETBALL
-    LEAGUE_STRUCTURE = {
-        "NCAA D1": NCAA_DI_MENS_BASKETBALL,
-        "NCAA D2": NCAA_DII_MENS_BASKETBALL,
-        "NCAA D3": NCAA_DIII_MENS_BASKETBALL
-    }
-except ImportError:
-    LEAGUE_STRUCTURE = {}
-
 # --- PAGE SETUP ---
 st.set_page_config(
-    page_title="PortalRecruit | Recruitment Engine", 
-    layout="wide", 
+    page_title="PortalRecruit | Recruitment Engine",
+    layout="wide",
     page_icon="🏀",
-    initial_sidebar_state="expanded" 
+    # We want maximum canvas for the stepper/progress UI; the flow lives in-page.
+    initial_sidebar_state="collapsed",
 )
 
 # --- CUSTOM CSS ---
-def get_base64_image(image_path):
-    if not os.path.exists(image_path):
-        return ""
-    with open(image_path, "rb") as img_file:
-        return base64.b64encode(img_file.read()).decode()
-
-def get_base64_video(video_path):
+def get_base64_video(video_path: str) -> str:
     if not video_path or not os.path.exists(video_path):
         return ""
     with open(video_path, "rb") as f:
         return base64.b64encode(f.read()).decode("utf-8")
 
-def inject_custom_css():
-    # Video background (preferred)
+
+def inject_custom_css() -> None:
     video_encoded = get_base64_video(BG_VIDEO_PATH)
 
     # Fallback: solid background
@@ -60,7 +42,6 @@ def inject_custom_css():
 
     video_html = ""
     if video_encoded:
-        # A fixed video behind the app with a dark overlay for readability
         video_html = f"""
         <div class=\"bg-video-wrap\">
             <video class=\"bg-video\" autoplay loop muted playsinline>
@@ -70,7 +51,8 @@ def inject_custom_css():
         </div>
         """
 
-    st.markdown(f"""
+    st.markdown(
+        f"""
     {video_html}
     <style>
         {bg_style}
@@ -84,14 +66,14 @@ def inject_custom_css():
             z-index: -1;
             pointer-events: none; /* critical: never block clicks */
         }}
-        .bg-video-wrap * {
+        .bg-video-wrap * {{
             pointer-events: none;
-        }
-        /* Keep Streamlit content above the video */
+        }}
         .stApp {{
             position: relative;
             z-index: 0;
         }}
+
         .bg-video {{
             position: absolute;
             top: 50%;
@@ -103,11 +85,9 @@ def inject_custom_css():
             transform: translate(-50%, -50%) scale(1.03);
             object-fit: cover;
             opacity: 0.32;
-            /* "Apple" vibe: clean, subtle, non-distracting */
             filter: saturate(1.05) contrast(1.02) brightness(0.92) blur(3px);
         }}
 
-        /* Minimal overlay: soft dark gradient + gentle vignette for legibility */
         .bg-video-overlay {{
             position: absolute;
             inset: 0;
@@ -123,101 +103,61 @@ def inject_custom_css():
             position: absolute;
             inset: 0;
             background: radial-gradient(closest-side, rgba(0,0,0,0) 62%, rgba(0,0,0,0.40) 100%);
-            pointer-events: none;
         }}
-
-        /* Apple vibe: keep background clean & static (no animated glow) */
 
         h1, h2, h3, h4, h5, h6, p, div, span, label, li {{
-            color: #f8fafc !important; 
-            font-family: 'Inter', sans-serif;
+            color: #f8fafc !important;
+            font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
         }}
-        
-        section[data-testid="stSidebar"] {{
-            background: rgba(15, 23, 42, 0.60);
+
+        .glass-card {{
+            background: rgba(15, 23, 42, 0.55);
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            border-radius: 18px;
+            padding: 22px;
             backdrop-filter: blur(18px);
-            border-right: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: 0 0 0 1px rgba(255,255,255,0.025);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.35);
         }}
-        
-        .stTextInput > div > div > input, .stSelectbox > div > div > div, .stMultiSelect > div > div > div {{
-            background-color: rgba(30, 41, 59, 0.6);
-            color: white;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
+
+        .muted {{
+            color: rgba(226, 232, 240, 0.78) !important;
         }}
-        
-        .streamlit-expanderHeader {{
-            background-color: rgba(30, 41, 59, 0.4) !important;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 8px;
-            color: white !important;
+
+        /* Keep expanders consistent with the aesthetic */
+        div[data-testid="stExpander"] > details {{
+            background: rgba(15, 23, 42, 0.45);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            overflow: hidden;
         }}
-        .streamlit-expanderContent {{
-            background-color: rgba(15, 23, 42, 0.4) !important;
-            border-bottom-left-radius: 8px;
-            border-bottom-right-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-top: none;
-        }}
-        
-        .hero-card {{
-            background: rgba(30, 41, 59, 0.5);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 20px;
-            padding: 40px;
-            text-align: center;
-            margin-bottom: 40px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-        }}
-        .step-container {{
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            margin-top: 30px;
-            flex-wrap: wrap;
-        }}
-        .step-box {{
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            padding: 20px;
-            border-radius: 15px;
-            width: 220px;
-            transition: transform 0.2s;
-        }}
-        .step-box:hover {{
-            transform: translateY(-5px);
-            background: rgba(255, 255, 255, 0.07);
-        }}
-        .step-icon {{ font-size: 2.5rem; margin-bottom: 10px; }}
-        .step-title {{ color: white; font-weight: bold; margin-bottom: 5px; font-size: 1.1rem; }}
-        .step-desc {{ color: #94a3b8 !important; font-size: 0.9rem; }}
+
     </style>
-    """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True,
+    )
+
 
 inject_custom_css()
 
-# --- BACKEND FUNCTIONS ---
+# --- BACKEND FUNCTIONS (search) ---
 @st.cache_resource
 def get_chroma_client():
     if not os.path.exists(VECTOR_DB_PATH):
         return None
 
-    # --- CLOUD DEPLOYMENT FIX: Patch SQLite ---
-    # Streamlit Cloud uses an old SQLite version incompatible with Chroma.
-    # We patch it with pysqlite3-binary.
+    # Streamlit Cloud SQLite patch for Chroma
     try:
         __import__("pysqlite3")
         sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
     except ImportError:
-        # Not on cloud or library missing
         pass
 
     return chromadb.PersistentClient(path=VECTOR_DB_PATH)
 
+
 def get_database_connection():
     return sqlite3.connect(DB_PATH)
+
 
 def get_unique_tags():
     if not os.path.exists(DB_PATH):
@@ -258,24 +198,27 @@ def search_plays(query, selected_tags, selected_teams, year_range, n_results=50)
         return []
 
     results = collection.query(query_texts=[search_text], n_results=n_results)
+    if not results.get("ids"):
+        return []
+
     parsed = []
     conn = get_database_connection()
     cursor = conn.cursor()
 
-    if not results["ids"]:
-        return []
-    
     norm_selected_teams = {normalize_name(t) for t in selected_teams}
 
-    for i, play_id in enumerate(results['ids'][0]):
-        meta = results['metadatas'][0][i]
-        cursor.execute("SELECT home_team, away_team, video_path, date FROM games WHERE game_id = ?", (meta['game_id'],))
+    for i, play_id in enumerate(results["ids"][0]):
+        meta = results["metadatas"][0][i]
+        cursor.execute(
+            "SELECT home_team, away_team, video_path, date FROM games WHERE game_id = ?",
+            (meta["game_id"],),
+        )
         game = cursor.fetchone()
         if not game:
             continue
-        
+
         home, away, vid_path, date_str = game
-        
+
         if norm_selected_teams:
             if normalize_name(home) not in norm_selected_teams and normalize_name(away) not in norm_selected_teams:
                 continue
@@ -285,11 +228,11 @@ def search_plays(query, selected_tags, selected_teams, year_range, n_results=50)
             continue
 
         if selected_tags:
-            play_tags = meta['tags'].split(", ") if meta['tags'] else []
+            play_tags = meta.get("tags", "").split(", ") if meta.get("tags") else []
             if not all(tag in play_tags for tag in selected_tags):
                 continue
 
-        period_len = 1200 
+        period_len = 1200
         cursor.execute("SELECT period, clock_seconds FROM plays WHERE play_id = ?", (play_id,))
         p_row = cursor.fetchone()
         offset = 0
@@ -300,138 +243,300 @@ def search_plays(query, selected_tags, selected_teams, year_range, n_results=50)
             elif period == 2:
                 offset = max(0, 1200 + (period_len - clock_sec))
 
-        parsed.append({
-            "id": play_id,
-            "matchup": f"{home} vs {away}",
-            "desc": meta['original_desc'],
-            "tags": meta['tags'],
-            "clock": meta['clock'],
-            "video": vid_path,
-            "offset": offset,
-            "score": results['distances'][0][i],
-            "date": date_str
-        })
+        parsed.append(
+            {
+                "id": play_id,
+                "matchup": f"{home} vs {away}",
+                "desc": meta.get("original_desc"),
+                "tags": meta.get("tags"),
+                "clock": meta.get("clock"),
+                "video": vid_path,
+                "offset": offset,
+                "score": results["distances"][0][i],
+                "date": date_str,
+            }
+        )
+
     conn.close()
     return parsed
 
-# --- SIDEBAR CONTENT ---
-if os.path.exists(LOGO_PATH):
-    st.sidebar.image(LOGO_PATH, use_container_width=True)
-else:
-    st.sidebar.title("PortalRecruit 🏀")
 
-st.sidebar.markdown("### 🔎 Filters")
+# --- ONE-PAGE FLOW STATE ---
+if "api_key" not in st.session_state:
+    st.session_state.api_key = ""
+if "cap_report" not in st.session_state:
+    st.session_state.cap_report = None
+if "plan" not in st.session_state:
+    st.session_state.plan = None
+if "pipeline_result" not in st.session_state:
+    st.session_state.pipeline_result = None
+if "ready_to_search" not in st.session_state:
+    st.session_state.ready_to_search = False
 
-# 1. Division
-sel_div = st.sidebar.selectbox("Division", ["All"] + list(LEAGUE_STRUCTURE.keys()), index=1)
 
-# 2. Conference (FIXED LOGIC)
-available_conferences = []
-if sel_div != "All":
-    available_conferences = list(LEAGUE_STRUCTURE[sel_div].keys())
+# --- HEADER ---
+left, right = st.columns([1, 5])
+with left:
+    if os.path.exists(LOGO_PATH):
+        st.image(LOGO_PATH, width=96)
+with right:
+    st.markdown("# PortalRecruit")
+    st.markdown(
+        "<div class='muted'>Semantic search across game tape — built from whatever your Synergy key can access.</div>",
+        unsafe_allow_html=True,
+    )
 
-conf_options = ["All"] + sorted(available_conferences)
-# If only "All" exists (length 1), force index 0. Otherwise try 1.
-safe_conf_index = 1 if len(conf_options) > 1 else 0
+st.markdown("---")
 
-sel_conf = st.sidebar.selectbox("Conference", conf_options, index=safe_conf_index)
+# Determine stage
+api_key = st.session_state.api_key
+cap_report = st.session_state.cap_report
+plan = st.session_state.plan
+pipeline_result = st.session_state.pipeline_result
 
-# 3. Team
-available_teams = []
-if sel_conf != "All" and sel_div != "All":
-    available_teams = LEAGUE_STRUCTURE[sel_div][sel_conf]
-elif sel_div != "All":
-    # Flatten everything in the division
-    for conf_teams in LEAGUE_STRUCTURE[sel_div].values():
-        available_teams.extend(conf_teams)
+stage = 0
+if api_key:
+    stage = 1
+if cap_report:
+    stage = 2
+if plan is not None:
+    stage = 3
+if pipeline_result is not None:
+    stage = 4
+if st.session_state.ready_to_search:
+    stage = 5
 
-sel_teams = st.sidebar.multiselect("Team", sorted(available_teams), placeholder="Select Teams...")
-sel_years = st.sidebar.slider("Season", 2020, datetime.now().year, (2020, datetime.now().year))
+# Imports for discovery/pipeline
+from src.ingestion.capabilities import discover_capabilities  # noqa: E402
+from src.ingestion.pipeline import PipelinePlan, run_pipeline  # noqa: E402
 
-# --- MAIN CONTENT ---
-st.title("PortalRecruit | Recruitment Engine")
 
-# CHECK DB
-db_exists = os.path.exists(DB_PATH)
-if db_exists:
-    conn = sqlite3.connect(DB_PATH)
-    try:
-        game_count = conn.execute("SELECT COUNT(*) FROM games").fetchone()[0]
-    except Exception:
-        game_count = 0
-    finally:
-        conn.close()
-else:
-    game_count = 0
+# STEP 0: API Key
+with st.expander("Step 1 — Add your Synergy API key", expanded=(stage == 0)):
+    st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+    st.markdown("### Connect your data")
+    st.markdown(
+        "Enter your Synergy API key. We use it to discover what data you can access and build your search index.",
+        unsafe_allow_html=True,
+    )
 
-# --- HERO INSTRUCTIONS ---
-if game_count == 0:
-    st.markdown("""
-<div class="hero-card">
-    <h2 style="font-weight: 800; font-size: 2.2rem; margin-bottom: 10px;">👋 Welcome to PortalRecruit</h2>
-    <p style="color: #cbd5e1 !important; font-size: 1.1rem; max-width: 600px; margin: 0 auto;">
-        Your recruitment engine is online. The database is currently empty. <br>
-        Follow these three steps to initialize the system.
-    </p>
-    <div class="step-container">
-        <div class="step-box">
-            <div class="step-icon">🔑</div>
-            <div class="step-title">1. Credentials</div>
-            <div class="step-desc">Go to <b>Admin Settings</b> and enter your Synergy API Key.</div>
-        </div>
-        <div class="step-box">
-            <div class="step-icon">⬇️</div>
-            <div class="step-title">2. Ingest</div>
-            <div class="step-desc">Click <b>Sync Schedule</b> and then <b>Sync Plays</b>.</div>
-        </div>
-        <div class="step-box">
-            <div class="step-icon">🧠</div>
-            <div class="step-title">3. Index</div>
-            <div class="step-desc">Click <b>Build AI Index</b> to activate semantic search.</div>
-        </div>
-    </div>
-</div>
-""", unsafe_allow_html=True)
-    st.stop()
+    with st.form("api_key_form"):
+        key_val = st.text_input("Synergy API Key", value=api_key, type="password")
+        submitted = st.form_submit_button("Save & Continue")
 
-# --- SEARCH ---
-col1, col2 = st.columns([3, 1])
-with col1:
-    search_query = st.text_input("Semantic Search", placeholder="e.g. 'Freshman turnovers', 'Pick and roll lob'")
-with col2:
-    real_tags = get_unique_tags()
-    selected_tags_filter = st.multiselect("Tags", real_tags, placeholder="Add tags...")
+    if submitted:
+        st.session_state.api_key = key_val.strip()
+        st.session_state.cap_report = None
+        st.session_state.plan = None
+        st.session_state.pipeline_result = None
+        st.session_state.ready_to_search = False
+        st.rerun()
 
-# --- RESULTS ---
-if search_query or selected_tags_filter:
-    st.divider()
-    with st.spinner("Analyzing tape..."):
-        results = search_plays(search_query, selected_tags_filter, sel_teams, sel_years)
-    
-    if not results:
-        st.warning("No plays found matching criteria.")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+# STEP 1: Discover access
+with st.expander("Step 2 — Discover what your key can access", expanded=(stage == 1)):
+    st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+
+    if not api_key:
+        st.info("Add your API key above to begin.")
     else:
-        st.success(f"Found {len(results)} plays.")
-        for idx, play in enumerate(results):
-            with st.container():
+        st.markdown("### Scanning access")
+        st.markdown(
+            "We’ll probe seasons, teams, and games endpoints with lightweight requests.",
+            unsafe_allow_html=True,
+        )
+
+        if st.button("Scan API Access", type="primary"):
+            with st.status("Scanning Synergy access…", expanded=True) as status:
+                status.write("Checking seasons…")
+                report = discover_capabilities(api_key=api_key, league_code="ncaamb")
+                status.write("Compiling access report…")
+                status.update(label="Access scan complete", state="complete")
+
+            st.session_state.cap_report = report
+            st.rerun()
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+# STEP 2: Selection
+with st.expander("Step 3 — Choose what to ingest", expanded=(stage == 2)):
+    st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+
+    if not cap_report:
+        st.info("Run the access scan first.")
+    else:
+        st.markdown("### Available options")
+        if cap_report.warnings:
+            for w in cap_report.warnings:
+                st.warning(w)
+
+        if not cap_report.seasons:
+            st.error("No seasons discovered for this key. We’ll add fallback probing next.")
+        else:
+            labels = []
+            season_id_by_label = {}
+            for s in cap_report.seasons:
+                label = f"{s.year or ''} {s.name}".strip() or s.id
+                labels.append(label)
+                season_id_by_label[label] = s.id
+
+            chosen_label = st.selectbox("Season", labels, index=0)
+            chosen_season_id = season_id_by_label[chosen_label]
+
+            teams = cap_report.teams_by_season.get(chosen_season_id, [])
+            team_ids: list[str] = []
+            if teams:
+                team_name_to_id = {t.name: t.id for t in teams}
+                team_names = list(team_name_to_id.keys())
+                selected_team_names = st.multiselect("Teams (optional)", team_names, default=[])
+                team_ids = [team_name_to_id[n] for n in selected_team_names]
+            else:
+                st.info("Teams list not available (or empty). We’ll ingest whatever the games endpoint allows.")
+
+            ingest_events = st.toggle("Also ingest Play-by-Play events", value=True)
+
+            # quick, honest ETA guess (we’ll refine)
+            est_games = 350 if not team_ids else min(400, max(35, 35 * len(team_ids)))
+            est_minutes_low = max(1, int(est_games / 120))
+            est_minutes_high = max(2, int(est_games / 40))
+            st.caption(f"Estimate: ~{est_minutes_low}–{est_minutes_high} minutes (rough).")
+
+            if st.button("Continue to confirmation", type="primary"):
+                st.session_state.plan = {
+                    "league_code": "ncaamb",
+                    "season_id": chosen_season_id,
+                    "team_ids": team_ids,
+                    "ingest_events": ingest_events,
+                }
+                st.rerun()
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+# STEP 3: Confirm
+with st.expander("Step 4 — Confirm & run", expanded=(stage == 3)):
+    st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+
+    if not plan:
+        st.info("Complete the selection step first.")
+    else:
+        st.markdown("### Confirm")
+        st.code(plan, language="json")
+
+        c1, c2 = st.columns([1, 1])
+        with c1:
+            if st.button("Back", use_container_width=True):
+                st.session_state.plan = None
+                st.rerun()
+        with c2:
+            if st.button("Run Ingestion", type="primary", use_container_width=True):
+                prog = st.progress(0)
+                status = st.status("Starting pipeline…", expanded=True)
+
+                def _cb(step: str, info: dict):
+                    if step == "schedule:start":
+                        status.update(label="Ingesting schedule…", state="running")
+                        prog.progress(10)
+                    elif step == "schedule:done":
+                        status.write(f"✅ Schedule cached: {info.get('inserted_games', 0)} games")
+                        prog.progress(45)
+                    elif step == "events:start":
+                        status.update(label="Ingesting events…", state="running")
+                        prog.progress(55)
+                    elif step == "events:progress":
+                        cur = info.get("current", 0)
+                        total = max(1, info.get("total", 1))
+                        pct = 55 + int(35 * (cur / total))
+                        prog.progress(min(90, max(55, pct)))
+                    elif step == "events:done":
+                        status.write(f"✅ Events cached: {info.get('inserted_plays', 0)} plays")
+                        prog.progress(95)
+
+                plan_obj = PipelinePlan(
+                    league_code=plan["league_code"],
+                    season_id=plan["season_id"],
+                    team_ids=plan["team_ids"],
+                    ingest_events=plan["ingest_events"],
+                )
+
+                try:
+                    result = run_pipeline(plan=plan_obj, api_key=api_key, progress_cb=_cb)
+                    status.update(label="Pipeline complete", state="complete")
+                    prog.progress(100)
+                    st.session_state.pipeline_result = result
+                    st.rerun()
+                except Exception as e:
+                    status.update(label="Pipeline failed", state="error")
+                    st.exception(e)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+# STEP 4: Ready
+with st.expander("Step 5 — Start searching", expanded=(stage >= 4)):
+    st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+
+    if pipeline_result is None:
+        st.info("Run ingestion first.")
+    else:
+        st.success(
+            f"Database populated. Games: {pipeline_result.get('inserted_games', 0)}, Plays: {pipeline_result.get('inserted_plays', 0)}"
+        )
+        st.markdown(
+            "When you’re ready, jump into semantic search. Try queries like:"
+            "\n- **'press break'**\n- **'high motor rebounder'**\n- **'PnR coverage breakdown'**",
+        )
+
+        if st.button("Start Searching", type="primary"):
+            st.session_state.ready_to_search = True
+            st.rerun()
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+# SEARCH UI (only after user clicks Start Searching)
+if st.session_state.ready_to_search:
+    st.markdown("---")
+    st.markdown("## Search")
+
+    # Minimal filters (we’ll evolve these as we normalize metadata)
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        search_query = st.text_input(
+            "Semantic Search",
+            placeholder="e.g. 'Freshman turnovers', 'Pick and roll lob'",
+        )
+    with col2:
+        real_tags = get_unique_tags()
+        selected_tags_filter = st.multiselect("Tags", real_tags, placeholder="Add tags…")
+
+    # Year filter
+    sel_years = st.slider("Season (year)", 2020, datetime.now().year, (2020, datetime.now().year))
+
+    if search_query or selected_tags_filter:
+        st.divider()
+        with st.spinner("Analyzing tape…"):
+            results = search_plays(search_query, selected_tags_filter, selected_teams=[], year_range=sel_years)
+
+        if not results:
+            st.warning("No plays found matching criteria.")
+        else:
+            st.success(f"Found {len(results)} plays.")
+            for idx, play in enumerate(results):
                 label = f"{idx+1}. {play['matchup']} ({play['date']}) | ⏰ {play['clock']}"
                 with st.expander(label, expanded=(idx == 0)):
                     c1, c2 = st.columns([1.2, 2])
                     with c1:
                         st.markdown(f"**{play['desc']}**")
-                        if play['tags']:
-                            tags = play['tags'].split(", ")
-                            chips = ""
-                            for t in tags:
-                                color = "blue"
-                                if "turnover" in t:
-                                    color = "red"
-                                if "made" in t or "score" in t:
-                                    color = "green"
-                                chips += f":{color}[`{t}`] "
+                        if play.get("tags"):
+                            tags = play["tags"].split(", ")
+                            chips = " ".join([f"`{t}`" for t in tags])
                             st.markdown(chips)
                     with c2:
-                        if play['video']:
-                            st.video(play['video'], start_time=int(play['offset']))
+                        if play.get("video"):
+                            st.video(play["video"], start_time=int(play["offset"]))
                         else:
                             st.info("Video unavailable.")
