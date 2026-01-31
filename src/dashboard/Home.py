@@ -4,7 +4,7 @@ import chromadb
 import os
 import sys
 import re
-import base64
+# (base64 removed; we now load background video via GitHub Pages URL)
 from datetime import datetime
 
 # --- PATH CONFIGURATION ---
@@ -15,7 +15,8 @@ sys.path.append(PROJECT_ROOT)
 DB_PATH = os.path.join(PROJECT_ROOT, "data", "skout.db")
 VECTOR_DB_PATH = os.path.join(PROJECT_ROOT, "data", "vector_db")
 LOGO_PATH = os.path.join(PROJECT_ROOT, "www", "PORTALRECRUIT_LOGO.png")
-BG_VIDEO_PATH = os.path.join(PROJECT_ROOT, "www", "PORTALRECRUIT_ANIMATED_LOGO.mp4")
+# Serve background video from GitHub Pages (fast, avoids base64 embedding in Streamlit)
+BG_VIDEO_URL = "https://skoutsearch.github.io/PortalRecruit/PORTALRECRUIT_ANIMATED_LOGO.mp4"
 
 # --- PAGE SETUP ---
 st.set_page_config(
@@ -27,29 +28,19 @@ st.set_page_config(
 )
 
 # --- CUSTOM CSS ---
-def get_base64_video(video_path: str) -> str:
-    if not video_path or not os.path.exists(video_path):
-        return ""
-    with open(video_path, "rb") as f:
-        return base64.b64encode(f.read()).decode("utf-8")
-
-
 def inject_custom_css() -> None:
-    video_encoded = get_base64_video(BG_VIDEO_PATH)
-
     # Fallback: solid background
     bg_style = ".stApp { background-color: #020617; }"
 
-    video_html = ""
-    if video_encoded:
-        video_html = f"""
-        <div class=\"bg-video-wrap\">
-            <video class=\"bg-video\" autoplay loop muted playsinline>
-                <source src=\"data:video/mp4;base64,{video_encoded}\" type=\"video/mp4\">
-            </video>
-            <div class=\"bg-video-overlay\"></div>
-        </div>
-        """
+    # Host the background video on GitHub Pages so Streamlit doesn't have to embed base64.
+    video_html = f"""
+    <div class=\"bg-video-wrap\">
+        <video class=\"bg-video\" autoplay loop muted playsinline>
+            <source src=\"{BG_VIDEO_URL}\" type=\"video/mp4\">
+        </video>
+        <div class=\"bg-video-overlay\"></div>
+    </div>
+    """
 
     st.markdown(
         f"""
