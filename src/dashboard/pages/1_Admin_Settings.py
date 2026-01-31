@@ -9,7 +9,7 @@ CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, '../../../'))
 sys.path.append(PROJECT_ROOT)
 
-st.set_page_config(page_title="PortalRecruit Admin", layout="wide", page_icon="⚙️")
+# Page config is set by the single-page Home.py wrapper.
 
 ENV_PATH = os.path.join(PROJECT_ROOT, ".env")
 
@@ -208,14 +208,3 @@ if report:
 
     else:
         st.info("No seasons discovered yet. Your key may not allow listing seasons.")
-
-st.divider()
-
-# --- SECTION 3: PIPELINE (LEGACY) ---
-st.subheader("3. Legacy Tools")
-st.caption(
-    "Deprecated: use **Run Pipeline** above. We’re removing these to prevent confusing failures on Streamlit Cloud."
-)
-st.info(
-    "If you need a specific legacy script for debugging, tell me which one and we’ll port it into the pipeline runner."
-)
