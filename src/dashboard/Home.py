@@ -5,7 +5,9 @@ import streamlit as st
 
 # Ensure repo root is on sys.path so imports like `from src...` work
 # even when Streamlit runs this file from inside `src/dashboard/`.
-REPO_ROOT = Path(__file__).resolve().parents[2]
+# Home.py lives at <repo>/src/dashboard/Home.py
+# To import the top-level package `src.*`, we need <repo> on sys.path.
+REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
