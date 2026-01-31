@@ -82,7 +82,11 @@ def inject_custom_css():
             height: 100vh;
             overflow: hidden;
             z-index: -1;
+            pointer-events: none; /* critical: never block clicks */
         }}
+        .bg-video-wrap * {
+            pointer-events: none;
+        }
         /* Keep Streamlit content above the video */
         .stApp {{
             position: relative;
