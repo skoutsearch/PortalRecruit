@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SKOUT: The Future of Recruitment Intelligence</title>
+    <title>PortalRecruit: The Future of Recruitment Intelligence</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap');
@@ -105,9 +105,9 @@
             <div class="flex justify-between items-center h-20">
                 <div class="flex items-center gap-4">
                     <div class="h-12 w-auto">
-                        <img src="SKOUT_LOGO.png" alt="SKOUT Logo" class="h-full object-contain drop-shadow-[0_0_8px_rgba(234,88,12,0.5)]">
+                        <img src="PORTALRECRUIT_LOGO.png" alt="PortalRecruit Logo" class="h-full object-contain drop-shadow-[0_0_8px_rgba(234,88,12,0.5)]">
                     </div>
-                    <span class="text-2xl font-black text-white tracking-tighter hidden md:block">SKOUT</span>
+                    <span class="text-2xl font-black text-white tracking-tighter hidden md:block">PortalRecruit</span>
                 </div>
                 <div class="hidden md:flex space-x-10 items-center">
                     <a href="#problem" class="text-sm font-semibold text-slate-300 hover:text-orange-500 transition-colors uppercase tracking-widest">The Problem</a>
@@ -125,7 +125,7 @@
     <header class="relative h-screen min-h-[800px] flex items-center overflow-hidden">
         <div class="absolute inset-0 w-full h-full overflow-hidden">
             <video autoplay loop muted playsinline class="video-bg opacity-60">
-                <source src="SKOUT_VID_2.mp4" type="video/mp4">
+                <source src="PORTALRECRUIT_ANIMATED_LOGO.mp4" type="video/mp4">
             </video>
             <div class="absolute inset-0 bg-gradient-to-r from-[#020617] via-[#020617]/80 to-transparent"></div>
             <div class="absolute inset-0 bg-gradient-to-t from-[#020617] via-transparent to-transparent"></div>
@@ -154,7 +154,7 @@
                 <div class="mt-12 flex flex-col sm:flex-row gap-5">
                     <a href="https://bucketsss.streamlit.app/" class="group px-10 py-5 bg-white text-slate-900 rounded-2xl font-bold text-lg hover:bg-orange-50 transition-all shadow-[0_0_30px_rgba(255,255,255,0.2)] flex items-center justify-center gap-3 no-underline">
                         <div class="w-8 h-8 rounded-full bg-orange-600 text-white flex items-center justify-center group-hover:scale-110 transition-transform">▶</div>
-                        Launch SKOUT
+                        Launch PortalRecruit
                     </a>
                     
                     <button onclick="scrollToSection('tech')" class="px-10 py-5 bg-white/5 text-white border border-white/10 rounded-2xl font-bold text-lg hover:bg-white/10 transition backdrop-blur-md">
@@ -171,10 +171,10 @@
                 
                 <div class="relative group perspective-1000">
                     <div class="absolute -inset-4 bg-gradient-to-tr from-orange-600 to-amber-500 rounded-[2rem] opacity-30 blur-2xl group-hover:opacity-40 transition duration-500 animate-pulse"></div>
-                    <div class="relative rounded-[2rem] overflow-hidden shadow-2xl border-8 border-white transform transition duration-700 hover:rotate-1">
-                        <img src="SKOUT_NEXT_MJ.png" alt="Next MJ" class="w-full h-auto">
-                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end p-10">
+                    <div class="relative rounded-[2rem] overflow-hidden shadow-2xl border-8 border-white transform transition duration-700 hover:rotate-1 bg-slate-900">
+                        <div class="p-12">
                             <p class="text-white font-bold text-2xl leading-tight">"The next Jordan is playing in a gym you've never heard of."</p>
+                            <p class="text-slate-300 mt-4 text-lg leading-relaxed">PortalRecruit exists to find that talent earlier—based on traits, not hype.</p>
                         </div>
                     </div>
                 </div>
@@ -227,7 +227,7 @@
                 <div class="absolute -inset-1 bg-gradient-to-r from-orange-600 to-purple-600 rounded-3xl opacity-30 blur-xl group-hover:opacity-50 transition duration-500"></div>
                 <div class="relative rounded-2xl overflow-hidden shadow-2xl bg-black aspect-video ring-1 ring-white/10">
                     <video controls autoplay loop muted class="w-full h-full object-cover">
-                        <source src="SKOUT_VID_1.mp4" type="video/mp4">
+                        <source src="PORTALRECRUIT_ANIMATED_LOGO.mp4" type="video/mp4">
                         Your browser does not support the video tag.
                     </video>
                 </div>
@@ -250,8 +250,16 @@
             <div class="bg-white rounded-[3rem] shadow-2xl shadow-slate-200/50 overflow-hidden border border-slate-100 p-6 md:p-12">
                 <div class="flex flex-col xl:flex-row items-center gap-16">
                     <div class="w-full xl:w-3/5">
-                        <div class="rounded-2xl overflow-hidden shadow-lg border border-slate-200 hover:shadow-2xl transition-shadow duration-500">
-                            <img src="SKOUT_FLOWCHART.png" alt="SKOUT Flowchart" class="w-full h-auto">
+                        <div class="rounded-2xl overflow-hidden shadow-lg border border-slate-200 bg-slate-50">
+                            <div class="p-10">
+                                <h4 class="text-2xl font-black text-slate-900 mb-4">Pipeline Overview</h4>
+                                <ol class="list-decimal list-inside space-y-2 text-slate-700 text-lg">
+                                    <li>Ingest game footage + metadata</li>
+                                    <li>Extract semantic traits and moments</li>
+                                    <li>Index into search for instant discovery</li>
+                                    <li>Review clips, tag, shortlist, recruit</li>
+                                </ol>
+                            </div>
                         </div>
                     </div>
                     
@@ -279,7 +287,7 @@
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-20">
                 <div>
                     <h3 class="text-4xl font-bold text-white mb-6">The Opportunity</h3>
-                    <p class="text-slate-400 mb-12 text-lg leading-relaxed">The transfer portal has accelerated recruitment cycles. Speed is the new currency. SKOUT is the infrastructure for this new era.</p>
+                    <p class="text-slate-400 mb-12 text-lg leading-relaxed">The transfer portal has accelerated recruitment cycles. Speed is the new currency. PortalRecruit is the infrastructure for this new era.</p>
                     
                     <div class="glass-card p-8 rounded-3xl">
                         <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-8 text-center">Talent Funnel Analysis</h4>
@@ -313,7 +321,7 @@
                 <div class="flex flex-col justify-between">
                     <div>
                         <h3 class="text-4xl font-bold text-white mb-6">Why We Win</h3>
-                        <p class="text-slate-400 mb-12 text-lg leading-relaxed">Competitors are <strong>Libraries</strong> (Storage). SKOUT is a <strong>Search Engine</strong> (Discovery). We provide answers, not just files.</p>
+                        <p class="text-slate-400 mb-12 text-lg leading-relaxed">Competitors are <strong>Libraries</strong> (Storage). PortalRecruit is a <strong>Search Engine</strong> (Discovery). We provide answers, not just files.</p>
 
                         <div class="glass-card p-8 rounded-3xl mb-8">
                             <div class="space-y-5">
@@ -335,10 +343,9 @@
                         </div>
                     </div>
 
-                    <div class="relative w-full h-48 rounded-3xl overflow-hidden border border-slate-700 opacity-80 hover:opacity-100 transition duration-500">
-                        <img src="SKOUT_BUCKETS.jpg" alt="SKOUT Buckets" class="w-full h-full object-cover">
-                        <div class="absolute inset-0 bg-black/40 flex items-center justify-center">
-                            <span class="text-white font-black text-2xl tracking-widest drop-shadow-md">POWERED BY SKOUT</span>
+                    <div class="relative w-full rounded-3xl overflow-hidden border border-slate-700 bg-slate-900/50 p-10">
+                        <div class="flex items-center justify-center">
+                            <span class="text-white font-black text-2xl tracking-widest drop-shadow-md">POWERED BY PortalRecruit</span>
                         </div>
                     </div>
                 </div>
@@ -369,13 +376,13 @@
 
             <div class="flex justify-center items-center gap-4 opacity-40 mb-10 grayscale hover:grayscale-0 transition-all duration-500">
                 <div class="h-10 w-auto">
-                    <img src="SKOUT_LOGO.png" class="h-full object-contain">
+                    <img src="PORTALRECRUIT_LOGO.png" class="h-full object-contain">
                 </div>
-                <span class="text-white font-bold text-2xl tracking-[0.2em]">SKOUT</span>
+                <span class="text-white font-bold text-2xl tracking-[0.2em]">PortalRecruit</span>
             </div>
             
             <p class="text-slate-600 text-sm">
-                &copy; 2026 SKOUT Intelligence Systems. All rights reserved.<br>
+                &copy; 2026 PortalRecruit. All rights reserved.<br>
                 <span class="text-xs text-slate-700 mt-2 block font-mono">Confidential Pitch Material. Do not distribute.</span>
             </p>
         </div>

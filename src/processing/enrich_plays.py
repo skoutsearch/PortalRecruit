@@ -1,6 +1,5 @@
 import os
 import sys
-import argparse
 import chromadb
 from tqdm import tqdm
 

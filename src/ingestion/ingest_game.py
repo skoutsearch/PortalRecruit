@@ -1,15 +1,14 @@
+import argparse
 import os
 import sys
-import argparse
-import time
-from tqdm import tqdm
+
 import chromadb
+from tqdm import tqdm
 
 # Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 from src.ingestion.synergy_client import SynergyClient
-from config.settings import SYNERGY_API_KEY
 
 class GameIngester:
     def __init__(self):
@@ -43,8 +42,9 @@ class GameIngester:
         found_seasons = []
 
         for wrapper in season_list:
-            season = wrapper.get('data', wrapper) if isinstance(wrapper, dict) else wrapper
-            if not isinstance(season, dict): continue
+            season = wrapper.get("data", wrapper) if isinstance(wrapper, dict) else wrapper
+            if not isinstance(season, dict):
+                continue
 
             name = str(season.get('name', ''))
             year = str(season.get('year', '')) 
@@ -80,7 +80,7 @@ class GameIngester:
             
             # Manually constructing params here to override client defaults if needed
             params = {"seasonId": season_id, "take": take, "skip": skip}
-            response = self.client._get(f"/ncaamb/teams", params=params)
+            response = self.client._get("/ncaamb/teams", params=params)
             
             if not response:
                 break
@@ -135,7 +135,7 @@ class GameIngester:
             while True:
                 # Manually call _get to support skip logic since get_games might hardcode params
                 params = {"seasonId": season_id, "teamId": team_id, "take": take, "skip": skip}
-                games_response = self.client._get(f"/ncaamb/games", params=params)
+                games_response = self.client._get("/ncaamb/games", params=params)
                 
                 if not games_response:
                     break
@@ -191,21 +191,27 @@ class GameIngester:
                     "status": str(game_data.get('status', 'unknown'))
                 }]
             )
-        except Exception as e:
+        except Exception:
+            # Non-fatal: skip malformed items
             pass
 
     def pull_game_events(self, game_id):
+        """Fetch events for a single game."""
         print(f"📥 Pulling Events for Game {game_id}...")
+        response = self.client.get_game_events(league_code="ncaamb", game_id=game_id)
+
+        events = []
         if response and isinstance(response, dict):
-             event_wrappers = response.get('data', [])
-             events = [ew.get('data', ew) for ew in event_wrappers if isinstance(ew, dict)]
+            event_wrappers = response.get("data", [])
+            events = [
+                ew.get("data", ew) for ew in event_wrappers if isinstance(ew, dict)
+            ]
         elif isinstance(response, list):
             events = response
 
         if events:
             print(f"✅ Retrieved {len(events)} events.")
-            return events
-        return []
+        return events
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="SKOUT API Ingestion Engine")

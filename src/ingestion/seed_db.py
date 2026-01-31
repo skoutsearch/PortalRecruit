@@ -59,7 +59,7 @@ for item in sample_data:
             handler.write(response.content)
             
         # Generate Vector
-        print(f"   🧠 Generating AI Vector...")
+        print("   🧠 Generating AI Vector...")
         vector = get_image_embedding(filename)
         
         # Save to ChromaDB

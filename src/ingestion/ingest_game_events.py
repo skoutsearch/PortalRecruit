@@ -1,5 +1,4 @@
 import os
-import sys
 import requests
 import sqlite3
 import time
@@ -124,7 +123,7 @@ def ingest_events():
             conn.commit()
             print(f"   ✅ Saved {len(rows)} plays.")
         else:
-            print(f"   ⚠️ No events found.")
+            print("   ⚠️ No events found.")
 
     conn.close()
     print(f"\n🚀 Repair Complete. {total_new_plays} valid plays stored.")

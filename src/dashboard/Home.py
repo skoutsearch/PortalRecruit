@@ -14,8 +14,8 @@ sys.path.append(PROJECT_ROOT)
 
 DB_PATH = os.path.join(PROJECT_ROOT, "data/skout.db")
 VECTOR_DB_PATH = os.path.join(PROJECT_ROOT, "data/vector_db")
-LOGO_PATH = os.path.join(PROJECT_ROOT, "www", "SKOUT_LOGO.png")
-BG_IMAGE_PATH = os.path.join(PROJECT_ROOT, "www", "SKOUT_BUCKETS.jpg")
+LOGO_PATH = os.path.join(PROJECT_ROOT, "www", "PORTALRECRUIT_LOGO.png")
+BG_VIDEO_PATH = os.path.join(PROJECT_ROOT, "www", "PORTALRECRUIT_ANIMATED_LOGO.mp4")
 
 # --- LOAD LEAGUE CONFIG ---
 try:
@@ -32,7 +32,7 @@ except ImportError:
 
 # --- PAGE SETUP ---
 st.set_page_config(
-    page_title="SKOUT | Recruitment Engine", 
+    page_title="PortalRecruit | Recruitment Engine", 
     layout="wide", 
     page_icon="🏀",
     initial_sidebar_state="expanded" 
@@ -44,32 +44,96 @@ def get_base64_image(image_path):
     with open(image_path, "rb") as img_file:
         return base64.b64encode(img_file.read()).decode()
 
+def get_base64_video(video_path):
+    if not video_path or not os.path.exists(video_path):
+        return ""
+    with open(video_path, "rb") as f:
+        return base64.b64encode(f.read()).decode("utf-8")
+
 def inject_custom_css():
-    bg_encoded = get_base64_image(BG_IMAGE_PATH)
-    bg_style = ""
-    if bg_encoded:
-        bg_style = f"""
-        .stApp {{
-            background-image: linear-gradient(rgba(2, 6, 23, 0.95), rgba(2, 6, 23, 0.9)), url("data:image/jpg;base64,{bg_encoded}");
-            background-size: cover;
-            background-attachment: fixed;
-        }}
+    # Video background (preferred)
+    video_encoded = get_base64_video(BG_VIDEO_PATH)
+
+    # Fallback: solid background
+    bg_style = ".stApp { background-color: #020617; }"
+
+    video_html = ""
+    if video_encoded:
+        # A fixed video behind the app with a dark overlay for readability
+        video_html = f"""
+        <div class=\"bg-video-wrap\">
+            <video class=\"bg-video\" autoplay loop muted playsinline>
+                <source src=\"data:video/mp4;base64,{video_encoded}\" type=\"video/mp4\">
+            </video>
+            <div class=\"bg-video-overlay\"></div>
+        </div>
         """
-    else:
-        bg_style = ".stApp { background-color: #020617; }"
 
     st.markdown(f"""
+    {video_html}
     <style>
         {bg_style}
+
+        .bg-video-wrap {{
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            z-index: -1;
+        }}
+        /* Keep Streamlit content above the video */
+        .stApp {{
+            position: relative;
+            z-index: 0;
+        }}
+        .bg-video {{
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            min-width: 100%;
+            min-height: 100%;
+            width: auto;
+            height: auto;
+            transform: translate(-50%, -50%) scale(1.03);
+            object-fit: cover;
+            opacity: 0.32;
+            /* "Apple" vibe: clean, subtle, non-distracting */
+            filter: saturate(1.05) contrast(1.02) brightness(0.92) blur(3px);
+        }}
+
+        /* Minimal overlay: soft dark gradient + gentle vignette for legibility */
+        .bg-video-overlay {{
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(
+              180deg,
+              rgba(2, 6, 23, 0.88) 0%,
+              rgba(2, 6, 23, 0.82) 45%,
+              rgba(2, 6, 23, 0.90) 100%
+            );
+        }}
+        .bg-video-overlay::before {{
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(closest-side, rgba(0,0,0,0) 62%, rgba(0,0,0,0.40) 100%);
+            pointer-events: none;
+        }}
+
+        /* Apple vibe: keep background clean & static (no animated glow) */
+
         h1, h2, h3, h4, h5, h6, p, div, span, label, li {{
             color: #f8fafc !important; 
             font-family: 'Inter', sans-serif;
         }}
         
-        section[data-testid="stSidebar"] {{
-            background-color: rgba(15, 23, 42, 0.8);
-            border-right: 1px solid rgba(255, 255, 255, 0.1);
-        }}
+        section[data-testid="stSidebar"] {
+            background: rgba(15, 23, 42, 0.60);
+            backdrop-filter: blur(18px);
+            border-right: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.025);
+        }
         
         .stTextInput > div > div > input, .stSelectbox > div > div > div, .stMultiSelect > div > div > div {{
             background-color: rgba(30, 41, 59, 0.6);
@@ -229,7 +293,7 @@ def search_plays(query, selected_tags, selected_teams, year_range, n_results=50)
 if os.path.exists(LOGO_PATH):
     st.sidebar.image(LOGO_PATH, use_container_width=True)
 else:
-    st.sidebar.title("SKOUT 🏀")
+    st.sidebar.title("PortalRecruit 🏀")
 
 st.sidebar.markdown("### 🔎 Filters")
 
@@ -260,7 +324,7 @@ sel_teams = st.sidebar.multiselect("Team", sorted(available_teams), placeholder=
 sel_years = st.sidebar.slider("Season", 2020, datetime.now().year, (2020, datetime.now().year))
 
 # --- MAIN CONTENT ---
-st.title("SKOUT | Recruitment Engine")
+st.title("PortalRecruit | Recruitment Engine")
 
 # CHECK DB
 db_exists = os.path.exists(DB_PATH)
@@ -276,7 +340,7 @@ else:
 if game_count == 0:
     st.markdown("""
 <div class="hero-card">
-    <h2 style="font-weight: 800; font-size: 2.2rem; margin-bottom: 10px;">👋 Welcome to SKOUT</h2>
+    <h2 style="font-weight: 800; font-size: 2.2rem; margin-bottom: 10px;">👋 Welcome to PortalRecruit</h2>
     <p style="color: #cbd5e1 !important; font-size: 1.1rem; max-width: 600px; margin: 0 auto;">
         Your recruitment engine is online. The database is currently empty. <br>
         Follow these three steps to initialize the system.

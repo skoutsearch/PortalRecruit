@@ -41,7 +41,7 @@ def apply_tags():
 
     # 2. Bulk Update
     if updates:
-        print(f"💾 Saving tags to database...")
+        print("💾 Saving tags to database...")
         cursor.executemany("UPDATE plays SET tags = ? WHERE play_id = ?", updates)
         conn.commit()
     

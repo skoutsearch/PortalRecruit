@@ -1,0 +1,4 @@
+# Kept for editors that prefer a dedicated file.
+# Ruff will also read pyproject.toml.
+line-length = 100
+target-version = "py313"

@@ -2,7 +2,6 @@ import subprocess
 import sys
 import time
 import webbrowser
-import os
 from threading import Thread
 
 def run_landing_page():
@@ -44,12 +43,14 @@ if __name__ == "__main__":
     
     try:
         webbrowser.open(url)
-    except:
+    except Exception:
+        # Non-fatal (headless boxes, WSL, etc.)
         pass
 
     # Keep alive
     try:
-        while True: time.sleep(1)
+        while True:
+            time.sleep(1)
     except KeyboardInterrupt:
         print("\n   🛑 Shutting down...")
         sys.exit(0)

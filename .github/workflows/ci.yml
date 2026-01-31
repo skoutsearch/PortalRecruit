@@ -1,0 +1,32 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  lint-and-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install deps
+        run: |
+          python -m pip install -U pip
+          # Prefer CPU torch to avoid huge GPU wheels on CI
+          pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision torchaudio
+          pip install -r requirements.txt
+
+      - name: Ruff
+        run: |
+          ruff check .
+
+      - name: Pytest
+        run: |
+          pytest -q

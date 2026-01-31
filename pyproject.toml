@@ -1,0 +1,17 @@
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = [
+  "E", "F", "W",  # pycodestyle/pyflakes
+  "I",            # import sorting
+  "B",            # bugbear
+]
+ignore = [
+  "E501", # allow long lines for now
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
