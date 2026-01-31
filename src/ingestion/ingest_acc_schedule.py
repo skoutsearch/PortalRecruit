@@ -11,7 +11,7 @@ load_dotenv(ENV_PATH)
 # Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
-from src.ingestion.synergy_client import SynergyClient
+from src.ingestion.synergy_client import SynergyClient  # noqa: E402
 
 # Defaults (only used if no discovery data is available)
 DEFAULT_SEASON_ID = "6085b5d0e6c2413bc4ba9122"  # legacy guess: 2021-2022
