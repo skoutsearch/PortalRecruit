@@ -36,25 +36,33 @@ st.markdown(
     pointer-events: none; /* never block clicks */
   }}
   .bg-video-wrap * {{ pointer-events: none; }}
-  .stApp {{ position: relative; z-index: 1; }}
+
+  /* Force ALL Streamlit UI layers above the background video */
+  html, body {{ background: #020617; }}
+  .stApp, .stApp > div, .stApp main,
+  [data-testid="stAppViewContainer"],
+  [data-testid="stHeader"],
+  [data-testid="stMain"],
+  [data-testid="stToolbar"] {{
+    position: relative;
+    z-index: 2;
+  }}
 
   .bg-video {{
     position: absolute;
-    top: 50%;
-    left: 50%;
-    min-width: 100%;
-    min-height: 100%;
-    width: auto;
-    height: auto;
-    transform: translate(-50%, -50%) scale(1.03);
+    inset: 0;
+    width: 100%;
+    height: 100%;
     object-fit: cover;
     opacity: 0.32;
     filter: saturate(1.05) contrast(1.02) brightness(0.92) blur(3px);
+    z-index: 0;
   }}
 
   .bg-video-overlay {{
     position: absolute;
     inset: 0;
+    z-index: 1;
     background: linear-gradient(
       180deg,
       rgba(2, 6, 23, 0.88) 0%,
