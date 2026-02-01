@@ -7,7 +7,9 @@ import streamlit as st
 # even when Streamlit runs this file from inside `src/dashboard/`.
 # Home.py lives at <repo>/src/dashboard/Home.py
 # To import the top-level package `src.*`, we need <repo> on sys.path.
-REPO_ROOT = Path(__file__).resolve().parents[3]
+# Home.py is at <repo>/src/dashboard/Home.py
+# parents[0]=dashboard, [1]=src, [2]=<repo>
+REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
@@ -46,26 +48,33 @@ st.markdown(
   .bg-video-wrap * {{ pointer-events: none; }}
 
   /* Force ALL Streamlit UI layers above the background video */
-  html, body {{ background: #020617; }}
-  .stApp, .stApp > div, .stApp main,
+  html, body { background: #020617; }
+
+  /* Streamlit paints opaque backgrounds on several wrappers; make them transparent
+     so the fixed video can actually show through. */
   [data-testid="stAppViewContainer"],
-  [data-testid="stHeader"],
   [data-testid="stMain"],
-  [data-testid="stToolbar"] {{
+  [data-testid="stHeader"],
+  [data-testid="stToolbar"],
+  .stApp, .stApp > div, .stApp main {
+    background: transparent !important;
     position: relative;
     z-index: 2;
-  }}
+  }
 
-  .bg-video {{
+  .bg-video {
     position: absolute;
-    inset: 0;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
+    min-width: 100%;
+    min-height: 100%;
     object-fit: cover;
     opacity: 0.32;
     filter: saturate(1.05) contrast(1.02) brightness(0.92) blur(3px);
     z-index: 0;
-  }}
+  }
 
   .bg-video-overlay {{
     position: absolute;
