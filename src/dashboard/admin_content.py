@@ -42,11 +42,18 @@ if not cloud_key:
 else:
     local_key = cloud_key
 
-st.title("⚙️ System Configuration")
-st.markdown("Manage your Synergy Data connection and database status.")
+st.markdown(
+    """
+<div style="text-align:center; margin: 6px 0 12px 0;">
+  <div style="font-size:34px; font-weight:800;">System Configuration</div>
+  <div style="opacity:0.74; font-size:14px;">Manage your Synergy data connection and database status.</div>
+</div>
+""",
+    unsafe_allow_html=True,
+)
 
 # --- SECTION 1: API CREDENTIALS ---
-st.subheader("1. Synergy API Connection")
+st.markdown("<div style=\"font-size:20px; font-weight:800; margin-top:14px;\">1. Synergy API Connection</div>", unsafe_allow_html=True)
 
 if cloud_key:
     st.success("✅ Connected via Streamlit Cloud Secrets (Read-Only)")
@@ -63,7 +70,7 @@ else:
 st.divider()
 
 # --- SECTION 2: DATA ACCESS (DISCOVERY-FIRST) ---
-st.subheader("2. Data Access (Discovery)")
+st.markdown("<div style=\"font-size:20px; font-weight:800; margin-top:14px;\">2. Data Access (Discovery)</div>", unsafe_allow_html=True)
 st.caption("Scan your Synergy key to see exactly what data you can access, then select what you want to ingest.")
 
 # Import here to keep Streamlit page load snappy
@@ -182,7 +189,7 @@ if report:
             st.info("Teams list not available for this season with your current key.")
 
         st.markdown("---")
-        st.subheader("Run Pipeline")
+        st.markdown("<div style=\"font-size:20px; font-weight:800; margin-top:14px;\">3. Run Pipeline</div>", unsafe_allow_html=True)
         st.caption("This is the new one-click path. It will replace the legacy buttons once stabilized.")
 
         ingest_events = st.toggle("Ingest Play-by-Play Events", value=True)

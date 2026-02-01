@@ -14,8 +14,10 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-# One fucking page: Home renders the Admin/Pipeline UI.
-# (No multipage nav, no clicking around.)
+# Single-page main app UI (admin/pipeline/search).
+# We keep Streamlit's sidebar, but repurpose pages to:
+# - Back to PortalRecruit homepage
+# - Member Login (placeholder)
 
 LOGO_URL = "https://skoutsearch.github.io/PortalRecruit/PORTALRECRUIT_LOGO.png"
 BG_VIDEO_URL = "https://skoutsearch.github.io/PortalRecruit/PORTALRECRUIT_ANIMATED_LOGO.mp4"
@@ -25,6 +27,10 @@ st.set_page_config(
     layout="wide",
     page_icon="🏀",
     initial_sidebar_state="collapsed",
+    menu_items={
+        "Get help": "https://portalrecruit.com",
+        "About": "PortalRecruit — recruiting intelligence platform.",
+    },
 )
 
 # Background video (hosted on GitHub Pages to avoid base64 + slow loads)
@@ -95,16 +101,61 @@ html, body {{ background: #020617; }}
   background: radial-gradient(closest-side, rgba(0,0,0,0) 62%, rgba(0,0,0,0.40) 100%);
 }}
 
-/* Hide sidebar + multipage nav completely */
-section[data-testid=\"stSidebar\"],
-div[data-testid=\"stSidebarNav\"],
-button[data-testid=\"collapsedControl\"] {{
-  display: none !important;
+/* Sidebar: keep it, just style it */
+section[data-testid=\"stSidebar\"] {{
+  background: rgba(2, 6, 23, 0.55) !important;
+  border-right: 1px solid rgba(255,255,255,0.08);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }}
 
-h1, h2, h3, h4, h5, h6, p, div, span, label, li {{
+/* Nav links */
+div[data-testid=\"stSidebarNav\"] a {{
+  border-radius: 12px;
+  padding: 10px 12px;
+}}
+div[data-testid=\"stSidebarNav\"] a:hover {{
+  background: rgba(255,255,255,0.06);
+}}
+
+/* Collapsed control button */
+button[data-testid=\"collapsedControl\"] {{
+  border-radius: 12px !important;
+  background: rgba(255,255,255,0.06) !important;
+  border: 1px solid rgba(255,255,255,0.10) !important;
+}}
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Inter:wght@300;400;500;600;700;900&display=swap');
+
+h1, h2, h3, h4, h5, h6 {{
   color: #f8fafc !important;
-  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  font-family: "Space Grotesk", Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif !important;
+  letter-spacing: -0.01em;
+}}
+
+p, div, span, label, li {{
+  color: #f8fafc !important;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif !important;
+}}
+
+/* PortalRecruit hero title */
+.pr-hero {{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 10px 0 18px 0;
+  text-align: center;
+}}
+.pr-hero-title {{
+  font-size: 56px;
+  font-weight: 800;
+  line-height: 1.05;
+}}
+.pr-hero-sub {{
+  font-size: 16px;
+  opacity: 0.78;
 }}
 
 /* -----------------------------
@@ -135,6 +186,11 @@ section.main > div.block-container {{
 }}
 
 /* Sub-panels (forms / status / expanders) */
+div[data-testid="stForm"] {
+  border: 2px solid rgba(255,255,255,0.14);
+  box-shadow: 0 0 0 1px rgba(234,88,12,0.10), 0 18px 60px rgba(0,0,0,0.42);
+}
+
 div[data-testid="stForm"],
 div[data-testid="stStatusWidget"],
 div[data-testid="stExpander"],
@@ -181,15 +237,13 @@ input, textarea, select {{
 # that can cause CSS to be printed as text.
 components.html(BG_HTML, height=0, width=0)
 
-# Minimal top brand bar
+# Centered hero header (bigger than any section below)
 st.markdown(
     f"""
-<div style="display:flex; align-items:center; gap:14px; margin: 6px 0 18px 0;">
-  <img src="{LOGO_URL}" style="width:56px; height:56px; object-fit:contain;" />
-  <div>
-    <div style="font-size:28px; font-weight:900; line-height:1.1;">PortalRecruit</div>
-    <div style="opacity:0.75; font-size:14px;">Connect your Synergy key → ingest data → start searching.</div>
-  </div>
+<div class="pr-hero">
+  <img src="{LOGO_URL}" style="width:92px; height:92px; object-fit:contain; filter: drop-shadow(0 0 12px rgba(234,88,12,0.25));" />
+  <div class="pr-hero-title">PortalRecruit</div>
+  <div class="pr-hero-sub">Connect your Synergy key → ingest data → start searching.</div>
 </div>
 """,
     unsafe_allow_html=True,
@@ -197,6 +251,6 @@ st.markdown(
 
 # Execute the Admin/Pipeline UI directly on the home page.
 # This keeps one source of truth without trying to import a module named "1_Admin_Settings".
-admin_path = Path(__file__).with_name("pages") / "1_Admin_Settings.py"
+admin_path = Path(__file__).with_name("admin_content.py")
 code = admin_path.read_text(encoding="utf-8")
 exec(compile(code, str(admin_path), "exec"), globals(), globals())
