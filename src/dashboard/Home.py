@@ -18,7 +18,8 @@ if str(REPO_ROOT) not in sys.path:
 # - Back to PortalRecruit homepage
 # - Member Login (placeholder)
 
-LOGO_URL = "https://skoutsearch.github.io/PortalRecruit/PORTALRECRUIT_LOGO.png"
+WORDMARK_DARK_URL = "https://skoutsearch.github.io/PortalRecruit/PORTALRECRUIT_WORDMARK_DARK.jpg"
+WORDMARK_LIGHT_URL = "https://skoutsearch.github.io/PortalRecruit/PORTALRECRUIT_WORDMARK_LIGHT.jpg"
 BG_VIDEO_URL = "https://skoutsearch.github.io/PortalRecruit/PORTALRECRUIT_ANIMATED_LOGO.mp4"
 
 st.set_page_config(
@@ -47,6 +48,17 @@ BG_HTML = f"""<link rel=\"stylesheet\" href=\"{CSS_URL}\" />
 </div>"""
 
 st.markdown(BG_HTML, unsafe_allow_html=True)
+
+# Top wordmark (replace visible "PortalRecruit" text with the image)
+st.markdown(
+    f"""
+<div class="pr-hero">
+  <img src="{WORDMARK_DARK_URL}" style="max-width:560px; width:min(560px, 92vw); height:auto; object-fit:contain;" />
+  <div class="pr-hero-sub">Connect your Synergy key → ingest data → start searching.</div>
+</div>
+""",
+    unsafe_allow_html=True,
+)
 
 # Execute the Admin/Pipeline UI directly on the home page.
 # This keeps one source of truth without trying to import a module named "1_Admin_Settings".
