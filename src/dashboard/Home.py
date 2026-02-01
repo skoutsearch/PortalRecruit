@@ -2,7 +2,6 @@ import sys
 from pathlib import Path
 
 import streamlit as st
-import streamlit.components.v1 as components
 
 # Ensure repo root is on sys.path so imports like `from src...` work
 # even when Streamlit runs this file from inside `src/dashboard/`.
@@ -235,7 +234,7 @@ input, textarea, select {{
 
 # Use components.html instead of st.markdown to avoid any markdown/code-block rendering quirks
 # that can cause CSS to be printed as text.
-components.html(BG_HTML, height=0, width=0)
+st.markdown(BG_HTML, unsafe_allow_html=True)
 
 # Centered hero header (bigger than any section below)
 st.markdown(
