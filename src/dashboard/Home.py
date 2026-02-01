@@ -186,10 +186,10 @@ section.main > div.block-container {{
 }}
 
 /* Sub-panels (forms / status / expanders) */
-div[data-testid="stForm"] {
+div[data-testid="stForm"] {{
   border: 2px solid rgba(255,255,255,0.14);
   box-shadow: 0 0 0 1px rgba(234,88,12,0.10), 0 18px 60px rgba(0,0,0,0.42);
-}
+}}
 
 div[data-testid="stForm"],
 div[data-testid="stStatusWidget"],
