@@ -106,6 +106,70 @@ h1, h2, h3, h4, h5, h6, p, div, span, label, li {{
   color: #f8fafc !important;
   font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
 }}
+
+/* -----------------------------
+   PortalRecruit “glassy” theme
+   ----------------------------- */
+:root {{
+  --pr-glass-bg: rgba(15, 23, 42, 0.55);
+  --pr-glass-bg-2: rgba(30, 41, 59, 0.35);
+  --pr-glass-border: rgba(255, 255, 255, 0.08);
+  --pr-glow: rgba(234, 88, 12, 0.16);
+}}
+
+/* Main content as a single glass panel */
+section.main > div.block-container {{
+  background: var(--pr-glass-bg);
+  border: 1px solid var(--pr-glass-border);
+  border-radius: 22px;
+  padding: 24px 28px 34px 28px;
+  box-shadow: 0 18px 60px rgba(0,0,0,0.42), 0 0 28px var(--pr-glow);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  margin-top: 18px;
+}}
+
+/* Sub-panels (forms / status / expanders) */
+div[data-testid="stForm"],
+div[data-testid="stStatusWidget"],
+div[data-testid="stExpander"],
+div[data-testid="stAlert"],
+div[data-testid="stNotification"],
+div[data-testid="stMarkdownContainer"] > div[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlockBorderWrapper"] {{
+  background: var(--pr-glass-bg-2);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 18px;
+  padding: 14px 14px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}}
+
+/* Make Streamlit's default horizontal separators subtler */
+hr {{
+  border: none;
+  height: 1px;
+  background: rgba(255,255,255,0.08);
+}}
+
+/* Buttons */
+.stButton > button {{
+  border-radius: 14px !important;
+  font-weight: 800 !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  background: linear-gradient(135deg, rgba(234,88,12,0.92) 0%, rgba(249,115,22,0.88) 100%) !important;
+  color: #0b1120 !important;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.35);
+}}
+.stButton > button:hover {{
+  filter: brightness(1.05);
+  box-shadow: 0 12px 34px rgba(0,0,0,0.42);
+}}
+
+/* Inputs */
+input, textarea, select {{
+  border-radius: 12px !important;
+}}
+
 </style>"""
 
 # Use components.html instead of st.markdown to avoid any markdown/code-block rendering quirks
