@@ -1,7 +1,10 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
+from src.dashboard.theme import inject_background
+
 st.set_page_config(page_title="Back to Homepage", page_icon="↩️", layout="wide")
+inject_background()
 
 # Auto-redirect (best effort). If the browser blocks it, user still has a button.
 components.html(

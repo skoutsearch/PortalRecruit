@@ -1,6 +1,9 @@
 import streamlit as st
 
+from src.dashboard.theme import inject_background
+
 st.set_page_config(page_title="Member Login", page_icon="🔒", layout="wide")
+inject_background()
 
 st.markdown(
     """
