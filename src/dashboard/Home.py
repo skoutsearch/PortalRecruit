@@ -48,7 +48,7 @@ st.markdown(
   .bg-video-wrap * {{ pointer-events: none; }}
 
   /* Force ALL Streamlit UI layers above the background video */
-  html, body { background: #020617; }
+  html, body {{ background: #020617; }}
 
   /* Streamlit paints opaque backgrounds on several wrappers; make them transparent
      so the fixed video can actually show through. */
@@ -56,13 +56,13 @@ st.markdown(
   [data-testid="stMain"],
   [data-testid="stHeader"],
   [data-testid="stToolbar"],
-  .stApp, .stApp > div, .stApp main {
+  .stApp, .stApp > div, .stApp main {{
     background: transparent !important;
     position: relative;
     z-index: 2;
-  }
+  }}
 
-  .bg-video {
+  .bg-video {{
     position: absolute;
     top: 0;
     left: 0;
@@ -74,7 +74,7 @@ st.markdown(
     opacity: 0.32;
     filter: saturate(1.05) contrast(1.02) brightness(0.92) blur(3px);
     z-index: 0;
-  }
+  }}
 
   .bg-video-overlay {{
     position: absolute;
