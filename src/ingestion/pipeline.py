@@ -125,16 +125,24 @@ def upsert_plays(conn, game_id: str, events: list[dict]) -> int:
         if extras:
             desc_text += " " + " ".join(extras)
 
-        raw_clock = evt.get("clock", 0)
+        # Synergy spec (Event schema):
+        # - gameQuarter: int
+        # - clock: int (int32). Treat as seconds remaining and format MM:SS.
+        quarter = evt.get("gameQuarter")
+        raw_clock = evt.get("clock")
+
         clock_sec = raw_clock if isinstance(raw_clock, int) else 0
+        mm = max(0, clock_sec) // 60
+        ss = max(0, clock_sec) % 60
+        clock_display = f"{mm}:{ss:02d}"
 
         rows.append(
             (
                 evt.get("id"),
                 game_id,
-                evt.get("period"),
+                quarter if isinstance(quarter, int) else None,
                 clock_sec,
-                str(raw_clock),
+                clock_display,
                 desc_text,
                 (evt.get("offense") or {}).get("id"),
                 evt.get("shotX"),
