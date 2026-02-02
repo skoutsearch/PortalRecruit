@@ -121,6 +121,10 @@ if report:
         chosen_label = st.selectbox("Season", season_labels, index=0)
         chosen_season_id = season_id_by_label[chosen_label]
 
+        # Show the raw season id so it can be used for CLI/scripts (copy/paste)
+        st.caption("Season ID (use for scripts/CLI):")
+        st.code(chosen_season_id, language=None)
+
         teams = report.teams_by_season.get(chosen_season_id, [])
         teams_ok = report.teams_accessible.get(chosen_season_id, False)
         games_ok = report.games_accessible.get(chosen_season_id, False)
