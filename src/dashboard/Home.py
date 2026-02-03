@@ -350,27 +350,6 @@ elif st.session_state.app_mode == "Search":
 
                 st.markdown("### Results")
 
-                # Coach Pack export
-                import io, zipfile, csv
-                csv_buf = io.StringIO()
-                writer = csv.DictWriter(csv_buf, fieldnames=list(rows[0].keys()))
-                writer.writeheader()
-                writer.writerows(rows)
-
-                zip_buf = io.BytesIO()
-                with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
-                    zf.writestr("coach_pack.csv", csv_buf.getvalue())
-                    # attach video files if local
-                    for r in rows:
-                        v = r.get("Video")
-                        if v and v != "-" and str(v).startswith("/"):
-                            try:
-                                zf.write(v, arcname=f"videos/{Path(v).name}")
-                            except Exception:
-                                pass
-                zip_buf.seek(0)
-                st.download_button("Download Coach Pack", zip_buf, file_name="coach_pack.zip")
-
                 for player, clips in grouped.items():
                     st.markdown(f"## {player}")
                     for r in clips[:3]:
