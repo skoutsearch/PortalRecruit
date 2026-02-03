@@ -66,6 +66,11 @@ INTENTS: Dict[str, IntentBoost] = {
         tags={"drive", "rim_pressure"},
         exclude_tags={"non_possession"},
     ),
+    "defensive_big": IntentBoost(
+        traits={"menace": 30, "tough": 25},
+        tags={"block", "charge_taken", "loose_ball"},
+        exclude_tags={"non_possession"},
+    ),
     "size_measurables": IntentBoost(
         traits={},
         tags=set(),
@@ -363,6 +368,22 @@ PHRASES: Dict[str, List[str]] = {
         "next play",
         "next-play",
     ],
+    "defensive_big": [
+        "rim protector",
+        "lane clogger",
+        "paint presence",
+        "anchor",
+        "shot blocker",
+        "beast in the lane",
+        "no-fly zone",
+        "rim deterrent",
+        "paint enforcer",
+        "lane warden",
+        "restricted area",
+        "verticality",
+        "wall at the rim",
+        "paint defender",
+    ],
     "size_measurables": [
         "positional size",
         "length",
@@ -439,6 +460,8 @@ WEIGHTED_PHRASES: Dict[str, List[Tuple[str, float]]] = {
     + [("leader", 1.0), ("vocal", 0.6), ("captain", 0.6)],
     "resilience": [(p, 1.0) for p in PHRASES["resilience"]]
     + [("bounce back", 0.8), ("next play", 0.8)],
+    "defensive_big": [(p, 1.0) for p in PHRASES["defensive_big"]]
+    + [("rim protector", 1.0), ("lane clogger", 0.8)],
     "size_measurables": [(p, 1.0) for p in PHRASES["size_measurables"]]
     + [("long", 0.6), ("big framed", 0.6)],
     "negative_filters": [(p, 1.0) for p in PHRASES["negative_filters"]],

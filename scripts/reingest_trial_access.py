@@ -213,6 +213,12 @@ def main() -> int:
     except Exception as e:
         print(f"⚠️ Resilience build failed: {e}")
 
+    try:
+        from src.processing.derive_defensive_big import build_defensive_big_metrics
+        build_defensive_big_metrics()
+    except Exception as e:
+        print(f"⚠️ Defensive Big build failed: {e}")
+
     # Always regenerate embeddings to reflect any new plays
     try:
         from src.processing.generate_embeddings import generate_embeddings

@@ -339,6 +339,12 @@ def run_pipeline(plan: PipelinePlan, api_key: str, progress_cb=None) -> dict:
         except Exception:
             pass
 
+        try:
+            from src.processing.derive_defensive_big import build_defensive_big_metrics
+            build_defensive_big_metrics()
+        except Exception:
+            pass
+
     conn.close()
 
     return {
