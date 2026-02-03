@@ -150,6 +150,7 @@ elif st.session_state.app_mode == "Search":
         role_hints = set()
         explain = []
         matched_phrases = []
+        leadership_intent = "leadership" in intents
 
         for hit, phrase in intents.values():
             intent = hit.intent
@@ -232,7 +233,8 @@ elif st.session_state.app_mode == "Search":
                 cur.execute(
                     f"""
                     SELECT player_id, dog_index, menace_index, unselfish_index,
-                           toughness_index, rim_pressure_index, shot_making_index, size_index
+                           toughness_index, rim_pressure_index, shot_making_index, size_index,
+                           leadership_index
                     FROM player_traits
                     WHERE player_id IN ({ph2})
                     """,
@@ -247,6 +249,7 @@ elif st.session_state.app_mode == "Search":
                         "rim": r[5],
                         "shot": r[6],
                         "size": r[7],
+                        "leadership": r[8],
                     }
                     for r in cur.fetchall()
                 }
@@ -255,11 +258,12 @@ elif st.session_state.app_mode == "Search":
             cur.execute(
                 """
                 SELECT AVG(dog_index), AVG(menace_index), AVG(unselfish_index),
-                       AVG(toughness_index), AVG(rim_pressure_index), AVG(shot_making_index), AVG(size_index)
+                       AVG(toughness_index), AVG(rim_pressure_index), AVG(shot_making_index), AVG(size_index),
+                       AVG(leadership_index)
                 FROM player_traits
                 """
             )
-            avg_row = cur.fetchone() or (0, 0, 0, 0, 0, 0, 0)
+            avg_row = cur.fetchone() or (0, 0, 0, 0, 0, 0, 0, 0)
             trait_avg = {
                 "dog": avg_row[0] or 0,
                 "menace": avg_row[1] or 0,
@@ -268,6 +272,7 @@ elif st.session_state.app_mode == "Search":
                 "rim": avg_row[4] or 0,
                 "shot": avg_row[5] or 0,
                 "size": avg_row[6] or 0,
+                "leadership": avg_row[7] or 0,
             }
 
             # Pull game matchup
@@ -347,6 +352,9 @@ elif st.session_state.app_mode == "Search":
 
                 score += len(set(play_tags).intersection(set(intent_tags))) * 10
 
+                if leadership_intent and t.get("leadership"):
+                    score += t.get("leadership") * 15
+
                 if "turnover" in play_tags:
                     score -= 8
 
@@ -361,6 +369,7 @@ elif st.session_state.app_mode == "Search":
                     "rim": ("Rim Pressure", rim_index),
                     "shot": ("Shot Making", shot_index),
                     "size": ("Size", t.get("size")),
+                    "leadership": ("Leadership", t.get("leadership")),
                 }
                 strengths = []
                 weaknesses = []

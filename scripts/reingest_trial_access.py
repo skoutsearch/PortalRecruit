@@ -201,6 +201,12 @@ def main() -> int:
     except Exception as e:
         print(f"⚠️ Trait build failed: {e}")
 
+    try:
+        from src.processing.derive_leadership import build_leadership_metrics
+        build_leadership_metrics()
+    except Exception as e:
+        print(f"⚠️ Leadership build failed: {e}")
+
     # Always regenerate embeddings to reflect any new plays
     try:
         from src.processing.generate_embeddings import generate_embeddings

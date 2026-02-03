@@ -58,7 +58,30 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
     )
 
     # Safe migrations for existing DBs missing new columns
-    for col, ctype in [("player_id", "TEXT"), ("player_name", "TEXT")]:
+    play_columns = [
+        ("player_id", "TEXT"),
+        ("player_name", "TEXT"),
+        ("ato", "INTEGER"),
+        ("short_clock", "INTEGER"),
+        ("eob", "INTEGER"),
+        ("heave", "INTEGER"),
+        ("press", "INTEGER"),
+        ("zone", "INTEGER"),
+        ("hard_double", "INTEGER"),
+        ("assist_player_id", "TEXT"),
+        ("o_player_id", "TEXT"),
+        ("d_player_id", "TEXT"),
+        ("r_player_id", "TEXT"),
+        ("duration", "REAL"),
+        ("utc", "TEXT"),
+        ("home_score", "INTEGER"),
+        ("away_score", "INTEGER"),
+        ("is_home", "INTEGER"),
+        ("offense_team", "TEXT"),
+        ("defense_team", "TEXT"),
+        ("offensive_lineup", "TEXT"),
+    ]
+    for col, ctype in play_columns:
         try:
             cur.execute(f"ALTER TABLE plays ADD COLUMN {col} {ctype}")
         except Exception:
@@ -93,9 +116,35 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
             toughness_index REAL,
             rim_pressure_index REAL,
             shot_making_index REAL,
-            size_index REAL
+            size_index REAL,
+            leadership_index REAL,
+            ato_rate REAL,
+            short_clock_rate REAL,
+            eob_rate REAL,
+            press_rate REAL,
+            zone_rate REAL,
+            hard_double_rate REAL,
+            assist_rate REAL,
+            turnover_rate REAL
         )
         """
     )
+
+    trait_cols = [
+        ("leadership_index", "REAL"),
+        ("ato_rate", "REAL"),
+        ("short_clock_rate", "REAL"),
+        ("eob_rate", "REAL"),
+        ("press_rate", "REAL"),
+        ("zone_rate", "REAL"),
+        ("hard_double_rate", "REAL"),
+        ("assist_rate", "REAL"),
+        ("turnover_rate", "REAL"),
+    ]
+    for col, ctype in trait_cols:
+        try:
+            cur.execute(f"ALTER TABLE player_traits ADD COLUMN {col} {ctype}")
+        except Exception:
+            pass
 
     conn.commit()

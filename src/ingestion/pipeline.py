@@ -200,6 +200,13 @@ def upsert_plays(conn, game_id: str, events: list[dict]) -> int:
             last = person.get("nameLast") or ""
             player_name = f"{first} {last}".strip() or person.get("name")
 
+        assist = evt.get("assist") or {}
+        o_player = evt.get("oPlayer") or {}
+        d_player = evt.get("dPlayer") or {}
+        r_player = evt.get("rPlayer") or {}
+        offense = evt.get("offense") or {}
+        defense = evt.get("defense") or {}
+
         rows.append(
             (
                 evt.get("id"),
@@ -208,12 +215,31 @@ def upsert_plays(conn, game_id: str, events: list[dict]) -> int:
                 clock_sec,
                 clock_display,
                 desc_text,
-                (evt.get("offense") or {}).get("id"),
+                offense.get("id"),
                 player_id,
                 player_name,
                 evt.get("shotX"),
                 evt.get("shotY"),
                 "",
+                1 if evt.get("ato") else 0,
+                1 if evt.get("shortClock") else 0,
+                1 if evt.get("eob") else 0,
+                1 if evt.get("heave") else 0,
+                1 if evt.get("press") else 0,
+                1 if evt.get("zone") else 0,
+                1 if evt.get("hardDouble") else 0,
+                assist.get("id") if isinstance(assist, dict) else None,
+                o_player.get("id") if isinstance(o_player, dict) else None,
+                d_player.get("id") if isinstance(d_player, dict) else None,
+                r_player.get("id") if isinstance(r_player, dict) else None,
+                evt.get("duration"),
+                evt.get("utc"),
+                evt.get("homeScore"),
+                evt.get("awayScore"),
+                1 if evt.get("isHome") else 0,
+                offense.get("name") or offense.get("abbr"),
+                defense.get("name") or defense.get("abbr"),
+                evt.get("offensiveLineup"),
             )
         )
 
@@ -223,8 +249,11 @@ def upsert_plays(conn, game_id: str, events: list[dict]) -> int:
     cur.executemany(
         """
         INSERT OR REPLACE INTO plays
-        (play_id, game_id, period, clock_seconds, clock_display, description, team_id, player_id, player_name, x_loc, y_loc, tags)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (play_id, game_id, period, clock_seconds, clock_display, description, team_id, player_id, player_name, x_loc, y_loc, tags,
+         ato, short_clock, eob, heave, press, zone, hard_double,
+         assist_player_id, o_player_id, d_player_id, r_player_id,
+         duration, utc, home_score, away_score, is_home, offense_team, defense_team, offensive_lineup)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         rows,
     )
@@ -295,6 +324,12 @@ def run_pipeline(plan: PipelinePlan, api_key: str, progress_cb=None) -> dict:
         try:
             from src.processing.derive_player_traits import build_player_traits
             build_player_traits()
+        except Exception:
+            pass
+
+        try:
+            from src.processing.derive_leadership import build_leadership_metrics
+            build_leadership_metrics()
         except Exception:
             pass
 

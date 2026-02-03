@@ -336,6 +336,12 @@ PHRASES: Dict[str, List[str]] = {
         "directs traffic",
         "tone setter",
         "lead by example",
+        "go-to guy",
+        "go to guy",
+        "primary option",
+        "alpha",
+        "franchise",
+        "star",
     ],
     "size_measurables": [
         "positional size",
