@@ -71,6 +71,11 @@ INTENTS: Dict[str, IntentBoost] = {
         tags={"block", "charge_taken", "loose_ball"},
         exclude_tags={"non_possession"},
     ),
+    "clutch": IntentBoost(
+        traits={"tough": 25, "dog": 20, "shot": 20},
+        tags={"made", "score", "assist"},
+        exclude_tags={"non_possession"},
+    ),
     "size_measurables": IntentBoost(
         traits={},
         tags=set(),
@@ -384,6 +389,22 @@ PHRASES: Dict[str, List[str]] = {
         "wall at the rim",
         "paint defender",
     ],
+    "clutch": [
+        "clutch",
+        "closer",
+        "big shot",
+        "go-to late",
+        "late game",
+        "game winner",
+        "dagger",
+        "fourth quarter",
+        "4th quarter",
+        "end of game",
+        "crunch time",
+        "pressure",
+        "ice cold",
+        "buzzer beater",
+    ],
     "size_measurables": [
         "positional size",
         "length",
@@ -462,6 +483,8 @@ WEIGHTED_PHRASES: Dict[str, List[Tuple[str, float]]] = {
     + [("bounce back", 0.8), ("next play", 0.8)],
     "defensive_big": [(p, 1.0) for p in PHRASES["defensive_big"]]
     + [("rim protector", 1.0), ("lane clogger", 0.8)],
+    "clutch": [(p, 1.0) for p in PHRASES["clutch"]]
+    + [("clutch", 1.0), ("dagger", 0.8), ("game winner", 0.8)],
     "size_measurables": [(p, 1.0) for p in PHRASES["size_measurables"]]
     + [("long", 0.6), ("big framed", 0.6)],
     "negative_filters": [(p, 1.0) for p in PHRASES["negative_filters"]],

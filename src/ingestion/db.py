@@ -137,7 +137,12 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
             defensive_big_index REAL,
             block_rate REAL,
             rim_contest_rate REAL,
-            defensive_rebound_rate REAL
+            defensive_rebound_rate REAL,
+            clutch_index REAL,
+            clutch_make_rate REAL,
+            clutch_assist_rate REAL,
+            clutch_deflection_rate REAL,
+            clutch_turnover_rate REAL
         )
         """
     )
@@ -164,6 +169,11 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
         ("block_rate", "REAL"),
         ("rim_contest_rate", "REAL"),
         ("defensive_rebound_rate", "REAL"),
+        ("clutch_index", "REAL"),
+        ("clutch_make_rate", "REAL"),
+        ("clutch_assist_rate", "REAL"),
+        ("clutch_deflection_rate", "REAL"),
+        ("clutch_turnover_rate", "REAL"),
     ]
     for col, ctype in trait_cols:
         try:

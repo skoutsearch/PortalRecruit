@@ -345,6 +345,12 @@ def run_pipeline(plan: PipelinePlan, api_key: str, progress_cb=None) -> dict:
         except Exception:
             pass
 
+        try:
+            from src.processing.derive_clutch import build_clutch_metrics
+            build_clutch_metrics()
+        except Exception:
+            pass
+
     conn.close()
 
     return {

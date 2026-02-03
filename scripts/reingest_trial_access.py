@@ -219,6 +219,12 @@ def main() -> int:
     except Exception as e:
         print(f"⚠️ Defensive Big build failed: {e}")
 
+    try:
+        from src.processing.derive_clutch import build_clutch_metrics
+        build_clutch_metrics()
+    except Exception as e:
+        print(f"⚠️ Clutch build failed: {e}")
+
     # Always regenerate embeddings to reflect any new plays
     try:
         from src.processing.generate_embeddings import generate_embeddings
