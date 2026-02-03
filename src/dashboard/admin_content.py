@@ -57,7 +57,11 @@ def save_local_api_key(key):
     st.toast("API Key Saved Locally!", icon="✅")
 
 # --- LOAD SECRETS ---
-cloud_key = st.secrets.get("SYNERGY_API_KEY", None)
+try:
+    cloud_key = st.secrets.get("SYNERGY_API_KEY", None)
+except Exception:
+    cloud_key = None
+
 if not cloud_key:
     load_dotenv(ENV_PATH)
     local_key = os.getenv("SYNERGY_API_KEY", "")
