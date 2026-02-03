@@ -219,6 +219,25 @@ elif st.session_state.app_mode == "Search":
             conn = sqlite3.connect(DB_PATH)
             cur = conn.cursor()
 
+            # Ensure trait columns exist for older DBs
+            try:
+                cur.execute("PRAGMA table_info(player_traits)")
+                existing_cols = {r[1] for r in cur.fetchall()}
+                needed = {
+                    "leadership_index",
+                    "resilience_index",
+                    "defensive_big_index",
+                    "clutch_index",
+                    "undervalued_index",
+                    "gravity_index",
+                }
+                for col in needed:
+                    if col not in existing_cols:
+                        cur.execute(f"ALTER TABLE player_traits ADD COLUMN {col} REAL")
+                conn.commit()
+            except Exception:
+                pass
+
             # Pull plays
             placeholders = ",".join(["?"] * len(play_ids))
             cur.execute(
