@@ -31,8 +31,8 @@ def main():
         return
 
     if args.suggest:
-        from src.search.autocomplete import suggest
-        print("Suggestions:", ", ".join(suggest(args.query)))
+        from src.search.autocomplete import suggest_rich
+        print("Suggestions:", ", ".join(suggest_rich(args.query, limit=25)))
         return
 
     client = chromadb.PersistentClient(path=str(VECTOR_DB))

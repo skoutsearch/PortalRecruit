@@ -107,8 +107,8 @@ elif st.session_state.app_mode == "Search":
 
     # Search box + autocomplete
     query = st.text_input("Search", "", placeholder="Downhill guard who can guard")
-    from src.search.autocomplete import suggest  # noqa: E402
-    suggestions = suggest(query)
+    from src.search.autocomplete import suggest_rich  # noqa: E402
+    suggestions = suggest_rich(query, limit=25)
     if suggestions:
         picked = st.selectbox("Suggestions", ["(keep typing)"] + suggestions, index=0)
         if picked != "(keep typing)":
