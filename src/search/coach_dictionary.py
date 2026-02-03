@@ -66,6 +66,7 @@ PHRASES: Dict[str, List[str]] = {
     "paint_presence_offense": [
         "paint touches",
         "downhill driver",
+        "downhill guard",
         "rim pressure",
         "two feet in the paint",
         "collapses the defense",
@@ -87,6 +88,9 @@ PHRASES: Dict[str, List[str]] = {
         "turns the corner",
         "get in the lane",
         "touch the paint",
+        "touch paint",
+        "paint touch guy",
+        "rim runner guard",
     ],
     "paint_presence_defense": [
         "keep people out",
@@ -172,6 +176,9 @@ PHRASES: Dict[str, List[str]] = {
         "chemistry booster",
         "servant leader",
         "pass-first",
+        "connective tissue",
+        "moves it early",
+        "0.5 second decision maker",
     ],
     "defensive_menace": [
         "point of attack defender",
@@ -203,6 +210,10 @@ PHRASES: Dict[str, List[str]] = {
         "two-way",
         "two way",
         "dog on defense",
+        "guard who can guard",
+        "tone setter on defense",
+        "sets the tone defensively",
+        "heat check on defense",
     ],
     "toughness_winning": [
         "winner",
@@ -333,6 +344,11 @@ PHRASES: Dict[str, List[str]] = {
         "black hole",
         "ball stopper",
         "energy vampire",
+        "me first",
+        "low iq",
+        "bad shot",
+        "wild",
+        "takes bad shots",
     ],
 }
 }
