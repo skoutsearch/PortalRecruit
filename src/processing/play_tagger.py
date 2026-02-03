@@ -50,7 +50,16 @@ def tag_play(description: str, clock_seconds: int = None) -> list[str]:
     if "miss 2 pts" in desc or "miss 3 pts" in desc:
         tags.add("missed")
 
-    if "assist" in desc or " ast " in desc:
+    if (
+        "assist" in desc
+        or " ast " in desc
+        or "assisted" in desc
+        or "ball delivered" in desc
+        or "kick out" in desc
+        or "drive & kick" in desc
+        or "drive and kick" in desc
+        or "pass leads to" in desc
+    ):
         tags.add("assist")
 
     if "free throw" in desc or "ft" in desc:
