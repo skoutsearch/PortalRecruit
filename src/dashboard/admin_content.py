@@ -182,48 +182,60 @@ if report:
                 prog = st.progress(0)
                 status = st.status("Starting pipeline...", expanded=True)
 
-                def _cb(step: str, info: dict):
-                    if step == "schedule:start":
-                        status.update(label="Ingesting schedule...", state="running")
-                        prog.progress(10)
-                    elif step == "schedule:done":
-                        status.write(f"✅ Schedule cached: {info.get('inserted_games', 0)} games")
-                        prog.progress(45)
-                    elif step == "events:start":
-                        status.update(label="Ingesting events...", state="running")
-                        prog.progress(55)
-                    elif step == "events:progress":
-                        cur = info.get("current", 0)
-                        total = max(1, info.get("total", 1))
-                        pct = 55 + int(35 * (cur / total))
-                        prog.progress(min(90, max(55, pct)))
-                    elif step == "events:done":
-                        status.write(f"✅ Events cached: {info.get('inserted_plays', 0)} plays")
-                        prog.progress(95)
-
-                plan = PipelinePlan(
-                    league_code="ncaamb",
-                    season_id=chosen_season_id,
-                    team_ids=selected_team_ids,
-                    ingest_events=ingest_events,
-                )
-
-                try:
-                    result = run_pipeline(plan=plan, api_key=api_key_for_scan, progress_cb=_cb)
-                    status.update(label="Pipeline complete", state="complete")
+                # Check if Vector DB already exists
+                vector_db_path = os.path.join(PROJECT_ROOT, "data", "vector_db", "chroma.sqlite3")
+                if os.path.exists(vector_db_path):
+                    st.info("Vector DB already exists. Skipping ingestion.")
                     prog.progress(100)
-                    
-                    st.success(f"Success! Games: {result['inserted_games']}, Plays: {result['inserted_plays']}")
-                    
-                    # --- NEW: UNLOCK SEARCH ---
-                    st.markdown("### 🚀 Ready to Search?")
-                    if st.button("Open Search Interface"):
-                        st.session_state.app_mode = "Search"
-                        st.rerun()
+                else:
+                    def _cb(step: str, info: dict):
+                        if step == "schedule:start":
+                            status.update(label="Ingesting schedule...", state="running")
+                            prog.progress(10)
+                        elif step == "schedule:done":
+                            status.write(f"✅ Schedule cached: {info.get('inserted_games', 0)} games")
+                            prog.progress(45)
+                        elif step == "events:start":
+                            status.update(label="Ingesting events...", state="running")
+                            prog.progress(55)
+                        elif step == "events:progress":
+                            cur = info.get("current", 0)
+                            total = max(1, info.get("total", 1))
+                            pct = 55 + int(35 * (cur / total))
+                            prog.progress(min(90, max(55, pct)))
+                        elif step == "events:done":
+                            status.write(f"✅ Events cached: {info.get('inserted_plays', 0)} plays")
+                            prog.progress(95)
+
+                    plan = PipelinePlan(
+                        league_code="ncaamb",
+                        season_id=chosen_season_id,
+                        team_ids=selected_team_ids,
+                        ingest_events=ingest_events,
+                    )
+
+                    try:
+                        result = run_pipeline(plan=plan, api_key=api_key_for_scan, progress_cb=_cb)
+                        status.write("✅ Ingestion complete. Running embeddings...")
+
+                        # Run embeddings step to build Chroma DB
+                        from src.processing.generate_embeddings import generate_embeddings  # noqa: E402
+                        generate_embeddings()
+
+                        status.update(label="Pipeline complete", state="complete")
+                        prog.progress(100)
                         
-                except Exception as e:
-                    status.update(label="Pipeline failed", state="error")
-                    st.exception(e)
+                        st.success(f"Success! Games: {result['inserted_games']}, Plays: {result['inserted_plays']}")
+                        
+                        # --- NEW: UNLOCK SEARCH ---
+                        st.markdown("### 🚀 Ready to Search?")
+                        if st.button("Open Search Interface"):
+                            st.session_state.app_mode = "Search"
+                            st.rerun()
+                            
+                    except Exception as e:
+                        status.update(label="Pipeline failed", state="error")
+                        st.exception(e)
 
     else:
         st.info("No seasons discovered yet.")
