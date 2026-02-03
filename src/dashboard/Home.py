@@ -86,11 +86,11 @@ elif st.session_state.app_mode == "Search":
     st.markdown("### 🔍 Semantic Player Search")
 
     # Advanced Filters (collapsed by default)
-    min_dog = min_menace = min_unselfish = min_tough = min_rim = min_shot = 0
+    min_dog = min_menace = min_unselfish = min_tough = min_rim = min_shot = min_gravity = 0
     min_size = 0
-    slider_dog = slider_menace = slider_unselfish = slider_tough = slider_rim = slider_shot = 0
+    slider_dog = slider_menace = slider_unselfish = slider_tough = slider_rim = slider_shot = slider_gravity = 0
     slider_size = 0
-    intent_dog = intent_menace = intent_unselfish = intent_tough = intent_rim = intent_shot = 0
+    intent_dog = intent_menace = intent_unselfish = intent_tough = intent_rim = intent_shot = intent_gravity = 0
     intent_size = 0
     n_results = 15
     tag_filter = []
@@ -104,6 +104,7 @@ elif st.session_state.app_mode == "Search":
         slider_tough = st.slider("Min Toughness", 0, 100, 0)
         slider_rim = st.slider("Min Rim Pressure", 0, 100, 0)
         slider_shot = st.slider("Min Shot Making", 0, 100, 0)
+        slider_gravity = st.slider("Min Gravity Well", 0, 100, 0)
         slider_size = st.slider("Min Size Index", 0, 100, 0)
         n_results = st.slider("Number of Results", 5, 50, 15)
         required_tags = st.multiselect(
@@ -169,6 +170,7 @@ elif st.session_state.app_mode == "Search":
             intent_tough = max(intent_tough, int(intent.traits.get("tough", 0) * w))
             intent_rim = max(intent_rim, int(intent.traits.get("rim", 0) * w))
             intent_shot = max(intent_shot, int(intent.traits.get("shot", 0) * w))
+            intent_gravity = max(intent_gravity, int(intent.traits.get("gravity", 0) * w))
             # size/measurables intent triggers
             if intent is INTENTS.get("size_measurables"):
                 intent_size = max(intent_size, 70)
@@ -237,7 +239,7 @@ elif st.session_state.app_mode == "Search":
                 cur.execute(
                     f"""
                     SELECT player_id, dog_index, menace_index, unselfish_index,
-                           toughness_index, rim_pressure_index, shot_making_index, size_index,
+                           toughness_index, rim_pressure_index, shot_making_index, gravity_index, size_index,
                            leadership_index, resilience_index, defensive_big_index, clutch_index,
                            undervalued_index
                     FROM player_traits
@@ -253,12 +255,13 @@ elif st.session_state.app_mode == "Search":
                         "tough": r[4],
                         "rim": r[5],
                         "shot": r[6],
-                        "size": r[7],
-                        "leadership": r[8],
-                        "resilience": r[9],
-                        "defensive_big": r[10],
-                        "clutch": r[11],
-                        "undervalued": r[12],
+                        "gravity": r[7],
+                        "size": r[8],
+                        "leadership": r[9],
+                        "resilience": r[10],
+                        "defensive_big": r[11],
+                        "clutch": r[12],
+                        "undervalued": r[13],
                     }
                     for r in cur.fetchall()
                 }
@@ -267,13 +270,13 @@ elif st.session_state.app_mode == "Search":
             cur.execute(
                 """
                 SELECT AVG(dog_index), AVG(menace_index), AVG(unselfish_index),
-                       AVG(toughness_index), AVG(rim_pressure_index), AVG(shot_making_index), AVG(size_index),
-                       AVG(leadership_index), AVG(resilience_index), AVG(defensive_big_index), AVG(clutch_index),
-                       AVG(undervalued_index)
+                       AVG(toughness_index), AVG(rim_pressure_index), AVG(shot_making_index), AVG(gravity_index),
+                       AVG(size_index), AVG(leadership_index), AVG(resilience_index), AVG(defensive_big_index),
+                       AVG(clutch_index), AVG(undervalued_index)
                 FROM player_traits
                 """
             )
-            avg_row = cur.fetchone() or (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            avg_row = cur.fetchone() or (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
             trait_avg = {
                 "dog": avg_row[0] or 0,
                 "menace": avg_row[1] or 0,
@@ -281,12 +284,13 @@ elif st.session_state.app_mode == "Search":
                 "tough": avg_row[3] or 0,
                 "rim": avg_row[4] or 0,
                 "shot": avg_row[5] or 0,
-                "size": avg_row[6] or 0,
-                "leadership": avg_row[7] or 0,
-                "resilience": avg_row[8] or 0,
-                "defensive_big": avg_row[9] or 0,
-                "clutch": avg_row[10] or 0,
-                "undervalued": avg_row[11] or 0,
+                "gravity": avg_row[6] or 0,
+                "size": avg_row[7] or 0,
+                "leadership": avg_row[8] or 0,
+                "resilience": avg_row[9] or 0,
+                "defensive_big": avg_row[10] or 0,
+                "clutch": avg_row[11] or 0,
+                "undervalued": avg_row[12] or 0,
             }
 
             # Pull game matchup
@@ -318,6 +322,7 @@ elif st.session_state.app_mode == "Search":
                 tough_index = t.get("tough")
                 rim_index = t.get("rim")
                 shot_index = t.get("shot")
+                gravity_index = t.get("gravity")
 
                 if dog_index is not None and dog_index < slider_dog:
                     continue
@@ -330,6 +335,8 @@ elif st.session_state.app_mode == "Search":
                 if rim_index is not None and rim_index < slider_rim:
                     continue
                 if shot_index is not None and shot_index < slider_shot:
+                    continue
+                if gravity_index is not None and gravity_index < slider_gravity:
                     continue
                 if t.get("size") is not None and t.get("size") < slider_size:
                     continue
@@ -352,6 +359,7 @@ elif st.session_state.app_mode == "Search":
                     ("tough", 0.6),
                     ("rim", 0.7),
                     ("shot", 0.7),
+                    ("gravity", 0.6),
                 ]:
                     val = t.get(key) or 0
                     score += val * weight
@@ -363,6 +371,7 @@ elif st.session_state.app_mode == "Search":
                 score += max(0, (t.get("tough") or 0) - intent_tough) * 0.1
                 score += max(0, (t.get("rim") or 0) - intent_rim) * 0.1
                 score += max(0, (t.get("shot") or 0) - intent_shot) * 0.1
+                score += max(0, (t.get("gravity") or 0) - intent_gravity) * 0.1
 
                 score += len(set(play_tags).intersection(set(intent_tags))) * 10
 
@@ -394,6 +403,7 @@ elif st.session_state.app_mode == "Search":
                     "tough": ("Toughness", tough_index),
                     "rim": ("Rim Pressure", rim_index),
                     "shot": ("Shot Making", shot_index),
+                    "gravity": ("Gravity Well", gravity_index),
                     "size": ("Size", t.get("size")),
                     "leadership": ("Leadership", t.get("leadership")),
                     "resilience": ("Resilience", t.get("resilience")),
@@ -428,6 +438,8 @@ elif st.session_state.app_mode == "Search":
                     reason_parts.append("rim pressure")
                 if intent_shot and (shot_index or 0) >= intent_shot:
                     reason_parts.append("shot making")
+                if intent_gravity and (gravity_index or 0) >= intent_gravity:
+                    reason_parts.append("gravity well")
                 if not reason_parts and strengths:
                     reason_parts = [s.lower() for s in strengths]
                 reason = " — ".join(reason_parts) if reason_parts else "solid all-around fit"
@@ -452,6 +464,7 @@ elif st.session_state.app_mode == "Search":
                     "Toughness": tough_index,
                     "Rim Pressure": rim_index,
                     "Shot Making": shot_index,
+                    "Gravity Well": gravity_index,
                     "Tags": ", ".join(play_tags),
                     "Play": desc,
                     "Video": video or "-",

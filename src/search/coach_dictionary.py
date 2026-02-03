@@ -36,6 +36,10 @@ INTENTS: Dict[str, IntentBoost] = {
         traits={"shot": 30},
         tags={"jumpshot", "3pt"},
     ),
+    "gravity_well": IntentBoost(
+        traits={"gravity": 30},
+        tags={"assist", "3pt", "pnr", "handoff"},
+    ),
     "unselfish_connectivity": IntentBoost(
         traits={"unselfish": 30},
         tags={"assist"},
@@ -147,7 +151,6 @@ PHRASES: Dict[str, List[str]] = {
     ],
     "shooting_spacing": [
         "floor spacer",
-        "gravity",
         "knockdown shooter",
         "catch and shoot",
         "off the bounce shooting",
@@ -179,6 +182,35 @@ PHRASES: Dict[str, List[str]] = {
         "mid-range assassin",
         "bucket getter",
         "bucket-getter",
+    ],
+    "gravity_well": [
+        "gravity well",
+        "gravity",
+        "magnet",
+        "defensive bend",
+        "bends the defense",
+        "warps the defense",
+        "draws two",
+        "draws double",
+        "double team magnet",
+        "face-guarded",
+        "denied the ball",
+        "decoy",
+        "off-ball gravity",
+        "spacing threat",
+        "pulls help",
+        "help magnet",
+        "creates space",
+        "warps spacing",
+        "defense shifts",
+        "zone bender",
+        "flare screen",
+        "pin-down",
+        "staggered screens",
+        "ghost screen",
+        "screen slip",
+        "pull-up gravity",
+        "gravity assist",
     ],
     "unselfish_connectivity": [
         "high assist-to-turnover ratio",
@@ -488,6 +520,8 @@ WEIGHTED_PHRASES: Dict[str, List[Tuple[str, float]]] = {
     + [("rim deterrent", 0.6), ("paint patrol", 0.6)],
     "shooting_spacing": [(p, 1.0) for p in PHRASES["shooting_spacing"]]
     + [("deep shooter", 0.6), ("sniper", 0.6), ("laser", 0.6)],
+    "gravity_well": [(p, 1.0) for p in PHRASES["gravity_well"]]
+    + [("magnet", 1.0), ("gravity", 1.0), ("defense bends", 0.6)],
     "unselfish_connectivity": [(p, 1.0) for p in PHRASES["unselfish_connectivity"]]
     + [("quick decision", 0.6), ("hit ahead", 0.6)],
     "defensive_menace": [(p, 1.0) for p in PHRASES["defensive_menace"]]

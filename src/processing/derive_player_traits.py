@@ -18,6 +18,14 @@ DOG_KEYWORDS = [
     "steal", "block", "charge", "loose ball", "dive"
 ]
 
+GRAVITY_KEYWORDS = [
+    "double team", "double-team", "double", "trap", "face guard", "face-guard",
+    "deny", "denied", "decoy", "gravity", "magnet", "overhelp", "over-help",
+    "helped off", "stay glued", "stayed glued", "tag", "hard hedge", "hedge",
+    "flare screen", "flare", "pin down", "pin-down", "stagger", "ghost screen",
+    "ghost", "slip screen", "slip", "handoff", "dho",
+]
+
 
 def _count_keywords(desc: str, keywords: list[str]) -> int:
     if not desc:
@@ -46,7 +54,8 @@ def build_player_traits():
             unselfish_index REAL,
             toughness_index REAL,
             rim_pressure_index REAL,
-            shot_making_index REAL
+            shot_making_index REAL,
+            gravity_index REAL
         )
         """
     )
@@ -59,6 +68,7 @@ def build_player_traits():
         ("rim_pressure_index", "REAL"),
         ("shot_making_index", "REAL"),
         ("size_index", "REAL"),
+        ("gravity_index", "REAL"),
     ]:
         try:
             cur.execute(f"ALTER TABLE player_traits ADD COLUMN {col} {ctype}")
@@ -99,6 +109,7 @@ def build_player_traits():
                 "made": 0,
                 "missed": 0,
                 "total_events": 0,
+                "gravity_events": 0,
             }
         tags = set(tag_play(desc))
         if "non_possession" in tags:
@@ -114,6 +125,13 @@ def build_player_traits():
         agg[player_id]["made"] += int("made" in tags)
         agg[player_id]["missed"] += int("missed" in tags)
 
+        gravity_keyword_hit = _count_keywords(desc, GRAVITY_KEYWORDS) > 0
+        gravity_pnr_pull = "pnr" in tags and ("pull_up" in tags or "3pt" in tags)
+        gravity_spacing = "assist" in tags and "3pt" in tags
+        gravity_handoff = "handoff" in tags and "3pt" in tags
+        gravity_signal = gravity_keyword_hit or gravity_pnr_pull or gravity_spacing or gravity_handoff
+        agg[player_id]["gravity_events"] += int(gravity_signal)
+
     # Compute indices and persist
     for pid, data in agg.items():
         total = max(1, data["total_events"])
@@ -123,6 +141,7 @@ def build_player_traits():
         rim_pressure_index = round((data["rim_events"] / total) * 100, 3)
         unselfish_index = round((data["assists"] / max(1, data["assists"] + data["turnovers"])) * 100, 3)
         shot_making_index = round((data["made"] / max(1, data["made"] + data["missed"])) * 100, 3)
+        gravity_index = round((data["gravity_events"] / total) * 100, 3)
 
         # size index: normalize height/weight to a 0-100-ish scale if present
         h, w = size_map.get(pid, (None, None))
@@ -137,8 +156,8 @@ def build_player_traits():
             INSERT OR REPLACE INTO player_traits
             (player_id, player_name, dog_events, total_events, dog_index,
              menace_index, unselfish_index, toughness_index, rim_pressure_index,
-             shot_making_index, size_index)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             shot_making_index, size_index, gravity_index)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 pid,
@@ -152,6 +171,7 @@ def build_player_traits():
                 rim_pressure_index,
                 shot_making_index,
                 size_index,
+                gravity_index,
             ),
         )
 
