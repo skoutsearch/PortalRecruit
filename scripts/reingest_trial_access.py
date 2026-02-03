@@ -166,6 +166,10 @@ def main() -> int:
             if h in acc_norm or a in acc_norm:
                 game_ids_to_fill.append(gid)
 
+        print(f"   ACC games needing events: {len(game_ids_to_fill)} (from {len(candidates)} low/zero-play games)")
+        if not game_ids_to_fill:
+            print("   ⚠️ No ACC games matched for event refill. Check team name normalization.")
+
         if game_ids_to_fill:
             for idx, gid in enumerate(game_ids_to_fill):
                 if idx % 10 == 0:
