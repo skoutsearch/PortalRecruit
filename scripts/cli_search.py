@@ -102,6 +102,8 @@ def main():
         if t.get("shot", 0) < args.min_shot: continue
 
         play_tags = tag_play(desc)
+        if "non_possession" in play_tags:
+            continue
         if args.tags and not set(args.tags).issubset(set(play_tags)):
             continue
 
