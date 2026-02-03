@@ -94,6 +94,8 @@ elif st.session_state.app_mode == "Search":
     intent_size = 0
     n_results = 15
     tag_filter = []
+    intent_tags = []
+    required_tags = []
 
     with st.sidebar.expander("Advanced Filters", expanded=False):
         slider_dog = st.slider("Min Dog Index", 0, 100, 0)
@@ -104,7 +106,7 @@ elif st.session_state.app_mode == "Search":
         slider_shot = st.slider("Min Shot Making", 0, 100, 0)
         slider_size = st.slider("Min Size Index", 0, 100, 0)
         n_results = st.slider("Number of Results", 5, 50, 15)
-        tag_filter = st.multiselect(
+        required_tags = st.multiselect(
             "Required Tags",
             ["drive", "rim_pressure", "pnr", "iso", "post_up", "handoff", "pull_up", "3pt", "jumpshot", "dunk", "layup", "steal", "block", "charge_taken", "loose_ball", "deflection", "assist", "turnover"],
             default=[]
@@ -165,16 +167,17 @@ elif st.session_state.app_mode == "Search":
             # size/measurables intent triggers
             if intent is INTENTS.get("size_measurables"):
                 intent_size = max(intent_size, 70)
-            tag_filter = list(set(tag_filter + list(intent.tags)))
+            # make intent tags soft (don't hard-filter)
+            intent_tags = list(set(intent_tags + list(intent.tags)))
             exclude_tags |= intent.exclude_tags
 
         # Role hints to lightly nudge tags
         if "guard" in role_hints:
-            tag_filter = list(set(tag_filter + ["drive", "pnr"]))
+            intent_tags = list(set(intent_tags + ["drive", "pnr"]))
         if "wing" in role_hints:
-            tag_filter = list(set(tag_filter + ["3pt", "deflection"]))
+            intent_tags = list(set(intent_tags + ["3pt", "deflection"]))
         if "big" in role_hints:
-            tag_filter = list(set(tag_filter + ["rim_pressure", "block", "post_up"]))
+            intent_tags = list(set(intent_tags + ["rim_pressure", "block", "post_up"]))
 
         st.write(f"Searching for: **{query}**")
 
@@ -248,6 +251,25 @@ elif st.session_state.app_mode == "Search":
                     for r in cur.fetchall()
                 }
 
+            # Trait averages (for strengths/weaknesses)
+            cur.execute(
+                """
+                SELECT AVG(dog_index), AVG(menace_index), AVG(unselfish_index),
+                       AVG(toughness_index), AVG(rim_pressure_index), AVG(shot_making_index), AVG(size_index)
+                FROM player_traits
+                """
+            )
+            avg_row = cur.fetchone() or (0, 0, 0, 0, 0, 0, 0)
+            trait_avg = {
+                "dog": avg_row[0] or 0,
+                "menace": avg_row[1] or 0,
+                "unselfish": avg_row[2] or 0,
+                "tough": avg_row[3] or 0,
+                "rim": avg_row[4] or 0,
+                "shot": avg_row[5] or 0,
+                "size": avg_row[6] or 0,
+            }
+
             # Pull game matchup
             game_ids = list({r[2] for r in play_rows})
             matchups = {}
@@ -298,7 +320,8 @@ elif st.session_state.app_mode == "Search":
                     continue
                 if exclude_tags and set(play_tags).intersection(exclude_tags):
                     continue
-                if tag_filter and not set(tag_filter).issubset(set(play_tags)):
+                # Only hard-filter by user-selected Required Tags
+                if required_tags and not set(required_tags).issubset(set(play_tags)):
                     continue
 
                 # Rerank score: trait alignment + tag matches
@@ -322,16 +345,68 @@ elif st.session_state.app_mode == "Search":
                 score += max(0, (t.get("rim") or 0) - intent_rim) * 0.1
                 score += max(0, (t.get("shot") or 0) - intent_shot) * 0.1
 
-                score += len(set(play_tags).intersection(set(tag_filter))) * 10
+                score += len(set(play_tags).intersection(set(intent_tags))) * 10
 
                 if "turnover" in play_tags:
                     score -= 8
 
                 home, away, video = matchups.get(gid, ("Unknown", "Unknown", None))
+
+                # Strengths/weaknesses vs averages
+                trait_map = {
+                    "dog": ("Dog", dog_index),
+                    "menace": ("Menace", menace_index),
+                    "unselfish": ("Unselfish", unselfish_index),
+                    "tough": ("Toughness", tough_index),
+                    "rim": ("Rim Pressure", rim_index),
+                    "shot": ("Shot Making", shot_index),
+                    "size": ("Size", t.get("size")),
+                }
+                strengths = []
+                weaknesses = []
+                for key, (label, val) in trait_map.items():
+                    if val is None:
+                        continue
+                    avg = trait_avg.get(key, 0)
+                    if val >= avg + 10:
+                        strengths.append(label)
+                    elif val <= avg - 10:
+                        weaknesses.append(label)
+                strengths = strengths[:2]
+                weaknesses = weaknesses[:2]
+
+                # Human-readable "why"
+                reason_parts = []
+                if intent_unselfish and (unselfish_index or 0) >= intent_unselfish:
+                    reason_parts.append("high unselfishness")
+                if intent_tough and (tough_index or 0) >= intent_tough:
+                    reason_parts.append("tough/competitive")
+                if intent_dog and (dog_index or 0) >= intent_dog:
+                    reason_parts.append("dog mentality")
+                if intent_menace and (menace_index or 0) >= intent_menace:
+                    reason_parts.append("defensive menace")
+                if intent_rim and (rim_index or 0) >= intent_rim:
+                    reason_parts.append("rim pressure")
+                if intent_shot and (shot_index or 0) >= intent_shot:
+                    reason_parts.append("shot making")
+                if not reason_parts and strengths:
+                    reason_parts = [s.lower() for s in strengths]
+                reason = " — ".join(reason_parts) if reason_parts else "solid all-around fit"
+
+                # External profile links (search)
+                team = home if player_name and player_name in desc else home
+                q = f"{player_name or 'player'} {home} basketball"
+                espn_url = f"https://www.espn.com/search/_/q/{q.replace(' ', '%20')}"
+                ncaa_url = f"https://stats.ncaa.org/search/m?search={q.replace(' ', '+')}"
+
                 rows.append({
                     "Matchup": f"{home} vs {away}",
                     "Clock": clock,
                     "Player": (player_name or "Unknown"),
+                    "Why": reason,
+                    "Strengths": ", ".join(strengths) if strengths else "—",
+                    "Weaknesses": ", ".join(weaknesses) if weaknesses else "—",
+                    "Profile": f"[ESPN]({espn_url}) | [NCAA]({ncaa_url})",
                     "Dog Index": dog_index,
                     "Menace": menace_index,
                     "Unselfish": unselfish_index,
@@ -392,6 +467,9 @@ elif st.session_state.app_mode == "Search":
                             st.markdown(f"**{r['Matchup']}** @ {r['Clock']}")
                             st.caption(f"Tags: {r['Tags']} | Score: {r.get('Score', 0)}")
                             st.write(r["Play"])
+                            st.caption(f"Why: {r.get('Why','')}")
+                            st.caption(f"Strengths: {r.get('Strengths','—')} | Weaknesses: {r.get('Weaknesses','—')}")
+                            st.markdown(r.get("Profile", ""), unsafe_allow_html=True)
                             if r.get("Video") and r["Video"] != "-":
                                 try:
                                     st.video(r["Video"])
