@@ -324,6 +324,9 @@ elif st.session_state.app_mode == "Search":
 
                 score += len(set(play_tags).intersection(set(tag_filter))) * 10
 
+                if "turnover" in play_tags:
+                    score -= 8
+
                 home, away, video = matchups.get(gid, ("Unknown", "Unknown", None))
                 rows.append({
                     "Matchup": f"{home} vs {away}",

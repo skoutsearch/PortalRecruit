@@ -56,6 +56,11 @@ INTENTS: Dict[str, IntentBoost] = {
         traits={},
         tags=set(),
     ),
+    "leadership": IntentBoost(
+        traits={"unselfish": 35, "tough": 25, "dog": 25, "menace": 20},
+        tags={"assist", "deflection", "charge_taken", "loose_ball"},
+        exclude_tags={"turnover", "non_possession", "ft"},
+    ),
     "size_measurables": IntentBoost(
         traits={},
         tags=set(),
@@ -316,6 +321,22 @@ PHRASES: Dict[str, List[str]] = {
         "energy vampire",
         "command of the huddle",
     ],
+    "leadership": [
+        "leader",
+        "team leader",
+        "vocal leader",
+        "floor general",
+        "coach on the floor",
+        "extension of the coach",
+        "captain",
+        "steady hand",
+        "command of the huddle",
+        "accountability",
+        "organizes the team",
+        "directs traffic",
+        "tone setter",
+        "lead by example",
+    ],
     "size_measurables": [
         "positional size",
         "length",
@@ -388,6 +409,8 @@ WEIGHTED_PHRASES: Dict[str, List[Tuple[str, float]]] = {
     "iq_feel": [(p, 1.0) for p in PHRASES["iq_feel"]]
     + [("processor", 0.6), ("connector iq", 0.6)],
     "character_stability": [(p, 1.0) for p in PHRASES["character_stability"]],
+    "leadership": [(p, 1.0) for p in PHRASES["leadership"]]
+    + [("leader", 1.0), ("vocal", 0.6), ("captain", 0.6)],
     "size_measurables": [(p, 1.0) for p in PHRASES["size_measurables"]]
     + [("long", 0.6), ("big framed", 0.6)],
     "negative_filters": [(p, 1.0) for p in PHRASES["negative_filters"]],
