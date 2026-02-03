@@ -65,6 +65,24 @@ def main() -> int:
     total_new_games = 0
     total_new_plays = 0
 
+    acc_2021_22 = {
+        "BostonCollege",
+        "Clemson",
+        "Duke",
+        "FloridaState",
+        "GeorgiaTech",
+        "Louisville",
+        "MiamiFL",
+        "NorthCarolina",
+        "NorthCarolinaState",
+        "NotreDame",
+        "Pittsburgh",
+        "Syracuse",
+        "Virginia",
+        "VirginiaTech",
+        "WakeForest",
+    }
+
     for season_id in season_ids:
         teams_payload = client.get_teams("ncaamb", season_id)
         teams = [t for t in _unwrap_list_payload(teams_payload) if isinstance(t, dict)]
@@ -105,21 +123,22 @@ def main() -> int:
             if players:
                 upsert_players(conn, tid, players)
 
-        # Events: (a) new games, (b) existing games with zero plays
-        game_ids_to_fill: list[str] = list(new_games.keys())
-        if existing_game_ids:
-            cur.execute(
-                """
-                SELECT g.game_id
-                FROM games g
-                LEFT JOIN plays p ON p.game_id = g.game_id
-                WHERE g.season_id = ?
-                GROUP BY g.game_id
-                HAVING COUNT(p.play_id) = 0
-                """,
-                (season_id,),
-            )
-            game_ids_to_fill.extend([r[0] for r in cur.fetchall()])
+        # Events: focus on ACC games with zero or low plays
+        cur.execute(
+            """
+            SELECT g.game_id, g.home_team, g.away_team, COUNT(p.play_id) AS plays
+            FROM games g
+            LEFT JOIN plays p ON p.game_id = g.game_id
+            WHERE g.season_id = ?
+              AND (g.home_team IN ({}) OR g.away_team IN ({}))
+            GROUP BY g.game_id
+            HAVING plays = 0 OR plays < 50
+            """.format(
+                ",".join(["?"] * len(acc_2021_22)), ",".join(["?"] * len(acc_2021_22))
+            ),
+            (season_id, *acc_2021_22, *acc_2021_22),
+        )
+        game_ids_to_fill = [r[0] for r in cur.fetchall()]
 
         if game_ids_to_fill:
             for idx, gid in enumerate(game_ids_to_fill):
