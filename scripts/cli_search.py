@@ -104,6 +104,10 @@ def main():
         play_tags = tag_play(desc)
         if "non_possession" in play_tags:
             continue
+        if "ft" in play_tags:
+            continue
+        if "shot clock" in desc.lower():
+            continue
         if args.tags and not set(args.tags).issubset(set(play_tags)):
             continue
 
