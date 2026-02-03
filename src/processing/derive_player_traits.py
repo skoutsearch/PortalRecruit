@@ -32,10 +32,28 @@ def build_player_traits():
             player_name TEXT,
             dog_events INTEGER,
             total_events INTEGER,
-            dog_index REAL
+            dog_index REAL,
+            menace_index REAL,
+            unselfish_index REAL,
+            toughness_index REAL,
+            rim_pressure_index REAL,
+            shot_making_index REAL
         )
         """
     )
+
+    # Ensure new columns exist (safe ALTER)
+    for col, ctype in [
+        ("menace_index", "REAL"),
+        ("unselfish_index", "REAL"),
+        ("toughness_index", "REAL"),
+        ("rim_pressure_index", "REAL"),
+        ("shot_making_index", "REAL"),
+    ]:
+        try:
+            cur.execute(f"ALTER TABLE player_traits ADD COLUMN {col} {ctype}")
+        except Exception:
+            pass
 
     # Pull plays with player_id
     cur.execute(
@@ -54,25 +72,55 @@ def build_player_traits():
             agg[player_id] = {
                 "player_name": player_name,
                 "dog_events": 0,
+                "menace_events": 0,
+                "tough_events": 0,
+                "rim_events": 0,
+                "assists": 0,
+                "turnovers": 0,
+                "made": 0,
+                "missed": 0,
                 "total_events": 0,
             }
+        tags = set(tag_play(desc))
         agg[player_id]["total_events"] += 1
-        agg[player_id]["dog_events"] += _count_keywords(desc, DOG_KEYWORDS)
+        agg[player_id]["dog_events"] += int(bool(tags & {"oreb", "loose_ball", "charge_taken", "deflection"}))
+        agg[player_id]["menace_events"] += int(bool(tags & {"steal", "block", "deflection"}))
+        agg[player_id]["tough_events"] += int(bool(tags & {"oreb", "loose_ball", "charge_taken"}))
+        agg[player_id]["rim_events"] += int(bool(tags & {"drive", "rim_pressure"}))
+        agg[player_id]["assists"] += int("assist" in tags)
+        agg[player_id]["turnovers"] += int("turnover" in tags)
+        agg[player_id]["made"] += int("made" in tags)
+        agg[player_id]["missed"] += int("missed" in tags)
 
-    # Compute dog_index and persist
-    # dog_index = dog_events / total_events (scaled 0-100)
+    # Compute indices and persist
     for pid, data in agg.items():
         total = max(1, data["total_events"])
-        dog_score = data["dog_events"] / total
-        dog_index = round(dog_score * 100, 3)
+        dog_index = round((data["dog_events"] / total) * 100, 3)
+        menace_index = round((data["menace_events"] / total) * 100, 3)
+        toughness_index = round((data["tough_events"] / total) * 100, 3)
+        rim_pressure_index = round((data["rim_events"] / total) * 100, 3)
+        unselfish_index = round((data["assists"] / max(1, data["assists"] + data["turnovers"])) * 100, 3)
+        shot_making_index = round((data["made"] / max(1, data["made"] + data["missed"])) * 100, 3)
 
         cur.execute(
             """
             INSERT OR REPLACE INTO player_traits
-            (player_id, player_name, dog_events, total_events, dog_index)
-            VALUES (?, ?, ?, ?, ?)
+            (player_id, player_name, dog_events, total_events, dog_index,
+             menace_index, unselfish_index, toughness_index, rim_pressure_index, shot_making_index)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (pid, data["player_name"], data["dog_events"], data["total_events"], dog_index),
+            (
+                pid,
+                data["player_name"],
+                data["dog_events"],
+                data["total_events"],
+                dog_index,
+                menace_index,
+                unselfish_index,
+                toughness_index,
+                rim_pressure_index,
+                shot_making_index,
+            ),
         )
 
     conn.commit()

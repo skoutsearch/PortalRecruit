@@ -42,7 +42,10 @@ def tag_play(description: str, clock_seconds: int = None) -> list[str]:
         tags.add("score")
     elif "missed" in desc:
         tags.add("missed")
-    
+
+    if "assist" in desc or "ast" in desc:
+        tags.add("assist")
+
     if "turnover" in desc:
         tags.add("turnover")
         if "steal" in desc:

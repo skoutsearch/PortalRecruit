@@ -87,16 +87,42 @@ elif st.session_state.app_mode == "Search":
 
     # Filters
     min_dog = st.sidebar.slider("Min Dog Index", 0, 100, 0)
+    min_menace = st.sidebar.slider("Min Defensive Menace", 0, 100, 0)
+    min_unselfish = st.sidebar.slider("Min Unselfishness", 0, 100, 0)
+    min_tough = st.sidebar.slider("Min Toughness", 0, 100, 0)
+    min_rim = st.sidebar.slider("Min Rim Pressure", 0, 100, 0)
+    min_shot = st.sidebar.slider("Min Shot Making", 0, 100, 0)
+
     n_results = st.sidebar.slider("Number of Results", 5, 50, 15)
     tag_filter = st.sidebar.multiselect(
         "Required Tags",
-        ["drive", "rim_pressure", "pnr", "iso", "post_up", "handoff", "pull_up", "3pt", "jumpshot", "dunk", "layup", "steal", "block", "charge_taken", "loose_ball", "deflection"],
+        ["drive", "rim_pressure", "pnr", "iso", "post_up", "handoff", "pull_up", "3pt", "jumpshot", "dunk", "layup", "steal", "block", "charge_taken", "loose_ball", "deflection", "assist", "turnover"],
         default=[]
     )
 
     query = st.chat_input("Describe the player you are looking for (e.g., 'A high-motor rim protector who can switch on guards')...")
 
     if query:
+        # --- QUERY INTENTS (coach-speak -> filters) ---
+        q = query.lower()
+        if "get in the lane" in q or "rim pressure" in q or "downhill" in q:
+            min_rim = max(min_rim, 30)
+            tag_filter = list(set(tag_filter + ["drive", "rim_pressure"]))
+        if "keep people out" in q or "rim protector" in q:
+            min_menace = max(min_menace, 25)
+            tag_filter = list(set(tag_filter + ["block"]))
+        if "unselfish" in q or "selfless" in q:
+            min_unselfish = max(min_unselfish, 40)
+        if "tough" in q or "toughness" in q:
+            min_tough = max(min_tough, 25)
+            tag_filter = list(set(tag_filter + ["loose_ball", "charge_taken"]))
+        if "shot maker" in q or "shot making" in q or "shooter" in q:
+            min_shot = max(min_shot, 40)
+            tag_filter = list(set(tag_filter + ["jumpshot", "3pt"]))
+        if "defensive menace" in q or "menace" in q:
+            min_menace = max(min_menace, 35)
+            tag_filter = list(set(tag_filter + ["steal", "block", "deflection"]))
+
         st.write(f"Searching for: **{query}**")
 
         # --- VECTOR SEARCH ---
@@ -144,13 +170,24 @@ elif st.session_state.app_mode == "Search":
                 ph2 = ",".join(["?"] * len(set(player_ids)))
                 cur.execute(
                     f"""
-                    SELECT player_id, dog_index
+                    SELECT player_id, dog_index, menace_index, unselfish_index,
+                           toughness_index, rim_pressure_index, shot_making_index
                     FROM player_traits
                     WHERE player_id IN ({ph2})
                     """,
                     list(set(player_ids)),
                 )
-                traits = {r[0]: r[1] for r in cur.fetchall()}
+                traits = {
+                    r[0]: {
+                        "dog": r[1],
+                        "menace": r[2],
+                        "unselfish": r[3],
+                        "tough": r[4],
+                        "rim": r[5],
+                        "shot": r[6],
+                    }
+                    for r in cur.fetchall()
+                }
 
             # Pull game matchup
             game_ids = list({r[2] for r in play_rows})
@@ -174,8 +211,25 @@ elif st.session_state.app_mode == "Search":
 
             rows = []
             for pid, desc, gid, clock, player_id, player_name in play_rows:
-                dog_index = traits.get(player_id)
+                t = traits.get(player_id, {})
+                dog_index = t.get("dog")
+                menace_index = t.get("menace")
+                unselfish_index = t.get("unselfish")
+                tough_index = t.get("tough")
+                rim_index = t.get("rim")
+                shot_index = t.get("shot")
+
                 if dog_index is not None and dog_index < min_dog:
+                    continue
+                if menace_index is not None and menace_index < min_menace:
+                    continue
+                if unselfish_index is not None and unselfish_index < min_unselfish:
+                    continue
+                if tough_index is not None and tough_index < min_tough:
+                    continue
+                if rim_index is not None and rim_index < min_rim:
+                    continue
+                if shot_index is not None and shot_index < min_shot:
                     continue
 
                 play_tags = tag_play(desc)
@@ -188,6 +242,11 @@ elif st.session_state.app_mode == "Search":
                     "Clock": clock,
                     "Player": (player_name or "Unknown"),
                     "Dog Index": dog_index,
+                    "Menace": menace_index,
+                    "Unselfish": unselfish_index,
+                    "Toughness": tough_index,
+                    "Rim Pressure": rim_index,
+                    "Shot Making": shot_index,
                     "Tags": ", ".join(play_tags),
                     "Play": desc,
                     "Video": video or "-",
