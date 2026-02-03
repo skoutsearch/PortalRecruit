@@ -5,7 +5,7 @@ Buckets map phrases to trait boosts and required tags.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Tuple
 
 
 @dataclass
@@ -13,6 +13,13 @@ class IntentBoost:
     traits: Dict[str, int] = field(default_factory=dict)  # trait -> min boost
     tags: Set[str] = field(default_factory=set)
     exclude_tags: Set[str] = field(default_factory=set)
+
+
+@dataclass
+class IntentHit:
+    intent: IntentBoost
+    weight: float = 1.0
+    role_hints: Set[str] = field(default_factory=set)  # guard/wing/big
 
 
 # Canonical intents (extensible)
@@ -54,7 +61,7 @@ INTENTS: Dict[str, IntentBoost] = {
         tags=set(),
     ),
     "negative_filters": IntentBoost(
-        traits={},
+        traits={"unselfish": 20, "shot": 20},
         tags=set(),
         exclude_tags={"turnover", "non_possession"},
     ),
@@ -337,6 +344,8 @@ PHRASES: Dict[str, List[str]] = {
         "long levered",
         "big wing",
         "big body guard",
+        "long athlete",
+        "plus length",
     ],
     "negative_filters": [
         "empty calories",
@@ -349,17 +358,58 @@ PHRASES: Dict[str, List[str]] = {
         "bad shot",
         "wild",
         "takes bad shots",
+        "stat chaser",
+        "no feel",
+        "low motor",
     ],
 }
 }
 
 
-def infer_intents(query: str) -> Dict[str, IntentBoost]:
+ROLE_PHRASES: Dict[str, List[str]] = {
+    "guard": ["pg", "point guard", "lead guard", "floor general"],
+    "wing": ["wing", "3-and-d", "two-way wing"],
+    "big": ["big", "rim protector", "anchor", "post player", "center"],
+}
+
+WEIGHTED_PHRASES: Dict[str, List[Tuple[str, float]]] = {
+    # core phrases (1.0) + support phrases (0.6)
+    "paint_presence_offense": [(p, 1.0) for p in PHRASES["paint_presence_offense"]]
+    + [("downhill", 0.6), ("paint touch", 0.6)],
+    "paint_presence_defense": [(p, 1.0) for p in PHRASES["paint_presence_defense"]]
+    + [("rim deterrent", 0.6), ("paint patrol", 0.6)],
+    "shooting_spacing": [(p, 1.0) for p in PHRASES["shooting_spacing"]]
+    + [("deep shooter", 0.6), ("sniper", 0.6), ("laser", 0.6)],
+    "unselfish_connectivity": [(p, 1.0) for p in PHRASES["unselfish_connectivity"]]
+    + [("quick decision", 0.6), ("hit ahead", 0.6)],
+    "defensive_menace": [(p, 1.0) for p in PHRASES["defensive_menace"]]
+    + [("heat", 0.6), ("pest", 0.6)],
+    "toughness_winning": [(p, 1.0) for p in PHRASES["toughness_winning"]]
+    + [("junkyard", 0.6), ("grinder", 0.6)],
+    "iq_feel": [(p, 1.0) for p in PHRASES["iq_feel"]]
+    + [("processor", 0.6), ("connector iq", 0.6)],
+    "character_stability": [(p, 1.0) for p in PHRASES["character_stability"]],
+    "size_measurables": [(p, 1.0) for p in PHRASES["size_measurables"]]
+    + [("long", 0.6), ("big framed", 0.6)],
+    "negative_filters": [(p, 1.0) for p in PHRASES["negative_filters"]],
+}
+
+
+def infer_intents(query: str) -> Dict[str, IntentHit]:
     q = (query or "").lower()
-    hits: Dict[str, IntentBoost] = {}
-    for bucket, phrases in PHRASES.items():
-        for p in phrases:
+    hits: Dict[str, IntentHit] = {}
+
+    # role hints
+    role_hints: Set[str] = set()
+    for role, phrases in ROLE_PHRASES.items():
+        if any(p in q for p in phrases):
+            role_hints.add(role)
+
+    for bucket, phrases in WEIGHTED_PHRASES.items():
+        for p, w in phrases:
             if p in q:
-                hits[bucket] = INTENTS[bucket]
+                hit = IntentHit(intent=INTENTS[bucket], weight=w, role_hints=role_hints)
+                hits[bucket] = hit
                 break
+
     return hits

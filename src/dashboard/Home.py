@@ -112,15 +112,27 @@ elif st.session_state.app_mode == "Search":
 
         intents = infer_intents(query)
         exclude_tags = set()
-        for intent in intents.values():
-            min_dog = max(min_dog, intent.traits.get("dog", 0))
-            min_menace = max(min_menace, intent.traits.get("menace", 0))
-            min_unselfish = max(min_unselfish, intent.traits.get("unselfish", 0))
-            min_tough = max(min_tough, intent.traits.get("tough", 0))
-            min_rim = max(min_rim, intent.traits.get("rim", 0))
-            min_shot = max(min_shot, intent.traits.get("shot", 0))
+        role_hints = set()
+        for hit in intents.values():
+            intent = hit.intent
+            w = hit.weight
+            role_hints |= hit.role_hints
+            min_dog = max(min_dog, int(intent.traits.get("dog", 0) * w))
+            min_menace = max(min_menace, int(intent.traits.get("menace", 0) * w))
+            min_unselfish = max(min_unselfish, int(intent.traits.get("unselfish", 0) * w))
+            min_tough = max(min_tough, int(intent.traits.get("tough", 0) * w))
+            min_rim = max(min_rim, int(intent.traits.get("rim", 0) * w))
+            min_shot = max(min_shot, int(intent.traits.get("shot", 0) * w))
             tag_filter = list(set(tag_filter + list(intent.tags)))
             exclude_tags |= intent.exclude_tags
+
+        # Role hints to lightly nudge tags
+        if "guard" in role_hints:
+            tag_filter = list(set(tag_filter + ["drive", "pnr"]))
+        if "wing" in role_hints:
+            tag_filter = list(set(tag_filter + ["3pt", "deflection"]))
+        if "big" in role_hints:
+            tag_filter = list(set(tag_filter + ["rim_protection", "post_up"]))
 
         st.write(f"Searching for: **{query}**")
 
