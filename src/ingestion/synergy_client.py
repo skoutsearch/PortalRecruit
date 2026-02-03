@@ -22,8 +22,8 @@ class SynergyClient:
         self.last_status_code: int | None = None
         self.last_error: str | None = None
 
-    def _get(self, endpoint, params=None, retries=4):
-        """Executes a GET request with strict 429 Rate Limit handling.
+    def _get(self, endpoint, params=None, retries=6):
+        """Executes a GET request with strict rate-limit handling.
 
         Returns:
             Parsed JSON (dict/list) on success, else None.
@@ -37,23 +37,37 @@ class SynergyClient:
         self.last_status_code = None
         self.last_error = None
 
+        # Simple global throttle (min delay between requests)
+        min_interval_s = 1.0
+        now = time.time()
+        last = getattr(self, "_last_request_ts", 0.0)
+        if now - last < min_interval_s:
+            time.sleep(min_interval_s - (now - last))
+
         for attempt in range(retries):
             try:
                 response = requests.get(url, headers=self.headers, params=params, timeout=30)
+                self._last_request_ts = time.time()
                 self.last_status_code = response.status_code
                 print(f"  < Status Code: {response.status_code}")
 
                 # 1. Handle Rate Limiting (429)
                 if response.status_code == 429:
-                    wait_time = (attempt + 1) * 2.5  # Backoff: 2.5s, 5s, 7.5s...
-                    print(f"      ⚠️ Rate limit hit (429). Pausing for {wait_time}s...")
+                    retry_after = response.headers.get("Retry-After")
+                    if retry_after and str(retry_after).isdigit():
+                        wait_time = int(retry_after)
+                    else:
+                        # exponential backoff + jitter
+                        wait_time = min(60, (2 ** attempt) * 2) + (0.5 * attempt)
+                    print(f"      ⚠️ Rate limit hit (429). Pausing for {wait_time:.1f}s...")
                     time.sleep(wait_time)
                     continue
 
                 # 2. Handle Server Errors (5xx)
                 if response.status_code >= 500:
-                    print(f"      ⚠️ Server Error ({response.status_code}). Retrying...")
-                    time.sleep(2)
+                    wait_time = min(30, 2 + attempt * 2)
+                    print(f"      ⚠️ Server Error ({response.status_code}). Retrying in {wait_time}s...")
+                    time.sleep(wait_time)
                     continue
 
                 response.raise_for_status()
