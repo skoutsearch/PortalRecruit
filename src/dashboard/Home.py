@@ -169,7 +169,7 @@ elif st.session_state.app_mode == "Search":
         if "wing" in role_hints:
             tag_filter = list(set(tag_filter + ["3pt", "deflection"]))
         if "big" in role_hints:
-            tag_filter = list(set(tag_filter + ["rim_protection", "post_up"]))
+            tag_filter = list(set(tag_filter + ["rim_pressure", "block", "post_up"]))
 
         st.write(f"Searching for: **{query}**")
         if explain:
