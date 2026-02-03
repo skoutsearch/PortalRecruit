@@ -20,5 +20,4 @@ __pycache__/
 .venv/
 
 # Data
-/data/skout.db
 /data/vector_db/
