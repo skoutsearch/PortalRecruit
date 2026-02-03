@@ -107,6 +107,21 @@ elif st.session_state.app_mode == "Search":
 
     # Search box + autocomplete
     query = st.text_input("Search", "", placeholder="Downhill guard who can guard")
+
+    # Recent searches
+    try:
+        import json
+        mem_path = REPO_ROOT / "data" / "search_memory.json"
+        if mem_path.exists():
+            memory = json.loads(mem_path.read_text())
+            recent = list(reversed(memory.get("queries", [])))[:8]
+            if recent:
+                recent_pick = st.selectbox("Recent searches", ["(none)"] + recent, index=0)
+                if recent_pick != "(none)":
+                    query = recent_pick
+    except Exception:
+        pass
+
     from src.search.autocomplete import suggest_rich  # noqa: E402
     suggestions = suggest_rich(query, limit=25)
     if suggestions:
@@ -311,18 +326,63 @@ elif st.session_state.app_mode == "Search":
 
             rows.sort(key=lambda r: r.get("Score", 0), reverse=True)
 
+            # --- Search memory ---
+            try:
+                mem_path = REPO_ROOT / "data" / "search_memory.json"
+                mem_path.parent.mkdir(parents=True, exist_ok=True)
+                import json
+                if mem_path.exists():
+                    memory = json.loads(mem_path.read_text())
+                else:
+                    memory = {"queries": []}
+                if query:
+                    memory["queries"].append(query)
+                    memory["queries"] = memory["queries"][-20:]
+                    mem_path.write_text(json.dumps(memory, indent=2))
+            except Exception:
+                pass
+
             if rows:
-                st.markdown("### Results")
+                # Group by player (top 3 clips each)
+                grouped = {}
                 for r in rows:
-                    with st.container():
-                        st.markdown(f"**{r['Player']}** — {r['Matchup']} @ {r['Clock']}")
-                        st.caption(f"Tags: {r['Tags']} | Score: {r.get('Score', 0)}")
-                        st.write(r["Play"])
-                        if r.get("Video") and r["Video"] != "-":
+                    grouped.setdefault(r["Player"], []).append(r)
+
+                st.markdown("### Results")
+
+                # Coach Pack export
+                import io, zipfile, csv
+                csv_buf = io.StringIO()
+                writer = csv.DictWriter(csv_buf, fieldnames=list(rows[0].keys()))
+                writer.writeheader()
+                writer.writerows(rows)
+
+                zip_buf = io.BytesIO()
+                with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+                    zf.writestr("coach_pack.csv", csv_buf.getvalue())
+                    # attach video files if local
+                    for r in rows:
+                        v = r.get("Video")
+                        if v and v != "-" and str(v).startswith("/"):
                             try:
-                                st.video(r["Video"])
+                                zf.write(v, arcname=f"videos/{Path(v).name}")
                             except Exception:
                                 pass
-                        st.divider()
+                zip_buf.seek(0)
+                st.download_button("Download Coach Pack", zip_buf, file_name="coach_pack.zip")
+
+                for player, clips in grouped.items():
+                    st.markdown(f"## {player}")
+                    for r in clips[:3]:
+                        with st.container():
+                            st.markdown(f"**{r['Matchup']}** @ {r['Clock']}")
+                            st.caption(f"Tags: {r['Tags']} | Score: {r.get('Score', 0)}")
+                            st.write(r["Play"])
+                            if r.get("Video") and r["Video"] != "-":
+                                try:
+                                    st.video(r["Video"])
+                                except Exception:
+                                    pass
+                            st.divider()
             else:
                 st.info("No results after filters.")
