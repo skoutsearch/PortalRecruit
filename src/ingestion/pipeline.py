@@ -124,17 +124,28 @@ def upsert_players(conn, team_id: str, players: list[dict]) -> int:
             except Exception:
                 full_name = str(full_name)
 
+        def safe_str(val):
+            if val is None:
+                return None
+            if isinstance(val, str):
+                return val
+            try:
+                import json
+                return json.dumps(val, ensure_ascii=False)
+            except Exception:
+                return str(val)
+
         rows.append(
             (
-                p.get("id"),
-                team_id,
-                p.get("nameFirst") or p.get("firstName"),
-                p.get("nameLast") or p.get("lastName"),
-                full_name,
-                p.get("position"),
+                safe_str(p.get("id")),
+                safe_str(team_id),
+                safe_str(p.get("nameFirst") or p.get("firstName")),
+                safe_str(p.get("nameLast") or p.get("lastName")),
+                safe_str(full_name),
+                safe_str(p.get("position")),
                 p.get("heightInches") or p.get("height"),
                 p.get("weightPounds") or p.get("weight"),
-                p.get("class") or p.get("classYear"),
+                safe_str(p.get("class") or p.get("classYear")),
             )
         )
 
