@@ -146,16 +146,17 @@ def main() -> int:
         # Events: focus on ACC games with zero or low plays
         cur.execute(
             """
-            SELECT g.game_id, g.home_team, g.away_team, COUNT(p.play_id) AS plays
+            SELECT g.game_id, g.home_team, g.away_team, COUNT(p.play_id) AS play_count
             FROM games g
             LEFT JOIN plays p ON p.game_id = g.game_id
             WHERE g.season_id = ?
             GROUP BY g.game_id
-            HAVING plays = 0 OR plays < 50
+            HAVING COUNT(p.play_id) = 0 OR COUNT(p.play_id) < 50
             """,
             (season_id,),
         )
         candidates = cur.fetchall()
+        print(f"   Low/zero-play games found: {len(candidates)}")
 
         game_ids_to_fill = []
         for gid, home, away, plays in candidates:
