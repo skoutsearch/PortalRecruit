@@ -21,3 +21,7 @@ __pycache__/
 
 # Data
 /data/vector_db/
+/data/vector_db.zip.part*
+/data/skout.db
+/data/search_memory.json
+/data/video_clips/
