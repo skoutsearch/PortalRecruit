@@ -1,6 +1,8 @@
 import os
 import sqlite3
 
+from src.processing.play_tagger import tag_play
+
 DB_PATH = os.path.join(os.getcwd(), "data/skout.db")
 
 # Simple keyword-based proxies until we have richer event typing
