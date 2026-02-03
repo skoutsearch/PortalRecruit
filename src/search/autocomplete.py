@@ -26,7 +26,10 @@ def suggest_rich(prefix: str, limit: int = 25) -> list[str]:
     if not p or len(p) < 2:
         return []
 
-    from src.search.coach_dictionary import PHRASES
+    try:
+        from src.search.coach_dictionary import PHRASES
+    except Exception:
+        PHRASES = {}
 
     # direct matches
     direct = [s for s in all_phrases() if p in s]

@@ -122,8 +122,11 @@ elif st.session_state.app_mode == "Search":
     except Exception:
         pass
 
-    from src.search.autocomplete import suggest_rich  # noqa: E402
-    suggestions = suggest_rich(query, limit=25)
+    try:
+        from src.search.autocomplete import suggest_rich  # noqa: E402
+        suggestions = suggest_rich(query, limit=25)
+    except Exception:
+        suggestions = []
     if suggestions:
         picked = st.selectbox("Suggestions", ["(keep typing)"] + suggestions, index=0)
         if picked != "(keep typing)":
@@ -347,6 +350,21 @@ elif st.session_state.app_mode == "Search":
                 grouped = {}
                 for r in rows:
                     grouped.setdefault(r["Player"], []).append(r)
+
+                # Top 5 player cards
+                st.markdown("### Top 5 Players")
+                top_players = []
+                for player, clips in grouped.items():
+                    avg_score = sum(c.get("Score", 0) for c in clips[:3]) / max(1, len(clips[:3]))
+                    top_players.append((player, avg_score, clips[0]))
+                top_players.sort(key=lambda x: x[1], reverse=True)
+
+                cols = st.columns(5)
+                for idx, (player, score, clip) in enumerate(top_players[:5]):
+                    with cols[idx]:
+                        st.markdown(f"**{player}**")
+                        st.caption(f"Score: {score:.1f}")
+                        st.caption(clip.get("Matchup", ""))
 
                 st.markdown("### Results")
 
