@@ -65,6 +65,9 @@ def main() -> int:
     total_new_games = 0
     total_new_plays = 0
 
+    def _norm(name: str) -> str:
+        return "".join(c for c in (name or "") if c.isalnum()).lower()
+
     acc_2021_22 = {
         "BostonCollege",
         "Clemson",
@@ -81,6 +84,23 @@ def main() -> int:
         "Virginia",
         "VirginiaTech",
         "WakeForest",
+    }
+
+    acc_norm = {_norm(t) for t in acc_2021_22}
+    acc_aliases = {
+        "miami": "miamifl",
+        "ncstate": "northcarolinastate",
+        "ncsu": "northcarolinastate",
+        "northcarolinast": "northcarolinastate",
+        "fsu": "floridastate",
+        "bc": "bostoncollege",
+        "gt": "georgiatech",
+        "pitt": "pittsburgh",
+        "uva": "virginia",
+        "vt": "virginiatech",
+        "unc": "northcarolina",
+        "nd": "notredame",
+        "wake": "wakeforest",
     }
 
     for season_id in season_ids:
@@ -130,15 +150,21 @@ def main() -> int:
             FROM games g
             LEFT JOIN plays p ON p.game_id = g.game_id
             WHERE g.season_id = ?
-              AND (g.home_team IN ({}) OR g.away_team IN ({}))
             GROUP BY g.game_id
             HAVING plays = 0 OR plays < 50
-            """.format(
-                ",".join(["?"] * len(acc_2021_22)), ",".join(["?"] * len(acc_2021_22))
-            ),
-            (season_id, *acc_2021_22, *acc_2021_22),
+            """,
+            (season_id,),
         )
-        game_ids_to_fill = [r[0] for r in cur.fetchall()]
+        candidates = cur.fetchall()
+
+        game_ids_to_fill = []
+        for gid, home, away, plays in candidates:
+            h = _norm(home)
+            a = _norm(away)
+            h = acc_aliases.get(h, h)
+            a = acc_aliases.get(a, a)
+            if h in acc_norm or a in acc_norm:
+                game_ids_to_fill.append(gid)
 
         if game_ids_to_fill:
             for idx, gid in enumerate(game_ids_to_fill):
