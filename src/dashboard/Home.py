@@ -85,22 +85,26 @@ elif st.session_state.app_mode == "Search":
     
     st.markdown("### 🔍 Semantic Player Search")
 
-    # Filters
-    min_dog = st.sidebar.slider("Min Dog Index", 0, 100, 0)
-    min_menace = st.sidebar.slider("Min Defensive Menace", 0, 100, 0)
-    min_unselfish = st.sidebar.slider("Min Unselfishness", 0, 100, 0)
-    min_tough = st.sidebar.slider("Min Toughness", 0, 100, 0)
-    min_rim = st.sidebar.slider("Min Rim Pressure", 0, 100, 0)
-    min_shot = st.sidebar.slider("Min Shot Making", 0, 100, 0)
+    # Advanced Filters (collapsed by default)
+    min_dog = min_menace = min_unselfish = min_tough = min_rim = min_shot = 0
+    n_results = 15
+    tag_filter = []
 
-    n_results = st.sidebar.slider("Number of Results", 5, 50, 15)
-    tag_filter = st.sidebar.multiselect(
-        "Required Tags",
-        ["drive", "rim_pressure", "pnr", "iso", "post_up", "handoff", "pull_up", "3pt", "jumpshot", "dunk", "layup", "steal", "block", "charge_taken", "loose_ball", "deflection", "assist", "turnover"],
-        default=[]
-    )
+    with st.sidebar.expander("Advanced Filters", expanded=False):
+        min_dog = st.slider("Min Dog Index", 0, 100, 0)
+        min_menace = st.slider("Min Defensive Menace", 0, 100, 0)
+        min_unselfish = st.slider("Min Unselfishness", 0, 100, 0)
+        min_tough = st.slider("Min Toughness", 0, 100, 0)
+        min_rim = st.slider("Min Rim Pressure", 0, 100, 0)
+        min_shot = st.slider("Min Shot Making", 0, 100, 0)
+        n_results = st.slider("Number of Results", 5, 50, 15)
+        tag_filter = st.multiselect(
+            "Required Tags",
+            ["drive", "rim_pressure", "pnr", "iso", "post_up", "handoff", "pull_up", "3pt", "jumpshot", "dunk", "layup", "steal", "block", "charge_taken", "loose_ball", "deflection", "assist", "turnover"],
+            default=[]
+        )
 
-    query = st.chat_input("Describe the player you are looking for (e.g., 'A high-motor rim protector who can switch on guards')...")
+    query = st.chat_input("Describe the player you are looking for (e.g., 'A downhill guard who can guard')...")
 
     if query:
         # --- QUERY INTENTS (coach-speak -> filters) ---
@@ -255,6 +259,17 @@ elif st.session_state.app_mode == "Search":
                 })
 
             if rows:
-                st.dataframe(rows, use_container_width=True)
+                st.markdown("### Results")
+                for r in rows:
+                    with st.container():
+                        st.markdown(f"**{r['Player']}** — {r['Matchup']} @ {r['Clock']}")
+                        st.caption(f"Tags: {r['Tags']}")
+                        st.write(r["Play"])
+                        if r.get("Video") and r["Video"] != "-":
+                            try:
+                                st.video(r["Video"])
+                            except Exception:
+                                pass
+                        st.divider()
             else:
                 st.info("No results after filters.")
