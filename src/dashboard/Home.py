@@ -209,6 +209,16 @@ elif st.session_state.app_mode == "Search":
             logic = "single"
             parts = [q_lower]
 
+        # Numeric filters (over/under/above/below)
+        import re
+        numeric_filters = []
+        pattern = re.compile(r"\b(over|under|above|below|at least|atleast|at most|atmost|more than|less than)\s+(\d+(?:\.\d+)?)%?\s*(3pt|3pt%|3pt\s*%|three|three point|three-point|ft|free throw|free-throw|fg|field goal|field-goal|shot)\b")
+        for m in pattern.finditer(q_lower):
+            comp = m.group(1)
+            val = float(m.group(2))
+            stat = m.group(3)
+            numeric_filters.append((comp, val, stat))
+
         intents = {}
         for part in parts:
             intents.update(infer_intents_verbose(part))
@@ -546,6 +556,28 @@ elif st.session_state.app_mode == "Search":
                 # Only hard-filter by user-selected Required Tags
                 if required_tags and not set(required_tags).issubset(set(play_tags)):
                     continue
+
+                # Numeric filters (e.g., over 36% from 3)
+                if numeric_filters:
+                    pstats = player_stats.get(player_id, {})
+                    allow = True
+                    for comp, val, stat in numeric_filters:
+                        stat_val = None
+                        if "3" in stat or "three" in stat:
+                            stat_val = _safe_float(pstats.get("shot3_percent")) * 100
+                        elif stat in {"ft", "free throw", "free-throw"}:
+                            stat_val = _safe_float(pstats.get("ft_percent")) * 100
+                        elif stat in {"fg", "field goal", "field-goal", "shot"}:
+                            stat_val = _safe_float(pstats.get("fg_percent")) * 100
+
+                        if stat_val is None:
+                            continue
+                        if comp in {"over", "above", "more than", "at least", "atleast"} and not (stat_val >= val):
+                            allow = False
+                        if comp in {"under", "below", "less than", "at most", "atmost"} and not (stat_val <= val):
+                            allow = False
+                    if not allow:
+                        continue
 
                 # Role-based position filtering
                 pos = (player_positions.get(player_id) or "").upper()
