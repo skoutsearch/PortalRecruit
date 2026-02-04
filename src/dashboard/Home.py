@@ -18,7 +18,7 @@ from src.dashboard.theme import inject_background
 st.set_page_config(
     page_title="PortalRecruit | Search",
     layout="wide",
-    page_icon="🏀",
+    page_icon="https://skoutsearch.github.io/PortalRecruit/PR_LOGO_BBALL_SQUARE_HARDWOODBG_2.PNG",
     initial_sidebar_state="expanded", # Changed to expanded for navigation
 )
 inject_background()
@@ -304,7 +304,21 @@ elif st.session_state.app_mode == "Search":
             n_results=n_results
         )
 
-        play_ids = results.get("ids", [[]])[0]
+        # Optional cross-encoder re-rank for better semantic precision
+        try:
+            from sentence_transformers import CrossEncoder
+            docs = results.get("documents", [[]])[0]
+            ids = results.get("ids", [[]])[0]
+            if docs and ids:
+                cross = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+                pairs = [[expanded_query, d] for d in docs]
+                scores = cross.predict(pairs)
+                reranked = sorted(zip(ids, scores, docs), key=lambda x: x[1], reverse=True)
+                play_ids = [r[0] for r in reranked]
+            else:
+                play_ids = results.get("ids", [[]])[0]
+        except Exception:
+            play_ids = results.get("ids", [[]])[0]
         if not play_ids:
             st.warning("No results found.")
         else:
