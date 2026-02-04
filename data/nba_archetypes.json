@@ -1,106 +1,915 @@
 [
-  {"name":"T.J. McConnell","position":"G","height_in":73,"weight_lb":190,"tier":"floor","shot3_percent":0.34,
-   "traits":{"unselfish":75,"tough":70,"menace":55,"leadership":70}},
-  {"name":"Jose Alvarado","position":"G","height_in":72,"weight_lb":179,"tier":"floor","shot3_percent":0.36,
-   "traits":{"menace":80,"tough":70,"dog":70}},
-  {"name":"Tyus Jones","position":"G","height_in":73,"weight_lb":196,"tier":"ceiling","shot3_percent":0.38,
-   "traits":{"unselfish":85,"iq":80,"leadership":70}},
-  {"name":"Mike Conley","position":"G","height_in":72,"weight_lb":175,"tier":"ceiling","shot3_percent":0.39,
-   "traits":{"unselfish":80,"tough":65,"leadership":70}},
-  {"name":"Jalen Brunson","position":"G","height_in":74,"weight_lb":190,"tier":"ceiling","shot3_percent":0.39,
-   "traits":{"tough":70,"shot":80,"unselfish":65}},
-  {"name":"Malcolm Brogdon","position":"G","height_in":76,"weight_lb":229,"tier":"ceiling","shot3_percent":0.39,
-   "traits":{"shot":75,"unselfish":60,"tough":65}},
-  {"name":"Derrick White","position":"G","height_in":76,"weight_lb":190,"tier":"ceiling","shot3_percent":0.37,
-   "traits":{"menace":70,"unselfish":65,"shot":65}},
-  {"name":"Jrue Holiday","position":"G","height_in":76,"weight_lb":205,"tier":"ceiling","shot3_percent":0.39,
-   "traits":{"menace":85,"tough":75,"unselfish":60}},
-  {"name":"Alex Caruso","position":"G","height_in":77,"weight_lb":186,"tier":"floor","shot3_percent":0.36,
-   "traits":{"menace":85,"dog":75,"tough":70}},
-  {"name":"Bruce Brown","position":"G","height_in":76,"weight_lb":202,"tier":"floor","shot3_percent":0.33,
-   "traits":{"tough":70,"unselfish":55,"menace":60}},
-
-  {"name":"Mikal Bridges","position":"W","height_in":79,"weight_lb":209,"tier":"ceiling","shot3_percent":0.38,
-   "traits":{"menace":70,"shot":75,"tough":60}},
-  {"name":"OG Anunoby","position":"W","height_in":79,"weight_lb":240,"tier":"ceiling","shot3_percent":0.37,
-   "traits":{"menace":80,"tough":70,"shot":65}},
-  {"name":"Klay Thompson","position":"W","height_in":78,"weight_lb":220,"tier":"ceiling","shot3_percent":0.41,
-   "traits":{"shot":90,"tough":60}},
-  {"name":"Dorian Finney-Smith","position":"W","height_in":79,"weight_lb":220,"tier":"floor","shot3_percent":0.36,
-   "traits":{"menace":65,"tough":65,"shot":60}},
-  {"name":"Herb Jones","position":"W","height_in":79,"weight_lb":206,"tier":"floor","shot3_percent":0.33,
-   "traits":{"menace":85,"tough":70,"unselfish":55}},
-  {"name":"Aaron Nesmith","position":"W","height_in":78,"weight_lb":215,"tier":"floor","shot3_percent":0.37,
-   "traits":{"shot":70,"tough":65}},
-  {"name":"Josh Hart","position":"W","height_in":77,"weight_lb":215,"tier":"floor","shot3_percent":0.34,
-   "traits":{"tough":75,"unselfish":60}},
-  {"name":"Desmond Bane","position":"W","height_in":76,"weight_lb":215,"tier":"ceiling","shot3_percent":0.41,
-   "traits":{"shot":85,"tough":65}},
-  {"name":"Bojan Bogdanovic","position":"W","height_in":79,"weight_lb":226,"tier":"ceiling","shot3_percent":0.38,
-   "traits":{"shot":80}},
-  {"name":"Cam Johnson","position":"W","height_in":80,"weight_lb":210,"tier":"floor","shot3_percent":0.39,
-   "traits":{"shot":75}},
-
-  {"name":"Draymond Green","position":"F","height_in":78,"weight_lb":230,"tier":"ceiling","shot3_percent":0.32,
-   "traits":{"unselfish":80,"menace":80,"tough":75,"leadership":80}},
-  {"name":"Grant Williams","position":"F","height_in":79,"weight_lb":236,"tier":"floor","shot3_percent":0.37,
-   "traits":{"tough":70,"shot":60}},
-  {"name":"P.J. Tucker","position":"F","height_in":77,"weight_lb":245,"tier":"floor","shot3_percent":0.36,
-   "traits":{"tough":80,"menace":65}},
-  {"name":"Kyle Anderson","position":"F","height_in":81,"weight_lb":230,"tier":"floor","shot3_percent":0.34,
-   "traits":{"unselfish":70,"iq":75}},
-  {"name":"Jae Crowder","position":"F","height_in":78,"weight_lb":235,"tier":"floor","shot3_percent":0.34,
-   "traits":{"tough":70,"menace":60}},
-  {"name":"Nicolas Batum","position":"F","height_in":80,"weight_lb":230,"tier":"ceiling","shot3_percent":0.38,
-   "traits":{"unselfish":70,"menace":65,"shot":65}},
-  {"name":"Jaden McDaniels","position":"F","height_in":81,"weight_lb":185,"tier":"ceiling","shot3_percent":0.37,
-   "traits":{"menace":70,"shot":60}},
-  {"name":"Trey Murphy III","position":"F","height_in":81,"weight_lb":206,"tier":"ceiling","shot3_percent":0.39,
-   "traits":{"shot":80}},
-  {"name":"Keegan Murray","position":"F","height_in":80,"weight_lb":215,"tier":"ceiling","shot3_percent":0.37,
-   "traits":{"shot":70,"tough":55}},
-  {"name":"Franz Wagner","position":"F","height_in":82,"weight_lb":220,"tier":"ceiling","shot3_percent":0.36,
-   "traits":{"unselfish":65,"shot":70}},
-
-  {"name":"Clint Capela","position":"C","height_in":82,"weight_lb":256,"tier":"ceiling","shot3_percent":0.0,
-   "traits":{"rim":85,"tough":70,"menace":70}},
-  {"name":"Rudy Gobert","position":"C","height_in":85,"weight_lb":258,"tier":"ceiling","shot3_percent":0.0,
-   "traits":{"menace":90,"rim":90,"tough":70}},
-  {"name":"Brook Lopez","position":"C","height_in":85,"weight_lb":282,"tier":"ceiling","shot3_percent":0.35,
-   "traits":{"rim":85,"shot":60}},
-  {"name":"Jarrett Allen","position":"C","height_in":83,"weight_lb":243,"tier":"ceiling","shot3_percent":0.0,
-   "traits":{"rim":85,"tough":65}},
-  {"name":"Myles Turner","position":"C","height_in":83,"weight_lb":250,"tier":"ceiling","shot3_percent":0.36,
-   "traits":{"rim":80,"shot":55}},
-  {"name":"Naz Reid","position":"C","height_in":81,"weight_lb":264,"tier":"ceiling","shot3_percent":0.36,
-   "traits":{"shot":65,"tough":60}},
-  {"name":"Kevon Looney","position":"C","height_in":81,"weight_lb":222,"tier":"floor","shot3_percent":0.0,
-   "traits":{"tough":70,"unselfish":55}},
-  {"name":"Steven Adams","position":"C","height_in":83,"weight_lb":265,"tier":"floor","shot3_percent":0.0,
-   "traits":{"tough":85,"unselfish":60}},
-  {"name":"Mitchell Robinson","position":"C","height_in":84,"weight_lb":240,"tier":"floor","shot3_percent":0.0,
-   "traits":{"rim":80,"tough":60}},
-  {"name":"Nick Richards","position":"C","height_in":84,"weight_lb":245,"tier":"floor","shot3_percent":0.0,
-   "traits":{"rim":70,"tough":60}},
-
-  {"name":"Marcus Smart","position":"G","height_in":75,"weight_lb":220,"tier":"ceiling","shot3_percent":0.33,
-   "traits":{"menace":85,"tough":80,"leadership":75}},
-  {"name":"Patrick Beverley","position":"G","height_in":73,"weight_lb":180,"tier":"floor","shot3_percent":0.37,
-   "traits":{"menace":80,"tough":75}},
-  {"name":"Dillon Brooks","position":"W","height_in":79,"weight_lb":225,"tier":"floor","shot3_percent":0.33,
-   "traits":{"tough":75,"menace":70}},
-  {"name":"Jimmy Butler","position":"W","height_in":79,"weight_lb":230,"tier":"ceiling","shot3_percent":0.35,
-   "traits":{"tough":85,"leadership":80,"unselfish":65}},
-  {"name":"Khris Middleton","position":"W","height_in":79,"weight_lb":222,"tier":"ceiling","shot3_percent":0.38,
-   "traits":{"shot":80,"unselfish":60}},
-  {"name":"Gary Payton II","position":"G","height_in":75,"weight_lb":195,"tier":"floor","shot3_percent":0.34,
-   "traits":{"menace":85,"tough":70}},
-  {"name":"Kyle Lowry","position":"G","height_in":72,"weight_lb":196,"tier":"ceiling","shot3_percent":0.36,
-   "traits":{"tough":80,"leadership":75,"unselfish":70}},
-  {"name":"CJ McCollum","position":"G","height_in":75,"weight_lb":190,"tier":"ceiling","shot3_percent":0.39,
-   "traits":{"shot":80}},
-  {"name":"Buddy Hield","position":"G","height_in":76,"weight_lb":220,"tier":"ceiling","shot3_percent":0.41,
-   "traits":{"shot":90}},
-  {"name":"Tim Hardaway Jr.","position":"W","height_in":77,"weight_lb":205,"tier":"floor","shot3_percent":0.37,
-   "traits":{"shot":70}}
+  {
+    "name": "T.J. McConnell",
+    "position": "G",
+    "height_in": 73,
+    "weight_lb": 190,
+    "tier": "floor",
+    "shot3_percent": 0.34,
+    "traits": {
+      "unselfish": 75,
+      "tough": 70,
+      "menace": 55,
+      "leadership": 70
+    }
+  },
+  {
+    "name": "Jose Alvarado",
+    "position": "G",
+    "height_in": 72,
+    "weight_lb": 179,
+    "tier": "floor",
+    "shot3_percent": 0.36,
+    "traits": {
+      "menace": 80,
+      "tough": 70,
+      "dog": 70
+    }
+  },
+  {
+    "name": "Tyus Jones",
+    "position": "G",
+    "height_in": 73,
+    "weight_lb": 196,
+    "tier": "ceiling",
+    "shot3_percent": 0.38,
+    "traits": {
+      "unselfish": 85,
+      "iq": 80,
+      "leadership": 70
+    }
+  },
+  {
+    "name": "Mike Conley",
+    "position": "G",
+    "height_in": 72,
+    "weight_lb": 175,
+    "tier": "ceiling",
+    "shot3_percent": 0.39,
+    "traits": {
+      "unselfish": 80,
+      "tough": 65,
+      "leadership": 70
+    }
+  },
+  {
+    "name": "Jalen Brunson",
+    "position": "G",
+    "height_in": 74,
+    "weight_lb": 190,
+    "tier": "ceiling",
+    "shot3_percent": 0.39,
+    "traits": {
+      "tough": 70,
+      "shot": 80,
+      "unselfish": 65
+    }
+  },
+  {
+    "name": "Malcolm Brogdon",
+    "position": "G",
+    "height_in": 76,
+    "weight_lb": 229,
+    "tier": "ceiling",
+    "shot3_percent": 0.39,
+    "traits": {
+      "shot": 75,
+      "unselfish": 60,
+      "tough": 65
+    }
+  },
+  {
+    "name": "Derrick White",
+    "position": "G",
+    "height_in": 76,
+    "weight_lb": 190,
+    "tier": "ceiling",
+    "shot3_percent": 0.37,
+    "traits": {
+      "menace": 70,
+      "unselfish": 65,
+      "shot": 65
+    }
+  },
+  {
+    "name": "Jrue Holiday",
+    "position": "G",
+    "height_in": 76,
+    "weight_lb": 205,
+    "tier": "ceiling",
+    "shot3_percent": 0.39,
+    "traits": {
+      "menace": 85,
+      "tough": 75,
+      "unselfish": 60
+    }
+  },
+  {
+    "name": "Alex Caruso",
+    "position": "G",
+    "height_in": 77,
+    "weight_lb": 186,
+    "tier": "floor",
+    "shot3_percent": 0.36,
+    "traits": {
+      "menace": 85,
+      "dog": 75,
+      "tough": 70
+    }
+  },
+  {
+    "name": "Bruce Brown",
+    "position": "G",
+    "height_in": 76,
+    "weight_lb": 202,
+    "tier": "floor",
+    "shot3_percent": 0.33,
+    "traits": {
+      "tough": 70,
+      "unselfish": 55,
+      "menace": 60
+    }
+  },
+  {
+    "name": "Mikal Bridges",
+    "position": "W",
+    "height_in": 79,
+    "weight_lb": 209,
+    "tier": "ceiling",
+    "shot3_percent": 0.38,
+    "traits": {
+      "menace": 70,
+      "shot": 75,
+      "tough": 60
+    }
+  },
+  {
+    "name": "OG Anunoby",
+    "position": "W",
+    "height_in": 79,
+    "weight_lb": 240,
+    "tier": "ceiling",
+    "shot3_percent": 0.37,
+    "traits": {
+      "menace": 80,
+      "tough": 70,
+      "shot": 65
+    }
+  },
+  {
+    "name": "Klay Thompson",
+    "position": "W",
+    "height_in": 78,
+    "weight_lb": 220,
+    "tier": "ceiling",
+    "shot3_percent": 0.41,
+    "traits": {
+      "shot": 90,
+      "tough": 60
+    }
+  },
+  {
+    "name": "Dorian Finney-Smith",
+    "position": "W",
+    "height_in": 79,
+    "weight_lb": 220,
+    "tier": "floor",
+    "shot3_percent": 0.36,
+    "traits": {
+      "menace": 65,
+      "tough": 65,
+      "shot": 60
+    }
+  },
+  {
+    "name": "Herb Jones",
+    "position": "W",
+    "height_in": 79,
+    "weight_lb": 206,
+    "tier": "floor",
+    "shot3_percent": 0.33,
+    "traits": {
+      "menace": 85,
+      "tough": 70,
+      "unselfish": 55
+    }
+  },
+  {
+    "name": "Aaron Nesmith",
+    "position": "W",
+    "height_in": 78,
+    "weight_lb": 215,
+    "tier": "floor",
+    "shot3_percent": 0.37,
+    "traits": {
+      "shot": 70,
+      "tough": 65
+    }
+  },
+  {
+    "name": "Josh Hart",
+    "position": "W",
+    "height_in": 77,
+    "weight_lb": 215,
+    "tier": "floor",
+    "shot3_percent": 0.34,
+    "traits": {
+      "tough": 75,
+      "unselfish": 60
+    }
+  },
+  {
+    "name": "Desmond Bane",
+    "position": "W",
+    "height_in": 76,
+    "weight_lb": 215,
+    "tier": "ceiling",
+    "shot3_percent": 0.41,
+    "traits": {
+      "shot": 85,
+      "tough": 65
+    }
+  },
+  {
+    "name": "Bojan Bogdanovic",
+    "position": "W",
+    "height_in": 79,
+    "weight_lb": 226,
+    "tier": "ceiling",
+    "shot3_percent": 0.38,
+    "traits": {
+      "shot": 80
+    }
+  },
+  {
+    "name": "Cam Johnson",
+    "position": "W",
+    "height_in": 80,
+    "weight_lb": 210,
+    "tier": "floor",
+    "shot3_percent": 0.39,
+    "traits": {
+      "shot": 75
+    }
+  },
+  {
+    "name": "Draymond Green",
+    "position": "F",
+    "height_in": 78,
+    "weight_lb": 230,
+    "tier": "ceiling",
+    "shot3_percent": 0.32,
+    "traits": {
+      "unselfish": 80,
+      "menace": 80,
+      "tough": 75,
+      "leadership": 80
+    }
+  },
+  {
+    "name": "Grant Williams",
+    "position": "F",
+    "height_in": 79,
+    "weight_lb": 236,
+    "tier": "floor",
+    "shot3_percent": 0.37,
+    "traits": {
+      "tough": 70,
+      "shot": 60
+    }
+  },
+  {
+    "name": "P.J. Tucker",
+    "position": "F",
+    "height_in": 77,
+    "weight_lb": 245,
+    "tier": "floor",
+    "shot3_percent": 0.36,
+    "traits": {
+      "tough": 80,
+      "menace": 65
+    }
+  },
+  {
+    "name": "Kyle Anderson",
+    "position": "F",
+    "height_in": 81,
+    "weight_lb": 230,
+    "tier": "floor",
+    "shot3_percent": 0.34,
+    "traits": {
+      "unselfish": 70,
+      "iq": 75
+    }
+  },
+  {
+    "name": "Jae Crowder",
+    "position": "F",
+    "height_in": 78,
+    "weight_lb": 235,
+    "tier": "floor",
+    "shot3_percent": 0.34,
+    "traits": {
+      "tough": 70,
+      "menace": 60
+    }
+  },
+  {
+    "name": "Nicolas Batum",
+    "position": "F",
+    "height_in": 80,
+    "weight_lb": 230,
+    "tier": "ceiling",
+    "shot3_percent": 0.38,
+    "traits": {
+      "unselfish": 70,
+      "menace": 65,
+      "shot": 65
+    }
+  },
+  {
+    "name": "Jaden McDaniels",
+    "position": "F",
+    "height_in": 81,
+    "weight_lb": 185,
+    "tier": "ceiling",
+    "shot3_percent": 0.37,
+    "traits": {
+      "menace": 70,
+      "shot": 60
+    }
+  },
+  {
+    "name": "Trey Murphy III",
+    "position": "F",
+    "height_in": 81,
+    "weight_lb": 206,
+    "tier": "ceiling",
+    "shot3_percent": 0.39,
+    "traits": {
+      "shot": 80
+    }
+  },
+  {
+    "name": "Keegan Murray",
+    "position": "F",
+    "height_in": 80,
+    "weight_lb": 215,
+    "tier": "ceiling",
+    "shot3_percent": 0.37,
+    "traits": {
+      "shot": 70,
+      "tough": 55
+    }
+  },
+  {
+    "name": "Franz Wagner",
+    "position": "F",
+    "height_in": 82,
+    "weight_lb": 220,
+    "tier": "ceiling",
+    "shot3_percent": 0.36,
+    "traits": {
+      "unselfish": 65,
+      "shot": 70
+    }
+  },
+  {
+    "name": "Clint Capela",
+    "position": "C",
+    "height_in": 82,
+    "weight_lb": 256,
+    "tier": "ceiling",
+    "shot3_percent": 0.0,
+    "traits": {
+      "rim": 85,
+      "tough": 70,
+      "menace": 70
+    }
+  },
+  {
+    "name": "Rudy Gobert",
+    "position": "C",
+    "height_in": 85,
+    "weight_lb": 258,
+    "tier": "ceiling",
+    "shot3_percent": 0.0,
+    "traits": {
+      "menace": 90,
+      "rim": 90,
+      "tough": 70
+    }
+  },
+  {
+    "name": "Brook Lopez",
+    "position": "C",
+    "height_in": 85,
+    "weight_lb": 282,
+    "tier": "ceiling",
+    "shot3_percent": 0.35,
+    "traits": {
+      "rim": 85,
+      "shot": 60
+    }
+  },
+  {
+    "name": "Jarrett Allen",
+    "position": "C",
+    "height_in": 83,
+    "weight_lb": 243,
+    "tier": "ceiling",
+    "shot3_percent": 0.0,
+    "traits": {
+      "rim": 85,
+      "tough": 65
+    }
+  },
+  {
+    "name": "Myles Turner",
+    "position": "C",
+    "height_in": 83,
+    "weight_lb": 250,
+    "tier": "ceiling",
+    "shot3_percent": 0.36,
+    "traits": {
+      "rim": 80,
+      "shot": 55
+    }
+  },
+  {
+    "name": "Naz Reid",
+    "position": "C",
+    "height_in": 81,
+    "weight_lb": 264,
+    "tier": "ceiling",
+    "shot3_percent": 0.36,
+    "traits": {
+      "shot": 65,
+      "tough": 60
+    }
+  },
+  {
+    "name": "Kevon Looney",
+    "position": "C",
+    "height_in": 81,
+    "weight_lb": 222,
+    "tier": "floor",
+    "shot3_percent": 0.0,
+    "traits": {
+      "tough": 70,
+      "unselfish": 55
+    }
+  },
+  {
+    "name": "Steven Adams",
+    "position": "C",
+    "height_in": 83,
+    "weight_lb": 265,
+    "tier": "floor",
+    "shot3_percent": 0.0,
+    "traits": {
+      "tough": 85,
+      "unselfish": 60
+    }
+  },
+  {
+    "name": "Mitchell Robinson",
+    "position": "C",
+    "height_in": 84,
+    "weight_lb": 240,
+    "tier": "floor",
+    "shot3_percent": 0.0,
+    "traits": {
+      "rim": 80,
+      "tough": 60
+    }
+  },
+  {
+    "name": "Nick Richards",
+    "position": "C",
+    "height_in": 84,
+    "weight_lb": 245,
+    "tier": "floor",
+    "shot3_percent": 0.0,
+    "traits": {
+      "rim": 70,
+      "tough": 60
+    }
+  },
+  {
+    "name": "Marcus Smart",
+    "position": "G",
+    "height_in": 75,
+    "weight_lb": 220,
+    "tier": "ceiling",
+    "shot3_percent": 0.33,
+    "traits": {
+      "menace": 85,
+      "tough": 80,
+      "leadership": 75
+    }
+  },
+  {
+    "name": "Patrick Beverley",
+    "position": "G",
+    "height_in": 73,
+    "weight_lb": 180,
+    "tier": "floor",
+    "shot3_percent": 0.37,
+    "traits": {
+      "menace": 80,
+      "tough": 75
+    }
+  },
+  {
+    "name": "Dillon Brooks",
+    "position": "W",
+    "height_in": 79,
+    "weight_lb": 225,
+    "tier": "floor",
+    "shot3_percent": 0.33,
+    "traits": {
+      "tough": 75,
+      "menace": 70
+    }
+  },
+  {
+    "name": "Jimmy Butler",
+    "position": "W",
+    "height_in": 79,
+    "weight_lb": 230,
+    "tier": "ceiling",
+    "shot3_percent": 0.35,
+    "traits": {
+      "tough": 85,
+      "leadership": 80,
+      "unselfish": 65
+    }
+  },
+  {
+    "name": "Khris Middleton",
+    "position": "W",
+    "height_in": 79,
+    "weight_lb": 222,
+    "tier": "ceiling",
+    "shot3_percent": 0.38,
+    "traits": {
+      "shot": 80,
+      "unselfish": 60
+    }
+  },
+  {
+    "name": "Gary Payton II",
+    "position": "G",
+    "height_in": 75,
+    "weight_lb": 195,
+    "tier": "floor",
+    "shot3_percent": 0.34,
+    "traits": {
+      "menace": 85,
+      "tough": 70
+    }
+  },
+  {
+    "name": "Kyle Lowry",
+    "position": "G",
+    "height_in": 72,
+    "weight_lb": 196,
+    "tier": "ceiling",
+    "shot3_percent": 0.36,
+    "traits": {
+      "tough": 80,
+      "leadership": 75,
+      "unselfish": 70
+    }
+  },
+  {
+    "name": "CJ McCollum",
+    "position": "G",
+    "height_in": 75,
+    "weight_lb": 190,
+    "tier": "ceiling",
+    "shot3_percent": 0.39,
+    "traits": {
+      "shot": 80
+    }
+  },
+  {
+    "name": "Buddy Hield",
+    "position": "G",
+    "height_in": 76,
+    "weight_lb": 220,
+    "tier": "ceiling",
+    "shot3_percent": 0.41,
+    "traits": {
+      "shot": 90
+    }
+  },
+  {
+    "name": "Tim Hardaway Jr.",
+    "position": "W",
+    "height_in": 77,
+    "weight_lb": 205,
+    "tier": "floor",
+    "shot3_percent": 0.37,
+    "traits": {
+      "shot": 70
+    }
+  },
+  {
+    "name": "D'Angelo Russell",
+    "position": "G",
+    "height_in": 76,
+    "weight_lb": 193,
+    "tier": "ceiling",
+    "shot3_percent": 0.36,
+    "traits": {
+      "shot": 75,
+      "unselfish": 60
+    }
+  },
+  {
+    "name": "Immanuel Quickley",
+    "position": "G",
+    "height_in": 75,
+    "weight_lb": 190,
+    "tier": "ceiling",
+    "shot3_percent": 0.38,
+    "traits": {
+      "shot": 75,
+      "unselfish": 60
+    }
+  },
+  {
+    "name": "De'Anthony Melton",
+    "position": "G",
+    "height_in": 75,
+    "weight_lb": 200,
+    "tier": "floor",
+    "shot3_percent": 0.37,
+    "traits": {
+      "menace": 70,
+      "shot": 60
+    }
+  },
+  {
+    "name": "Monte Morris",
+    "position": "G",
+    "height_in": 74,
+    "weight_lb": 183,
+    "tier": "floor",
+    "shot3_percent": 0.37,
+    "traits": {
+      "unselfish": 70,
+      "shot": 60
+    }
+  },
+  {
+    "name": "Alec Burks",
+    "position": "G",
+    "height_in": 78,
+    "weight_lb": 214,
+    "tier": "floor",
+    "shot3_percent": 0.38,
+    "traits": {
+      "shot": 70
+    }
+  },
+  {
+    "name": "Lonnie Walker IV",
+    "position": "G",
+    "height_in": 76,
+    "weight_lb": 204,
+    "tier": "floor",
+    "shot3_percent": 0.35,
+    "traits": {
+      "shot": 65
+    }
+  },
+  {
+    "name": "Spencer Dinwiddie",
+    "position": "G",
+    "height_in": 77,
+    "weight_lb": 215,
+    "tier": "ceiling",
+    "shot3_percent": 0.36,
+    "traits": {
+      "shot": 70,
+      "unselfish": 55
+    }
+  },
+  {
+    "name": "Jordan Clarkson",
+    "position": "G",
+    "height_in": 76,
+    "weight_lb": 194,
+    "tier": "ceiling",
+    "shot3_percent": 0.34,
+    "traits": {
+      "shot": 75
+    }
+  },
+  {
+    "name": "Pat Connaughton",
+    "position": "W",
+    "height_in": 77,
+    "weight_lb": 209,
+    "tier": "floor",
+    "shot3_percent": 0.36,
+    "traits": {
+      "shot": 65,
+      "tough": 55
+    }
+  },
+  {
+    "name": "Caleb Martin",
+    "position": "W",
+    "height_in": 77,
+    "weight_lb": 205,
+    "tier": "floor",
+    "shot3_percent": 0.36,
+    "traits": {
+      "tough": 65,
+      "menace": 55
+    }
+  },
+  {
+    "name": "Kelly Oubre Jr.",
+    "position": "W",
+    "height_in": 79,
+    "weight_lb": 203,
+    "tier": "floor",
+    "shot3_percent": 0.33,
+    "traits": {
+      "shot": 60,
+      "tough": 55
+    }
+  },
+  {
+    "name": "Norman Powell",
+    "position": "W",
+    "height_in": 76,
+    "weight_lb": 215,
+    "tier": "ceiling",
+    "shot3_percent": 0.39,
+    "traits": {
+      "shot": 80
+    }
+  },
+  {
+    "name": "Gary Trent Jr.",
+    "position": "W",
+    "height_in": 77,
+    "weight_lb": 209,
+    "tier": "ceiling",
+    "shot3_percent": 0.38,
+    "traits": {
+      "shot": 75,
+      "menace": 60
+    }
+  },
+  {
+    "name": "De'Andre Hunter",
+    "position": "W",
+    "height_in": 80,
+    "weight_lb": 221,
+    "tier": "ceiling",
+    "shot3_percent": 0.38,
+    "traits": {
+      "shot": 70,
+      "tough": 55
+    }
+  },
+  {
+    "name": "Harrison Barnes",
+    "position": "W",
+    "height_in": 80,
+    "weight_lb": 225,
+    "tier": "ceiling",
+    "shot3_percent": 0.38,
+    "traits": {
+      "shot": 70,
+      "tough": 55
+    }
+  },
+  {
+    "name": "Jalen Johnson",
+    "position": "F",
+    "height_in": 81,
+    "weight_lb": 219,
+    "tier": "ceiling",
+    "shot3_percent": 0.33,
+    "traits": {
+      "unselfish": 65,
+      "tough": 55
+    }
+  },
+  {
+    "name": "Bobby Portis",
+    "position": "F",
+    "height_in": 82,
+    "weight_lb": 250,
+    "tier": "ceiling",
+    "shot3_percent": 0.37,
+    "traits": {
+      "tough": 70,
+      "shot": 65
+    }
+  },
+  {
+    "name": "Naz Reid",
+    "position": "C",
+    "height_in": 81,
+    "weight_lb": 264,
+    "tier": "ceiling",
+    "shot3_percent": 0.36,
+    "traits": {
+      "shot": 65,
+      "tough": 60
+    }
+  },
+  {
+    "name": "Ivica Zubac",
+    "position": "C",
+    "height_in": 84,
+    "weight_lb": 240,
+    "tier": "floor",
+    "shot3_percent": 0.0,
+    "traits": {
+      "rim": 75,
+      "tough": 60
+    }
+  },
+  {
+    "name": "Daniel Gafford",
+    "position": "C",
+    "height_in": 82,
+    "weight_lb": 234,
+    "tier": "floor",
+    "shot3_percent": 0.0,
+    "traits": {
+      "rim": 75,
+      "tough": 60
+    }
+  },
+  {
+    "name": "Walker Kessler",
+    "position": "C",
+    "height_in": 85,
+    "weight_lb": 245,
+    "tier": "ceiling",
+    "shot3_percent": 0.0,
+    "traits": {
+      "rim": 85,
+      "menace": 80
+    }
+  },
+  {
+    "name": "Isaiah Hartenstein",
+    "position": "C",
+    "height_in": 84,
+    "weight_lb": 250,
+    "tier": "ceiling",
+    "shot3_percent": 0.0,
+    "traits": {
+      "rim": 75,
+      "unselfish": 60
+    }
+  },
+  {
+    "name": "Andre Drummond",
+    "position": "C",
+    "height_in": 83,
+    "weight_lb": 279,
+    "tier": "floor",
+    "shot3_percent": 0.0,
+    "traits": {
+      "tough": 70,
+      "rim": 70
+    }
+  },
+  {
+    "name": "Onyeka Okongwu",
+    "position": "C",
+    "height_in": 82,
+    "weight_lb": 240,
+    "tier": "ceiling",
+    "shot3_percent": 0.0,
+    "traits": {
+      "rim": 80,
+      "tough": 60
+    }
+  },
+  {
+    "name": "Jarred Vanderbilt",
+    "position": "F",
+    "height_in": 80,
+    "weight_lb": 214,
+    "tier": "floor",
+    "shot3_percent": 0.3,
+    "traits": {
+      "menace": 70,
+      "tough": 70
+    }
+  }
 ]
