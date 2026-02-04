@@ -148,6 +148,7 @@ elif st.session_state.app_mode == "Search":
     tag_filter = []
     intent_tags = []
     required_tags = []
+    finishing_intent = False
 
     with st.sidebar.expander("Advanced Filters", expanded=False):
         slider_dog = st.slider("Min Dog Index", 0, 100, 0)
@@ -208,6 +209,7 @@ elif st.session_state.app_mode == "Search":
         defensive_big_intent = "defensive_big" in intents
         clutch_intent = "clutch" in intents
         undervalued_intent = "undervalued" in intents
+        finishing_intent = "finishing" in intents
 
         for hit, phrase in intents.values():
             intent = hit.intent
@@ -237,6 +239,10 @@ elif st.session_state.app_mode == "Search":
             intent_tags = list(set(intent_tags + ["3pt", "deflection"]))
         if "big" in role_hints:
             intent_tags = list(set(intent_tags + ["rim_pressure", "block", "post_up"]))
+
+        # Finishing intent should hard-require rim finish + made
+        if finishing_intent:
+            required_tags = list(set(required_tags + ["rim_finish", "layup", "dunk", "made"]))
 
         st.write(f"Searching for: **{query}**")
 
@@ -397,6 +403,17 @@ elif st.session_state.app_mode == "Search":
             # Build display rows (filter by dog index + tags)
             from src.processing.play_tagger import tag_play  # noqa: E402
 
+            # Load player positions for role filtering
+            player_positions = {}
+            try:
+                conn_pos = sqlite3.connect(DB_PATH)
+                cur_pos = conn_pos.cursor()
+                cur_pos.execute("SELECT player_id, position FROM players")
+                player_positions = {r[0]: (r[1] or "") for r in cur_pos.fetchall()}
+                conn_pos.close()
+            except Exception:
+                player_positions = {}
+
             # Preload season stats + player names + full traits for similarity
             player_stats = {}
             player_names = {}
@@ -510,6 +527,15 @@ elif st.session_state.app_mode == "Search":
                     continue
                 # Only hard-filter by user-selected Required Tags
                 if required_tags and not set(required_tags).issubset(set(play_tags)):
+                    continue
+
+                # Role-based position filtering
+                pos = (player_positions.get(player_id) or "").upper()
+                if "guard" in role_hints and not ("G" in pos or "PG" in pos or "SG" in pos):
+                    continue
+                if "wing" in role_hints and not ("F" in pos or "W" in pos or "G/F" in pos or "F/G" in pos or "SF" in pos):
+                    continue
+                if "big" in role_hints and not ("C" in pos or "F/C" in pos or "PF" in pos):
                     continue
 
                 # Rerank score: trait alignment + tag matches

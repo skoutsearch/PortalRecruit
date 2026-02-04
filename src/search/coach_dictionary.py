@@ -44,6 +44,10 @@ INTENTS: Dict[str, IntentBoost] = {
         traits={"unselfish": 30},
         tags={"assist"},
     ),
+    "finishing": IntentBoost(
+        traits={"rim": 25},
+        tags={"rim_finish", "layup", "dunk", "rim_pressure", "drive", "made"},
+    ),
     "defensive_menace": IntentBoost(
         traits={"menace": 35},
         tags={"steal", "block", "deflection"},
@@ -243,6 +247,23 @@ PHRASES: Dict[str, List[str]] = {
         "connective tissue",
         "moves it early",
         "0.5 second decision maker",
+    ],
+    "finishing": [
+        "finisher",
+        "finishing",
+        "finish at the rim",
+        "finishes",
+        "rim finisher",
+        "rim finisher",
+        "rim runner",
+        "lob threat",
+        "plays above the rim",
+        "dunks",
+        "dunker",
+        "paint finisher",
+        "around the rim",
+        "at the rim",
+        "strong finisher",
     ],
     "defensive_menace": [
         "point of attack defender",
@@ -524,6 +545,8 @@ WEIGHTED_PHRASES: Dict[str, List[Tuple[str, float]]] = {
     + [("magnet", 1.0), ("gravity", 1.0), ("defense bends", 0.6)],
     "unselfish_connectivity": [(p, 1.0) for p in PHRASES["unselfish_connectivity"]]
     + [("quick decision", 0.6), ("hit ahead", 0.6)],
+    "finishing": [(p, 1.0) for p in PHRASES["finishing"]]
+    + [("finish", 0.8), ("rim finish", 0.8), ("paint finisher", 0.8)],
     "defensive_menace": [(p, 1.0) for p in PHRASES["defensive_menace"]]
     + [("heat", 0.6), ("pest", 0.6)],
     "toughness_winning": [(p, 1.0) for p in PHRASES["toughness_winning"]]
