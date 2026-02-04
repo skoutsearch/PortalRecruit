@@ -197,7 +197,21 @@ elif st.session_state.app_mode == "Search":
         # --- QUERY INTENTS (coach-speak -> filters) ---
         try:
             from src.search.coach_dictionary import infer_intents_verbose, INTENTS  # noqa: E402
-            intents = infer_intents_verbose(query)
+            # Simple logic parsing (and/or/but) for better intent handling
+        q_lower = (query or "").lower()
+        if " or " in q_lower:
+            logic = "or"
+            parts = [p.strip() for p in q_lower.split(" or ") if p.strip()]
+        elif " and " in q_lower or " but " in q_lower:
+            logic = "and"
+            parts = [p.strip() for p in q_lower.replace(" but ", " and ").split(" and ") if p.strip()]
+        else:
+            logic = "single"
+            parts = [q_lower]
+
+        intents = {}
+        for part in parts:
+            intents.update(infer_intents_verbose(part))
         except Exception:
             intents = {}
         exclude_tags = set()
@@ -231,6 +245,10 @@ elif st.session_state.app_mode == "Search":
             # make intent tags soft (don't hard-filter)
             intent_tags = list(set(intent_tags + list(intent.tags)))
             exclude_tags |= intent.exclude_tags
+
+            # If "and" logic, treat intent tags as required
+            if logic == "and":
+                required_tags = list(set(required_tags + list(intent.tags)))
 
         # Role hints to lightly nudge tags
         if "guard" in role_hints:
@@ -580,6 +598,14 @@ elif st.session_state.app_mode == "Search":
 
                 if "turnover" in play_tags:
                     score -= 8
+
+                # Evidence-first ranking: made plays + primary action
+                if "made" in play_tags:
+                    score += 12
+                if "missed" in play_tags:
+                    score -= 6
+                if player_name and player_name in (desc or ""):
+                    score += 6
 
                 home, away, video = matchups.get(gid, ("Unknown", "Unknown", None))
 
