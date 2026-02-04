@@ -198,30 +198,30 @@ elif st.session_state.app_mode == "Search":
         try:
             from src.search.coach_dictionary import infer_intents_verbose, INTENTS  # noqa: E402
             # Simple logic parsing (and/or/but) for better intent handling
-        q_lower = (query or "").lower()
-        if " or " in q_lower:
-            logic = "or"
-            parts = [p.strip() for p in q_lower.split(" or ") if p.strip()]
-        elif " and " in q_lower or " but " in q_lower:
-            logic = "and"
-            parts = [p.strip() for p in q_lower.replace(" but ", " and ").split(" and ") if p.strip()]
-        else:
-            logic = "single"
-            parts = [q_lower]
+            q_lower = (query or "").lower()
+            if " or " in q_lower:
+                logic = "or"
+                parts = [p.strip() for p in q_lower.split(" or ") if p.strip()]
+            elif " and " in q_lower or " but " in q_lower:
+                logic = "and"
+                parts = [p.strip() for p in q_lower.replace(" but ", " and ").split(" and ") if p.strip()]
+            else:
+                logic = "single"
+                parts = [q_lower]
 
-        # Numeric filters (over/under/above/below)
-        import re
-        numeric_filters = []
-        pattern = re.compile(r"\b(over|under|above|below|at least|atleast|at most|atmost|more than|less than)\s+(\d+(?:\.\d+)?)%?\s*(3pt|3pt%|3pt\s*%|three|three point|three-point|ft|free throw|free-throw|fg|field goal|field-goal|shot)\b")
-        for m in pattern.finditer(q_lower):
-            comp = m.group(1)
-            val = float(m.group(2))
-            stat = m.group(3)
-            numeric_filters.append((comp, val, stat))
+            # Numeric filters (over/under/above/below)
+            import re
+            numeric_filters = []
+            pattern = re.compile(r"\b(over|under|above|below|at least|atleast|at most|atmost|more than|less than)\s+(\d+(?:\.\d+)?)%?\s*(3pt|3pt%|3pt\s*%|three|three point|three-point|ft|free throw|free-throw|fg|field goal|field-goal|shot)\b")
+            for m in pattern.finditer(q_lower):
+                comp = m.group(1)
+                val = float(m.group(2))
+                stat = m.group(3)
+                numeric_filters.append((comp, val, stat))
 
-        intents = {}
-        for part in parts:
-            intents.update(infer_intents_verbose(part))
+            intents = {}
+            for part in parts:
+                intents.update(infer_intents_verbose(part))
         except Exception:
             intents = {}
         exclude_tags = set()
