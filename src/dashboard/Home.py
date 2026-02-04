@@ -297,6 +297,13 @@ elif st.session_state.app_mode == "Search":
                 pass
 
             # Pull plays
+            try:
+                cur.execute("SELECT 1 FROM plays LIMIT 1")
+            except Exception:
+                st.error("Database missing plays table. Ensure skout.db is available on the host.")
+                conn.close()
+                st.stop()
+
             placeholders = ",".join(["?"] * len(play_ids))
             cur.execute(
                 f"""
