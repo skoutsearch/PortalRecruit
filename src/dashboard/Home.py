@@ -1116,20 +1116,19 @@ elif st.session_state.app_mode == "Search":
                 for idx, (player, score, clip) in enumerate(top_players[:5]):
                     with cols[idx]:
                         pid = clip.get("Player ID")
-                        if pid and st.button(player, key=f"top5_{pid}"):
+                        label = f"{player}\nScore: {score:.1f}\n{clip.get('Matchup','')}"
+                        if pid and st.button(label, key=f"top5_{pid}", use_container_width=True):
                             st.session_state.profile_player_id = pid
                             _render_profile_overlay(pid)
                             st.stop()
-                        else:
-                            st.markdown(f"**{player}**")
-                        st.caption(f"Score: {score:.1f}")
-                        st.caption(clip.get("Matchup", ""))
 
                 st.markdown("### Results")
 
                 for player, clips in grouped.items():
                     pid = clips[0].get("Player ID") if clips else None
-                    if pid and st.button(player, key=f"player_{pid}"):
+                    matchup = clips[0].get("Matchup", "") if clips else ""
+                    label = f"{player}\n{matchup}" if matchup else player
+                    if pid and st.button(label, key=f"player_{pid}", use_container_width=True):
                         st.session_state.profile_player_id = pid
                         _render_profile_overlay(pid)
                         st.stop()
