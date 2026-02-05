@@ -98,6 +98,17 @@ span:not(.material-icons):not(.material-symbols-rounded):not(.material-symbols-o
 .pr-hero-title { font-size: 56px; font-weight: 800; line-height: 1.05; }
 .pr-hero-sub { font-size: 16px; opacity: 0.78; }
 
+/* Mobile polish */
+@media (max-width: 768px) {
+  .pr-hero { gap: 8px; margin: 6px 0 14px 0; }
+  .pr-hero img { max-width: 320px !important; width: 84vw !important; }
+  .pr-hero-sub { font-size: 12.5px !important; line-height: 1.35 !important; padding: 0 8px; }
+  section.main > div.block-container { padding: 12px 12px 20px 12px; }
+  h3, h2 { font-size: 20px !important; }
+  .stTextInput input { font-size: 16px !important; }
+  .stMarkdown h3 { margin-top: 8px !important; }
+}
+
 /* Sidebar styling */
 section[data-testid="stSidebar"] {
   background: rgba(2, 6, 23, 0.55) !important;
