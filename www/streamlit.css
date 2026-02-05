@@ -194,6 +194,28 @@ hr { border: none; height: 1px; background: rgba(255,255,255,0.08); }
 
 input, textarea, select { border-radius: 12px !important; }
 
+/* Selectbox readability */
+.stSelectbox div[data-baseweb="select"] {
+  color: #0b1120 !important;
+}
+.stSelectbox [data-baseweb="select"] > div {
+  background: #f8fafc !important;
+  color: #0b1120 !important;
+}
+.stSelectbox [data-baseweb="select"] span {
+  color: #0b1120 !important;
+}
+.stSelectbox [role="listbox"] {
+  background: #f8fafc !important;
+  color: #0b1120 !important;
+}
+.stSelectbox [role="option"] {
+  color: #0b1120 !important;
+}
+.stSelectbox [role="option"]:hover {
+  background: #e2e8f0 !important;
+}
+
 /* Player profile overlay */
 div[role="dialog"] {
   background: rgba(15, 23, 42, 0.88) !important;
