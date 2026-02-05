@@ -4,12 +4,16 @@ from pathlib import Path
 import zipfile
 import json
 import math
+import re
+from difflib import SequenceMatcher
 
 # --- 1. SETUP PATHS ---
 # Ensure repo root is on sys.path so imports work
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
+
+DB_PATH = REPO_ROOT / "data" / "skout.db"
 
 # --- 2. PAGE CONFIGURATION ---
 WORDMARK_DARK_URL = "https://portalrecruit.github.io/PortalRecruit/PORTALRECRUIT_LOGO_BANNER.png"
@@ -48,6 +52,238 @@ def _restore_vector_db_if_needed() -> bool:
 
     return db_path.exists()
 
+
+@st.cache_data(show_spinner=False)
+def _load_players_index():
+    try:
+        import sqlite3
+        con = sqlite3.connect(DB_PATH)
+        cur = con.cursor()
+        cur.execute("SELECT player_id, full_name, position, team_id, class_year FROM players")
+        rows = cur.fetchall()
+        con.close()
+        players = []
+        for r in rows:
+            players.append({
+                "player_id": r[0],
+                "full_name": r[1] or "",
+                "position": r[2] or "",
+                "team_id": r[3] or "",
+                "class_year": r[4] or "",
+            })
+        return players
+    except Exception:
+        return []
+
+
+def _norm_name(s: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", (s or "").lower())
+
+
+def _looks_like_name(query: str) -> bool:
+    q = (query or "").strip()
+    if len(q) < 3:
+        return False
+    if any(ch.isdigit() for ch in q):
+        return False
+    parts = q.split()
+    return 1 <= len(parts) <= 3
+
+
+def _resolve_name_query(query: str):
+    if not query or not _looks_like_name(query):
+        return {"mode": "none", "matches": []}
+    players = _load_players_index()
+    if not players:
+        return {"mode": "none", "matches": []}
+    norm_q = _norm_name(query)
+    exact = [p for p in players if _norm_name(p["full_name"]) == norm_q]
+    if exact:
+        return {"mode": "exact_single" if len(exact) == 1 else "exact_multi", "matches": exact}
+
+    # fuzzy match
+    scored = []
+    for p in players:
+        name_norm = _norm_name(p["full_name"])
+        if not name_norm:
+            continue
+        score = SequenceMatcher(None, norm_q, name_norm).ratio()
+        scored.append((score, p))
+    scored.sort(reverse=True, key=lambda x: x[0])
+    top = [p for _, p in scored[:5]]
+    if not scored:
+        return {"mode": "none", "matches": []}
+    best = scored[0][0]
+    if best >= 0.90:
+        return {"mode": "fuzzy_multi", "matches": top}
+    return {"mode": "none", "matches": []}
+
+
+def _get_player_profile(player_id: str):
+    import sqlite3
+    profile = {}
+    con = sqlite3.connect(DB_PATH)
+    cur = con.cursor()
+    cur.execute("SELECT player_id, full_name, position, team_id, class_year, height_in, weight_lb FROM players WHERE player_id=?", (player_id,))
+    row = cur.fetchone()
+    if not row:
+        con.close()
+        return None
+    profile.update({
+        "player_id": row[0],
+        "name": row[1],
+        "position": row[2],
+        "team_id": row[3],
+        "class_year": row[4],
+        "height_in": row[5],
+        "weight_lb": row[6],
+    })
+    # traits
+    cur.execute("SELECT * FROM player_traits WHERE player_id=?", (player_id,))
+    trow = cur.fetchone()
+    traits = {}
+    if trow:
+        cols = [d[0] for d in cur.description]
+        traits = dict(zip(cols, trow))
+    profile["traits"] = traits
+
+    # season stats
+    cur.execute("SELECT gp, possessions, points, fg_percent, shot3_percent, ft_percent, turnover FROM player_season_stats WHERE player_id=?", (player_id,))
+    srow = cur.fetchone()
+    if srow:
+        profile["stats"] = {
+            "gp": srow[0],
+            "possessions": srow[1],
+            "points": srow[2],
+            "fg_percent": srow[3],
+            "shot3_percent": srow[4],
+            "ft_percent": srow[5],
+            "turnover": srow[6],
+        }
+    else:
+        profile["stats"] = {}
+
+    # plays
+    cur.execute("SELECT play_id, description, game_id, clock_display FROM plays WHERE player_id=? LIMIT 25", (player_id,))
+    plays = cur.fetchall()
+    profile["plays"] = plays
+
+    # matchups
+    game_ids = list({p[2] for p in plays})
+    matchups = {}
+    if game_ids:
+        ph = ",".join(["?"] * len(game_ids))
+        cur.execute(f"SELECT game_id, home_team, away_team FROM games WHERE game_id IN ({ph})", game_ids)
+        matchups = {r[0]: (r[1], r[2]) for r in cur.fetchall()}
+    profile["matchups"] = matchups
+
+    con.close()
+    return profile
+
+
+def _scout_breakdown(profile: dict) -> str:
+    name = profile.get("name", "Player")
+    traits = profile.get("traits", {}) or {}
+    strengths = []
+    weaknesses = []
+    # simple trait extraction
+    trait_map = [
+        ("dog_index", "dog mentality"),
+        ("menace_index", "defensive menace"),
+        ("unselfish_index", "unselfish playmaking"),
+        ("toughness_index", "tough, competitive edge"),
+        ("rim_pressure_index", "rim pressure"),
+        ("shot_making_index", "shot making"),
+        ("size_index", "size/length"),
+    ]
+    for key, label in trait_map:
+        val = traits.get(key)
+        if val is None:
+            continue
+        if val >= 70:
+            strengths.append(label)
+        elif val <= 35:
+            weaknesses.append(label)
+
+    lines = []
+    if strengths:
+        lines.append(f"{name} consistently shows **{', '.join(strengths[:3])}** on film and in the data.")
+    if weaknesses:
+        lines.append(f"Primary growth areas: **{', '.join(weaknesses[:2])}**.")
+
+    # cite plays
+    plays = profile.get("plays", [])[:3]
+    if plays:
+        cite = " "" + ""; "".join([p[1] for p in plays if p[1]]) + """
+        lines.append(f"Example clips: {cite}.")
+
+    if not lines:
+        lines.append(f"{name} profiles as a balanced contributor with a mix of skill and competitive traits.")
+    return " ".join(lines)
+
+
+def _render_profile_overlay(player_id: str):
+    profile = _get_player_profile(player_id)
+    if not profile:
+        st.warning("Player not found.")
+        return
+    title = profile.get("name", "Player Profile")
+
+    def body():
+        st.markdown(f"## {title}")
+        meta = []
+        if profile.get("position"): meta.append(profile["position"])
+        if profile.get("class_year"): meta.append(f"Class: {profile['class_year']}")
+        if profile.get("team_id"): meta.append(f"Team ID: {profile['team_id']}")
+        if meta:
+            st.caption(" • ".join(meta))
+
+        st.markdown("### Scout Breakdown")
+        st.write(_scout_breakdown(profile))
+
+        # traits
+        traits = profile.get("traits", {}) or {}
+        if traits:
+            st.markdown("### Traits")
+            for key, label in [
+                ("dog_index", "Dog"),
+                ("menace_index", "Menace"),
+                ("unselfish_index", "Unselfish"),
+                ("toughness_index", "Toughness"),
+                ("rim_pressure_index", "Rim Pressure"),
+                ("shot_making_index", "Shot Making"),
+                ("gravity_index", "Gravity"),
+                ("size_index", "Size"),
+            ]:
+                val = traits.get(key)
+                if val is None:
+                    continue
+                st.progress(min(100, max(0, int(val))))
+                st.caption(f"{label}: {val:.1f}" if isinstance(val, (int, float)) else f"{label}: {val}")
+
+        # clips
+        plays = profile.get("plays", [])
+        matchups = profile.get("matchups", {})
+        if plays:
+            st.markdown("### Clips")
+            for play_id, desc, game_id, clock in plays[:10]:
+                home, away = matchups.get(game_id, ("Unknown", "Unknown"))
+                st.markdown(f"**{home} vs {away}** @ {clock}")
+                st.write(desc)
+                st.divider()
+
+    if hasattr(st, "dialog"):
+        with st.dialog("Player Profile"):
+            if st.button("✕ Close", key="close_profile_top"):
+                st.session_state.profile_player_id = None
+                st.rerun()
+            body()
+    else:
+        st.markdown("---")
+        if st.button("✕ Close Profile", key="close_profile"):
+            st.session_state.profile_player_id = None
+            st.rerun()
+        body()
 
 def check_ingestion_status():
     """
@@ -197,6 +433,25 @@ elif st.session_state.app_mode == "Search":
         picked = st.selectbox("Suggestions", ["(keep typing)"] + suggestions, index=0)
         if picked != "(keep typing)":
             query = picked
+
+    # Name-aware search routing
+    name_resolution = _resolve_name_query(query)
+    if name_resolution.get("mode") == "exact_single":
+        st.session_state.profile_player_id = name_resolution["matches"][0]["player_id"]
+        _render_profile_overlay(st.session_state.profile_player_id)
+        st.stop()
+    elif name_resolution.get("mode") in {"exact_multi", "fuzzy_multi"}:
+        st.markdown("### Did you mean")
+        cols = st.columns(2)
+        for i, p in enumerate(name_resolution["matches"]):
+            with cols[i % 2]:
+                st.markdown(f"**{p['full_name']}**")
+                st.caption(f"{p.get('position','')} | Team {p.get('team_id','')} | {p.get('class_year','')}")
+                if st.button("View Profile", key=f"didyoumean_{p['player_id']}"):
+                    st.session_state.profile_player_id = p["player_id"]
+                    _render_profile_overlay(st.session_state.profile_player_id)
+                    st.stop()
+        st.stop()
 
     if query:
         # --- QUERY INTENTS (coach-speak -> filters) ---
@@ -804,6 +1059,7 @@ elif st.session_state.app_mode == "Search":
                     "Matchup": f"{home} vs {away}",
                     "Clock": clock,
                     "Player": (player_name or "Unknown"),
+                    "Player ID": player_id,
                     "Why": reason,
                     "Strengths": ", ".join(strengths) if strengths else "—",
                     "Weaknesses": ", ".join(weaknesses) if weaknesses else "—",
@@ -866,7 +1122,15 @@ elif st.session_state.app_mode == "Search":
                 st.markdown("### Results")
 
                 for player, clips in grouped.items():
-                    st.markdown(f"## {player}")
+                    pid = clips[0].get("Player ID") if clips else None
+                    cols_hdr = st.columns([0.8, 0.2])
+                    with cols_hdr[0]:
+                        st.markdown(f"## {player}")
+                    with cols_hdr[1]:
+                        if pid and st.button("View", key=f"view_{pid}"):
+                            st.session_state.profile_player_id = pid
+                            _render_profile_overlay(pid)
+                            st.stop()
                     for r in clips[:3]:
                         with st.container():
                             st.markdown(f"**{r['Matchup']}** @ {r['Clock']}")

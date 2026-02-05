@@ -193,3 +193,11 @@ hr { border: none; height: 1px; background: rgba(255,255,255,0.08); }
 }
 
 input, textarea, select { border-radius: 12px !important; }
+
+/* Player profile overlay */
+div[role="dialog"] {
+  background: rgba(15, 23, 42, 0.88) !important;
+  border: 1px solid rgba(255,255,255,0.10) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
