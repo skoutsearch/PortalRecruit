@@ -1115,7 +1115,13 @@ elif st.session_state.app_mode == "Search":
                 cols = st.columns(5)
                 for idx, (player, score, clip) in enumerate(top_players[:5]):
                     with cols[idx]:
-                        st.markdown(f"**{player}**")
+                        pid = clip.get("Player ID")
+                        if pid and st.button(player, key=f"top5_{pid}"):
+                            st.session_state.profile_player_id = pid
+                            _render_profile_overlay(pid)
+                            st.stop()
+                        else:
+                            st.markdown(f"**{player}**")
                         st.caption(f"Score: {score:.1f}")
                         st.caption(clip.get("Matchup", ""))
 
@@ -1123,14 +1129,12 @@ elif st.session_state.app_mode == "Search":
 
                 for player, clips in grouped.items():
                     pid = clips[0].get("Player ID") if clips else None
-                    cols_hdr = st.columns([0.8, 0.2])
-                    with cols_hdr[0]:
+                    if pid and st.button(player, key=f"player_{pid}"):
+                        st.session_state.profile_player_id = pid
+                        _render_profile_overlay(pid)
+                        st.stop()
+                    else:
                         st.markdown(f"## {player}")
-                    with cols_hdr[1]:
-                        if pid and st.button("View", key=f"view_{pid}"):
-                            st.session_state.profile_player_id = pid
-                            _render_profile_overlay(pid)
-                            st.stop()
                     for r in clips[:3]:
                         with st.container():
                             st.markdown(f"**{r['Matchup']}** @ {r['Clock']}")

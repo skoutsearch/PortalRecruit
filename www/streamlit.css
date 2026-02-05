@@ -201,3 +201,8 @@ div[role="dialog"] {
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
+
+/* Make player name buttons look like links */
+button[kind="secondary"], button[kind="primary"] {
+  font-family: var(--pr-font-body) !important;
+}
