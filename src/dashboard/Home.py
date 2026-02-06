@@ -164,13 +164,6 @@ def _clear_qp(key):
             st.query_params.pop(key, None)
         except Exception:
             pass
-
-
-def _debug_panel(note: str, **data):
-    with st.expander("DEBUG (temporary)", expanded=True):
-        st.write(note)
-        st.json(data)
-
 def _get_player_profile(player_id: str):
     import sqlite3
     profile = {}
@@ -497,7 +490,6 @@ elif st.session_state.app_mode == "Search":
     qp = _get_qp()
     if "player" in qp and qp["player"]:
         pid = qp["player"][0] if isinstance(qp["player"], list) else qp["player"]
-        _debug_panel("Profile routing", player_param=pid, player_exists=bool(_get_player_profile(pid)))
         if _get_player_profile(pid):
             _render_profile_overlay(pid)
             st.stop()
