@@ -121,6 +121,22 @@ def _resolve_name_query(query: str):
     return {"mode": "none", "matches": []}
 
 
+
+@st.cache_data(show_spinner=False)
+def _lookup_player_id_by_name(name: str):
+    if not name:
+        return None
+    try:
+        import sqlite3
+        con = sqlite3.connect(DB_PATH)
+        cur = con.cursor()
+        cur.execute("SELECT player_id FROM players WHERE full_name = ? LIMIT 1", (name,))
+        row = cur.fetchone()
+        con.close()
+        return row[0] if row else None
+    except Exception:
+        return None
+
 def _get_player_profile(player_id: str):
     import sqlite3
     profile = {}
@@ -446,8 +462,12 @@ elif st.session_state.app_mode == "Search":
     # Route to player profile page via query params
     if "player" in st.query_params and st.query_params["player"]:
         pid = st.query_params["player"]
-        _render_profile_overlay(pid)
-        st.stop()
+        if _get_player_profile(pid):
+            _render_profile_overlay(pid)
+            st.stop()
+        else:
+            st.query_params.pop("player", None)
+            st.warning("Player not found.")
     
     # This is where your Search UI lives. 
     # Ideally, put this in a separate file like `src/dashboard/search_ui.py` and import it.
@@ -1236,9 +1256,12 @@ elif st.session_state.app_mode == "Search":
                     size = f"{ht}in/{wt}lb" if ht and wt else ""
                     meta = " | ".join([s for s in [pos, team, size] if s])
                     label = f"{player}\n{meta}\nScore: {clips[0].get('Score',0):.1f}" if clips else player
-                    if pid and st.button(label, key=f"player_{pid}", use_container_width=True):
-                        st.query_params["player"] = pid
-                        st.rerun()
+                    if st.button(label, key=f"player_{pid}", use_container_width=True):
+                        if not pid:
+                            pid = _lookup_player_id_by_name(player)
+                        if pid:
+                            st.query_params["player"] = pid
+                            st.rerun()
                     # Plays shown in overlay only
             else:
                 st.info("No results after filters.")
