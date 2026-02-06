@@ -1093,7 +1093,7 @@ elif st.session_state.app_mode == "Search":
                 ncaa_url = f"https://stats.ncaa.org/search/m?search={q.replace(' ', '+')}"
 
                 rows.append({
-                    "Matchup": f"{home} vs {away}",
+                    "Match": f"{home} vs {away}",
                     "Clock": clock,
                     "Player": (player_name or "Unknown"),
                     "Player ID": player_id,
@@ -1172,13 +1172,16 @@ elif st.session_state.app_mode == "Search":
 
                 for player, clips in grouped.items():
                     pid = clips[0].get("Player ID") if clips else None
-                    matchup = clips[0].get("Matchup", "") if clips else ""
-                    label = f"{player}\n{matchup}" if matchup else player
+                    pos = clips[0].get("Position", "") if clips else ""
+                    team = clips[0].get("Team", "") if clips else ""
+                    ht = clips[0].get("Height") if clips else None
+                    wt = clips[0].get("Weight") if clips else None
+                    size = f"{ht}in/{wt}lb" if ht and wt else ""
+                    meta = " | ".join([s for s in [pos, team, size] if s])
+                    label = f"{player}\n{meta}\nScore: {clips[0].get('Score',0):.1f}" if clips else player
                     if pid and st.button(label, key=f"player_{pid}", use_container_width=True):
                         st.session_state.profile_player_id = pid
                         st.rerun()
-                    else:
-                        st.markdown(f"## {player}")
                     # Plays shown in overlay only
             else:
                 st.info("No results after filters.")
