@@ -25,7 +25,7 @@ st.set_page_config(
     page_title="PortalRecruit | Search",
     layout="wide",
     page_icon="https://portalrecruit.github.io/PortalRecruit/PR_LOGO_BBALL_SQUARE_HARDWOODBG_2.PNG",
-    initial_sidebar_state="expanded", # Changed to expanded for navigation
+    initial_sidebar_state="expanded",
 )
 inject_background()
 
@@ -121,7 +121,6 @@ def _resolve_name_query(query: str):
     return {"mode": "none", "matches": []}
 
 
-
 @st.cache_data(show_spinner=False)
 def _lookup_player_id_by_name(name: str):
     if not name:
@@ -138,32 +137,26 @@ def _lookup_player_id_by_name(name: str):
         return None
 
 
-
 def _get_qp():
     try:
-        return st.experimental_get_query_params()
+        return st.query_params
     except Exception:
-        return dict(st.query_params)
+        return {}
 
 
 def _set_qp(**kwargs):
-    try:
-        st.experimental_set_query_params(**kwargs)
-    except Exception:
-        for k,v in kwargs.items():
-            st.query_params[k] = v
+    for k, v in kwargs.items():
+        st.query_params[k] = v
 
 
 def _clear_qp(key):
     try:
-        params = st.experimental_get_query_params()
-        params.pop(key, None)
-        st.experimental_set_query_params(**params)
+        if key in st.query_params:
+            del st.query_params[key]
     except Exception:
-        try:
-            st.query_params.pop(key, None)
-        except Exception:
-            pass
+        pass
+
+
 def _get_player_profile(player_id: str):
     import sqlite3
     profile = {}
@@ -321,88 +314,88 @@ def _scout_breakdown(profile: dict) -> str:
     return " ".join(lines)
 
 
-def _render_profile_overlay(player_id: str):
+def _render_profile_page(player_id: str):
+    """Renders the player profile as a full-page view, overriding the search UI."""
     profile = _get_player_profile(player_id)
     if not profile:
         st.warning("Player not found.")
-        return
-    title = profile.get("name", "Player Profile")
-
-    def body():
-        st.markdown(f"## {title}")
-        meta = []
-        if profile.get("position"): meta.append(profile["position"])
-        if profile.get("height_in") and profile.get("weight_lb"):
-            meta.append(f"{profile['height_in']}in / {profile['weight_lb']}lb")
-        if profile.get("class_year"): meta.append(f"Class: {profile['class_year']}")
-        if profile.get("team_id"): meta.append(f"Team: {profile['team_id']}")
-        if meta:
-            st.caption(" • ".join(meta))
-
-        st.markdown("### Scout Breakdown")
-        breakdown = _llm_scout_breakdown(profile)
-        breakdown = re.sub(r"\[clip:(\d+)\]", r"[clip](#clip-\\1)", breakdown)
-        st.write(breakdown)
-
-        # traits + strengths/weaknesses
-        traits = profile.get("traits", {}) or {}
-        if traits:
-            st.markdown("### Traits")
-            strengths = []
-            weaknesses = []
-            for key, label in [
-                ("dog_index", "Dog"),
-                ("menace_index", "Menace"),
-                ("unselfish_index", "Unselfish"),
-                ("toughness_index", "Toughness"),
-                ("rim_pressure_index", "Rim Pressure"),
-                ("shot_making_index", "Shot Making"),
-                ("gravity_index", "Gravity"),
-                ("size_index", "Size"),
-            ]:
-                val = traits.get(key)
-                if val is None:
-                    continue
-                if val >= 70:
-                    strengths.append(label)
-                elif val <= 35:
-                    weaknesses.append(label)
-                st.progress(min(100, max(0, int(val))))
-                st.caption(f"{label}: {val:.1f}" if isinstance(val, (int, float)) else f"{label}: {val}")
-            if strengths:
-                st.markdown(f"**Strengths:** {', '.join(strengths[:4])}")
-            if weaknesses:
-                st.markdown(f"**Weaknesses:** {', '.join(weaknesses[:3])}")
-
-        # clips (anchors for citations)
-        plays = profile.get("plays", [])
-        matchups = profile.get("matchups", {})
-        if plays:
-            st.markdown("### Clips")
-            for play_id, desc, game_id, clock in plays[:15]:
-                st.markdown(f"<a name='clip-{play_id}'></a>", unsafe_allow_html=True)
-                home, away = matchups.get(game_id, ("Unknown", "Unknown"))
-                st.markdown(f"**{home} vs {away}** @ {clock}")
-                st.write(desc)
-                st.divider()
-
-    if hasattr(st, "dialog"):
-        with st.dialog("Player Profile"):
-            if st.button("✕ Close", key="close_profile_top"):
-                _clear_qp("player")
-                st.rerun()
-            body()
-    else:
-        st.markdown("---")
-        if st.button("✕ Close Profile", key="close_profile"):
+        if st.button("Back to Search"):
             _clear_qp("player")
             st.rerun()
-        body()
+        return
+
+    # Back Navigation
+    if st.button("← Back to Results", key="profile_back_btn"):
+        _clear_qp("player")
+        st.rerun()
+
+    title = profile.get("name", "Player Profile")
+    
+    # --- HEADER ---
+    st.markdown(f"# {title}")
+    meta = []
+    if profile.get("position"): meta.append(profile["position"])
+    if profile.get("height_in") and profile.get("weight_lb"):
+        meta.append(f"{profile['height_in']}in / {profile['weight_lb']}lb")
+    if profile.get("class_year"): meta.append(f"Class: {profile['class_year']}")
+    if profile.get("team_id"): meta.append(f"Team: {profile['team_id']}")
+    if meta:
+        st.caption(" • ".join(meta))
+
+    # --- SCOUTING REPORT ---
+    st.markdown("### 📋 Scout Breakdown")
+    breakdown = _llm_scout_breakdown(profile)
+    breakdown = re.sub(r"\[clip:(\d+)\]", r"[clip](#clip-\1)", breakdown)
+    st.info(breakdown)
+
+    # --- TRAITS ---
+    traits = profile.get("traits", {}) or {}
+    if traits:
+        st.markdown("### 🧬 Trait DNA")
+        cols = st.columns(4)
+        
+        trait_display = [
+            ("dog_index", "Dog"),
+            ("menace_index", "Menace"),
+            ("unselfish_index", "Unselfish"),
+            ("toughness_index", "Toughness"),
+            ("rim_pressure_index", "Rim Pressure"),
+            ("shot_making_index", "Shot Making"),
+            ("gravity_index", "Gravity"),
+            ("size_index", "Size"),
+        ]
+        
+        for i, (key, label) in enumerate(trait_display):
+            val = traits.get(key, 0)
+            if val is None: val = 0
+            with cols[i % 4]:
+                st.metric(label, f"{val:.0f}")
+                st.progress(min(100, max(0, int(val))))
+
+    # --- CLIPS ---
+    plays = profile.get("plays", [])
+    matchups = profile.get("matchups", {})
+    
+    st.divider()
+    st.markdown(f"### 🎥 Film Room ({len(plays)} Clips)")
+    
+    if plays:
+        for play_id, desc, game_id, clock in plays:
+            st.markdown(f"<div id='clip-{play_id}'></div>", unsafe_allow_html=True)
+            with st.container(border=True):
+                home, away = matchups.get(game_id, ("Unknown", "Unknown"))
+                col_a, col_b = st.columns([1, 4])
+                with col_a:
+                    st.caption(f"**{home} vs {away}**")
+                    st.caption(f"⏱️ {clock}")
+                with col_b:
+                    st.write(desc)
+    else:
+        st.caption("No clips indexed for this player yet.")
+
 
 def check_ingestion_status():
-    """
-    Checks if the vector database exists.
-    """
+    """Checks if the vector database exists."""
     _restore_vector_db_if_needed()
     db_path = REPO_ROOT / "data" / "vector_db" / "chroma.sqlite3"
     return db_path.exists()
@@ -465,7 +458,13 @@ with st.sidebar:
     )
     st.session_state.app_mode = mode
     st.divider()
-    st.info(f"Current Status: {st.session_state.app_mode}")
+    
+    # If in Search mode and looking at a profile, show specific controls?
+    if "player" in st.query_params:
+        st.info(" viewing player profile")
+        if st.button("Clear Selection"):
+            _clear_qp("player")
+            st.rerun()
 
 # --- 5. RENDER CONTENT BASED ON MODE ---
 
@@ -484,23 +483,26 @@ if st.session_state.app_mode == "Admin":
 
 elif st.session_state.app_mode == "Search":
     # ---------------- SEARCH VIEW ----------------
-    render_header()
+    
+    # [FIX] State Migration: If a button set the session state, move it to Query Params
+    if "profile_player_id" in st.session_state and st.session_state.profile_player_id:
+        st.query_params["player"] = st.session_state.profile_player_id
+        del st.session_state.profile_player_id
+        st.rerun()
 
-    # Route to player profile page via query params
-    qp = _get_qp()
-    if "player" in qp and qp["player"]:
-        pid = qp["player"][0] if isinstance(qp["player"], list) else qp["player"]
-        if _get_player_profile(pid):
-            _render_profile_overlay(pid)
-            st.stop()
-        else:
-            _clear_qp("player")
-            st.warning("Player not found.")
-    
-    # This is where your Search UI lives. 
-    # Ideally, put this in a separate file like `src/dashboard/search_ui.py` and import it.
-    # For now, I'll place the logic block here.
-    
+    # [FIX] Routing: If Query Param exists, render PROFILE PAGE and STOP.
+    qp = st.query_params
+    if "player" in qp:
+        pid = qp["player"]
+        # Handle list of values if needed
+        if isinstance(pid, list): pid = pid[0]
+        
+        # Render the full page profile
+        _render_profile_page(pid)
+        st.stop() # CRITICAL: Stops the rest of the search UI from rendering below
+
+    # If no player selected, render the Search UI
+    render_header()
     st.markdown("### 🔍 Semantic Player Search")
 
     # Advanced Filters (collapsed by default)
@@ -562,7 +564,7 @@ elif st.session_state.app_mode == "Search":
     # Name-aware search routing
     name_resolution = _resolve_name_query(query)
     if name_resolution.get("mode") == "exact_single":
-        _set_qp(player=name_resolution["matches"][0]["player_id"])
+        st.query_params["player"] = name_resolution["matches"][0]["player_id"]
         st.rerun()
     elif name_resolution.get("mode") in {"exact_multi", "fuzzy_multi"}:
         st.markdown("### Did you mean")
@@ -571,10 +573,10 @@ elif st.session_state.app_mode == "Search":
             with cols[i % 2]:
                 st.markdown(f"**{p['full_name']}**")
                 st.caption(f"{p.get('position','')} | Team {p.get('team_id','')} | {p.get('class_year','')}")
+                # [FIX] Direct Query Param setting
                 if st.button("View Profile", key=f"didyoumean_{p['player_id']}"):
-                    st.session_state.profile_player_id = p["player_id"]
-                    _render_profile_overlay(st.session_state.profile_player_id)
-                    st.stop()
+                    st.query_params["player"] = p["player_id"]
+                    st.rerun()
         st.stop()
 
     if query:
@@ -826,8 +828,7 @@ elif st.session_state.app_mode == "Search":
 
             conn.close()
 
-            # Build display rows (filter by dog index + tags)
-            from src.processing.play_tagger import tag_play  # noqa: E402
+            from src.processing.play_tagger import tag_play
 
             # Load player positions for role filtering
             player_positions = {}
@@ -1269,8 +1270,9 @@ elif st.session_state.app_mode == "Search":
                         size = f"{ht}in/{wt}lb" if ht and wt else ""
                         meta = " | ".join([s for s in [pos, team, size] if s])
                         label = f"{player}\n{meta}\nScore: {score:.1f}"
+                        # [FIX] Direct Query Param setting
                         if pid and st.button(label, key=f"top5_{pid}", use_container_width=True):
-                            st.session_state.profile_player_id = pid
+                            st.query_params["player"] = pid
                             st.rerun()
 
                 st.markdown("### Results")
