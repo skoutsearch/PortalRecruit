@@ -230,21 +230,19 @@ div[role="dialog"] {
   -webkit-backdrop-filter: blur(10px);
 }
 
-/* Make player name buttons look like cards */
-button[kind="secondary"], button[kind="primary"] {
-  font-family: var(--pr-font-body) !important;
-}
-
-button:has(span):not(.stDownloadButton button) {
-  width: 100% !important;
-  text-align: left !important;
-  white-space: pre-line !important;
-  padding: 12px 14px !important;
-  border-radius: 14px !important;
-  background: rgba(30,41,59,0.55) !important;
-  border: 1px solid rgba(255,255,255,0.08) !important;
+/* Clickable player cards (links) */
+.pr-card {
+  display: block;
+  text-decoration: none !important;
+  color: #f8fafc !important;
+  background: rgba(30,41,59,0.55);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 12px 14px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+  margin-bottom: 10px;
 }
-button:has(span):hover {
-  background: rgba(30,41,59,0.75) !important;
-}
+.pr-card:hover { background: rgba(30,41,59,0.75); }
+.pr-card-title { font-weight: 700; font-size: 16px; }
+.pr-card-meta { opacity: 0.8; font-size: 12.5px; margin-top: 2px; }
+.pr-card-score { opacity: 0.9; font-size: 12.5px; margin-top: 4px; }
