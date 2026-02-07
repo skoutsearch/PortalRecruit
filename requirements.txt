@@ -5,5 +5,7 @@ python-dotenv
 chromadb
 sentence-transformers
 pysqlite3-binary  # Required for ChromaDB on cloud servers
+xgboost
+scikit-learn
 ruff
 pytest
