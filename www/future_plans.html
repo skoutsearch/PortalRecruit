@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PortalRecruit: Commercialization Roadmap</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <!-- Font Awesome for Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" xintegrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <style>
+    /* Custom Chart Container Styling per Requirements */
+    .chart-container {
+      position: relative;
+      width: 100%;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+      height: 400px;
+      max-height: 400px;
+      background-color: white;
+      border-radius: 0.5rem;
+      padding: 1rem;
+    }
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .chart-container { height: 300px; }
+    }
+    /* Typography & Layout overrides */
+    body {
+      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: #F3F4F6; /* Light gray background */
+      color: #1F2937;
+    }
+    .card {
+      background-color: white;
+      border-radius: 0.75rem; /* rounded-xl */
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      border-left: 5px solid #2563EB; /* Blue accent */
+      transition: all 0.3s ease;
+    }
+    .card:hover {
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
+    .section-header {
+      color: #1E3A8A; /* Dark Blue */
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 1rem;
+      border-bottom: 2px solid #E5E7EB;
+      padding-bottom: 0.5rem;
+    }
+    /* CSS Grid-based Flowchart (No Mermaid/SVG) */
+    .flow-container { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+    .flow-row { display: flex; gap: 2rem; justify-content: center; width: 100%; }
+    .flow-box {
+      background: #EFF6FF;
+      border: 2px solid #2563EB;
+      padding: 1rem;
+      border-radius: 8px;
+      text-align: center;
+      width: 150px;
+      font-weight: bold;
+      position: relative;
+    }
+    .flow-arrow { font-size: 24px; color: #F97316; /* Orange */ font-weight: bold; }
+    /* Custom Bullet Points */
+    ul.custom-list { list-style: none; padding-left: 0; }
+    ul.custom-list li::before { content: "🏀"; margin-right: 10px; color: #F97316; }
+    /* AI Feature Styling */
+    .ai-panel {
+      background: linear-gradient(135deg, #EFF6FF 0%, #ffffff 100%);
+      border: 1px solid #BFDBFE;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-top: 1rem;
+    }
+    .ai-btn { background-color: #2563EB; color: white; transition: all 0.2s; }
+    .ai-btn:hover { background-color: #1D4ED8; transform: translateY(-1px); }
+    .ai-btn:disabled { background-color: #93C5FD; cursor: not-allowed; }
+    .loading-spinner {
+      display: inline-block;
+      width: 1rem;
+      height: 1rem;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 1s ease-in-out infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body class="p-4 md:p-8">
+  <!-- Header Section -->
+  <header class="max-w-7xl mx-auto mb-10 text-center">
+    <h1 class="text-4xl md:text-6xl font-extrabold text-blue-900 mb-2">PortalRecruit <span class="text-orange-500">PRO</span></h1>
+    <p class="text-xl text-gray-600 font-semibold">From GitHub Repo to Recruiting War Room</p>
+    <p class="mt-4 max-w-3xl mx-auto text-gray-500">
+      A strategic roadmap to commercialize the current codebase. Leveraging 75,000+ vector embeddings and natural language search to revolutionize how coaching staffs identify talent in the transfer portal.
+    </p>
+  </header>
+
+  <!-- Main Grid -->
+  <main class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
+    <!-- Section 1: The Engine (Current State) -->
+    <div class="col-span-1 md:col-span-2">
+      <div class="card border-l-orange-500">
+        <h2 class="section-header">Current Engine: The "Moneyball" Asset</h2>
+        <p class="mb-4 text-gray-700">
+          The core value of PortalRecruit lies in its data pipeline. The project currently houses a massive vector database (ChromaDB) capable of semantic retrieval. This is not just a database; it is a "Coach-Speak" translation engine. The chart below breaks down the current indexed assets found in the system.
+        </p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+          <!-- Big Stats -->
+          <div class="grid grid-cols-2 gap-4 text-center">
+            <div class="bg-blue-50 p-6 rounded-lg">
+              <div class="text-4xl font-bold text-blue-800">75,018</div>
+              <div class="text-sm font-bold text-gray-500 uppercase">Vector Embeddings</div>
+            </div>
+            <div class="bg-blue-50 p-6 rounded-lg">
+              <div class="text-4xl font-bold text-blue-800">525k+</div>
+              <div class="text-sm font-bold text-gray-500 uppercase">Metadata Points</div>
+            </div>
+            <div class="bg-orange-50 p-6 rounded-lg">
+              <div class="text-4xl font-bold text-orange-600">3</div>
+              <div class="text-sm font-bold text-gray-500 uppercase">NCAA Divisions</div>
+            </div>
+            <div class="bg-orange-50 p-6 rounded-lg">
+              <div class="text-4xl font-bold text-orange-600">Active</div>
+              <div class="text-sm font-bold text-gray-500 uppercase">Ingest Pipeline</div>
+            </div>
+          </div>
+          <!-- Chart 1: Data Composition -->
+          <div class="chart-container">
+            <canvas id="dbBreakdownChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 2: Architecture Migration -->
+    <div class="col-span-1 md:col-span-2">
+      <div class="card">
+        <h2 class="section-header">Architecture Pivot: From Prototype to SaaS</h2>
+        <p class="mb-6 text-gray-700">
+          Currently, the application runs on Streamlit (`src/dashboard/Home.py`). While excellent for data science prototyping, Streamlit cannot scale to hundreds of concurrent coaching staffs. To commercialize, we must decouple the frontend from the inference engine.
+        </p>
+        <!-- HTML/CSS Diagram (No Mermaid) -->
+        <div class="bg-gray-50 p-6 rounded-lg border border-gray-200">
+          <div class="text-center font-bold mb-4 text-lg">Evolution Strategy</div>
+          <!-- Row 1: Current -->
+          <div class="flex flex-col md:flex-row items-center justify-center gap-4 mb-8 opacity-60">
+            <div class="font-bold text-gray-400 w-24">CURRENT</div>
+            <div class="flow-box border-gray-400 text-gray-500">Python Scripts</div>
+            <div class="flow-arrow text-gray-400">&rarr;</div>
+            <div class="flow-box border-gray-400 text-gray-500">ChromaDB (Local)</div>
+            <div class="flow-arrow text-gray-400">&rarr;</div>
+            <div class="flow-box border-gray-400 text-gray-500">Streamlit UI</div>
+          </div>
+          <!-- Row 2: Future -->
+          <div class="flex flex-col md:flex-row items-center justify-center gap-4">
+            <div class="font-bold text-blue-600 w-24">FUTURE</div>
+            <div class="flow-box bg-white shadow-lg">Cloud Ingest (AWS/GCP)</div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-box bg-white shadow-lg">FastAPI Backend</div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-box bg-blue-600 text-white shadow-lg">React / Next.js SPA</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 3: The "Coach-Speak" Advantage + AI Demo -->
+    <div class="col-span-1">
+      <div class="card h-full flex flex-col">
+        <h2 class="section-header">The "Why": Semantic Search</h2>
+        <p class="mb-4 text-sm text-gray-600">
+          Coaches don't search for "High PER." They ask for "A rim protector who can switch 1-through-5." We use 3D Vector Space to map these vague concepts to concrete player stats.
+        </p>
+        <p class="mb-2 text-sm font-bold text-orange-600">Interactive Visualization: The "Search Space"</p>
+        <!-- Plotly 3D Scatter (WebGL) -->
+        <div id="vectorPlot" class="chart-container" style="height: 300px;"></div>
+        <div class="mb-4 text-xs text-gray-500 italic text-center">*Simulation of player embeddings clustered by playstyle.</div>
+
+        <!-- AI DEMO SECTION -->
+        <div class="ai-panel mt-auto">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-xl">✨</span>
+            <h3 class="font-bold text-blue-900">Live Demo: Coach-Speak Translator</h3>
+          </div>
+          <p class="text-xs text-gray-600 mb-2">Use Gemini to translate vague requests into database queries.</p>
+          <textarea id="coachInput" rows="2" class="w-full p-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-400 focus:outline-none mb-2" placeholder="e.g., I need a gritty defender who can guard 1 through 5..."></textarea>
+          <button id="translateBtn" onclick="translateCoachSpeak()" class="ai-btn w-full py-2 rounded text-sm font-bold flex items-center justify-center gap-2">
+            <span>Translate with Gemini</span>
+          </button>
+          <div id="translatorOutput" class="mt-2 text-xs text-gray-700 bg-white p-2 rounded hidden border border-gray-200 font-mono"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 4: Target Market & Pricing -->
+    <div class="col-span-1">
+      <div class="card h-full">
+        <h2 class="section-header">Market Segmentation</h2>
+        <p class="mb-4 text-sm text-gray-600">
+          Based on the configuration files (`ncaa_di...`, `ncaa_dii...`), the system is already set up to serve the entire collegiate spectrum. We can tier pricing based on resource depth.
+        </p>
+        <div class="chart-container">
+          <canvas id="marketChart"></canvas>
+        </div>
+        <div class="mt-6 space-y-2">
+          <div class="flex justify-between items-center border-b pb-2">
+            <span class="font-bold text-blue-900">D1 High Major</span>
+            <span class="text-orange-600 font-bold">$15k / yr</span>
+          </div>
+          <div class="flex justify-between items-center border-b pb-2">
+            <span class="font-bold text-blue-800">D1 Mid Major</span>
+            <span class="text-orange-600 font-bold">$8k / yr</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="font-bold text-blue-700">D2 / D3 / JUCO</span>
+            <span class="text-orange-600 font-bold">$2k / yr</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 5: Roadmap to Revenue -->
+    <div class="col-span-1 md:col-span-2">
+      <div class="card">
+        <h2 class="section-header">Commercialization Timeline</h2>
+        <p class="mb-6 text-gray-700">Moving from the current local build to a subscription model requires a 12-month execution plan.</p>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <!-- Q1 -->
+          <div class="bg-gray-50 p-4 rounded border-t-4 border-blue-400">
+            <h3 class="font-bold text-lg mb-2">Phase 1: Hardening</h3>
+            <ul class="text-sm space-y-2 custom-list">
+              <li>Secure API Endpoints</li>
+              <li>User Auth (Auth0)</li>
+              <li>Containerize (Docker)</li>
+            </ul>
+          </div>
+          <!-- Q2 -->
+          <div class="bg-gray-50 p-4 rounded border-t-4 border-blue-600">
+            <h3 class="font-bold text-lg mb-2">Phase 2: Beta</h3>
+            <ul class="text-sm space-y-2 custom-list">
+              <li>Invite 10 Beta Programs</li>
+              <li>UI/UX Overhaul (React)</li>
+              <li>Mobile View Optimization</li>
+            </ul>
+          </div>
+          <!-- Q3 -->
+          <div class="bg-gray-50 p-4 rounded border-t-4 border-blue-800">
+            <h3 class="font-bold text-lg mb-2">Phase 3: Launch</h3>
+            <ul class="text-sm space-y-2 custom-list">
+              <li>Public SaaS Launch</li>
+              <li>Stripe Integration</li>
+              <li>Auto-Email Alerts</li>
+            </ul>
+          </div>
+          <!-- Q4 -->
+          <div class="bg-gray-50 p-4 rounded border-t-4 border-orange-500">
+            <h3 class="font-bold text-lg mb-2">Phase 4: Scale</h3>
+            <ul class="text-sm space-y-2 custom-list">
+              <li>Synergy/Sportradar Partnership</li>
+              <li>NIL Valuation Model</li>
+              <li>HS Recruiting Branch</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- AI SALES TOOL -->
+        <div class="ai-panel">
+          <div class="flex flex-col md:flex-row gap-4 items-end">
+            <div class="flex-1 w-full">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-xl">✨</span>
+                <h3 class="font-bold text-blue-900">Smart Pitch Generator</h3>
+              </div>
+              <p class="text-xs text-gray-600 mb-2">Generate a targeted email hook for a specific program using our roadmap data.</p>
+              <input id="pitchInput" type="text" class="w-full p-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-400 focus:outline-none" placeholder="Enter Program Name (e.g. Duke University)">
+            </div>
+            <button id="pitchBtn" onclick="generatePitch()" class="ai-btn w-full md:w-auto px-6 py-2 rounded text-sm font-bold flex items-center justify-center gap-2 h-10">
+              <span>Generate Pitch</span>
+            </button>
+          </div>
+          <div id="pitchOutput" class="mt-4 text-sm text-gray-800 bg-white p-3 rounded hidden border-l-4 border-orange-500 italic"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="text-center py-8 text-gray-500 text-sm">
+    &copy; 2025 PortalRecruit Analysis. Generated for Commercial Review.
+  </footer>
+
+  <!-- Chart Logic & Gemini API -->
+  <script>
+    // --- 1. Label Wrapping Logic ---
+    function wrapLabel(label, maxChars = 16) {
+      if (label.length <= maxChars) return label;
+      const words = label.split(' ');
+      const lines = [];
+      let currentLine = words[0];
+      for (let i = 1; i < words.length; i++) {
+        if ((currentLine + " " + words[i]).length <= maxChars) {
+          currentLine += " " + words[i];
+        } else {
+          lines.push(currentLine);
+          currentLine = words[i];
+        }
+      }
+      lines.push(currentLine);
+      return lines;
+    }
+    // --- 2. Tooltip Plugin ---
+    const commonOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        tooltip: {
+          callbacks: {
+            title: function(tooltipItems) {
+              const item = tooltipItems[0];
+              let label = item.chart.data.labels[item.dataIndex];
+              if (Array.isArray(label)) {
+                return label.join(' ');
+              } else {
+                return label;
+              }
+            }
+          }
+        },
+        legend: { position: 'bottom', labels: { usePointStyle: true, font: { size: 12 } } }
+      }
+    };
+    // --- 3. Chart 1: DB Breakdown ---
+    const ctxDB = document.getElementById('dbBreakdownChart').getContext('2d');
+    const dbLabels = ['Fulltext Search Data', 'Raw Embeddings', 'Metadata Indices', 'Queue Buffer'];
+    const wrappedDBLabels = dbLabels.map(l => wrapLabel(l));
+    new Chart(ctxDB, {
+      type: 'doughnut',
+      data: {
+        labels: wrappedDBLabels,
+        datasets: [{
+          data: [75018, 75018, 525126, 319],
+          backgroundColor: ['#2563EB', '#3B82F6', '#93C5FD', '#F97316'],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        ...commonOptions,
+        cutout: '60%',
+        plugins: { ...commonOptions.plugins, title: { display: true, text: 'Database Composition (Row Counts)' } }
+      }
+    });
+    // --- 4. Chart 2: Market Segmentation ---
+    const ctxMarket = document.getElementById('marketChart').getContext('2d');
+    const marketLabels = ['NCAA Division I', 'NCAA Division II', 'NCAA Division III'];
+    const wrappedMarketLabels = marketLabels.map(l => wrapLabel(l));
+    new Chart(ctxMarket, {
+      type: 'bar',
+      data: {
+        labels: wrappedMarketLabels,
+        datasets: [
+          { label: 'Target Program Volume (Est.)', data: [363, 300, 400], backgroundColor: '#1E3A8A', borderRadius: 5 },
+          { label: 'Revenue Potential (Index)', data: [100, 45, 15], backgroundColor: '#F97316', borderRadius: 5 }
+        ]
+      },
+      options: {
+        ...commonOptions,
+        plugins: { ...commonOptions.plugins, title: { display: true, text: 'Addressable Market by Division' } },
+        scales: { y: { beginAtZero: true, grid: { display: false } }, x: { grid: { display: false } } }
+      }
+    });
+    // --- 5. Chart 3: Plotly 3D Vector Space ---
+    const count = 100;
+    const x = [], y = [], z = [], colors = [];
+    for (let i = 0; i < count; i++) {
+      if (i < 50) {
+        x.push(Math.random() * 10);
+        y.push(Math.random() * 10);
+        z.push(Math.random() * 5);
+        colors.push('#2563EB');
+      } else {
+        x.push((Math.random() * 10) + 10);
+        y.push((Math.random() * 10) + 10);
+        z.push((Math.random() * 5) + 5);
+        colors.push('#F97316');
+      }
+    }
+    const data3D = [{
+      x: x,
+      y: y,
+      z: z,
+      mode: 'markers',
+      type: 'scatter3d',
+      marker: { size: 5, color: colors, opacity: 0.8 },
+      hovertemplate: '<b>Player Vector</b><br>Shooting: %{x:.1f}<br>Defense: %{y:.1f}<br>Rebounding: %{z:.1f}<extra></extra>'
+    }];
+    const layout3D = {
+      margin: {l: 0, r: 0, b: 0, t: 0},
+      showlegend: false,
+      scene: {
+        xaxis: {title: 'Shooting', showgrid: true},
+        yaxis: {title: 'Defense', showgrid: true},
+        zaxis: {title: 'Rebounding', showgrid: true},
+        camera: { eye: {x: 1.5, y: 1.5, z: 1.2} }
+      },
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor: 'rgba(0,0,0,0)'
+    };
+    Plotly.newPlot('vectorPlot', data3D, layout3D, {displayModeBar: false, responsive: true});
+    // --- 6. GEMINI API INTEGRATION ---
+    const apiKey = ""; // API Key provided by environment
+    async function callGemini(prompt, systemInstruction) {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+      const payload = {
+        contents: [{ parts: [{ text: prompt }] }],
+        systemInstruction: { parts: [{ text: systemInstruction }] }
+      };
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) throw new Error('API Error');
+      const data = await response.json();
+      return data.candidates[0].content.parts[0].text;
+    }
+    async function translateCoachSpeak() {
+      const input = document.getElementById('coachInput').value;
+      const outputDiv = document.getElementById('translatorOutput');
+      const btn = document.getElementById('translateBtn');
+      if (!input) return;
+      const originalBtnText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="loading-spinner"></span> Translating...';
+      outputDiv.classList.remove('hidden');
+      outputDiv.innerHTML = 'Analyzing semantics...';
+      try {
+        const systemPrompt = "You are an expert basketball analyst and data scientist for PortalRecruit. Your job is to translate 'Coach Speak' (vague basketball requests) into concrete, quantifiable database query parameters. Output valid JSON-like structure listing specific stats (e.g., TS%, PER, ReboundRate), physical metrics, or playstyle tags that would filter a database of 75,000 players. Keep it concise.";
+        const result = await callGemini(input, systemPrompt);
+        outputDiv.innerText = result;
+      } catch (error) {
+        outputDiv.innerText = "Error: Could not connect to the AI Scout.";
+        console.error(error);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalBtnText;
+      }
+    }
+    async function generatePitch() {
+      const input = document.getElementById('pitchInput').value;
+      const outputDiv = document.getElementById('pitchOutput');
+      const btn = document.getElementById('pitchBtn');
+      if (!input) return;
+      const originalBtnText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="loading-spinner"></span> Generating...';
+      outputDiv.classList.remove('hidden');
+      outputDiv.innerHTML = 'Drafting email...';
+      try {
+        const systemPrompt = "You are a top-tier B2B sales executive for PortalRecruit. Write a short, high-impact, 3-sentence sales hook (email opener) for the specific university provided by the user. Mention our '75,000 player embeddings' and 'AI-powered semantic search' as key selling points. Tone: Professional, confident, competitive.";
+        const result = await callGemini(`Write a pitch for: ${input}`, systemPrompt);
+        outputDiv.innerText = result;
+      } catch (error) {
+        outputDiv.innerText = "Error: Could not generate pitch.";
+        console.error(error);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalBtnText;
+      }
+    }
+  </script>
+</body>
+</html>
