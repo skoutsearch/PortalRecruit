@@ -1699,17 +1699,16 @@ elif st.session_state.app_mode == "Search":
                     elif wt:
                         size = f"{int(wt)} lbs"
 
-                    parts = [player]
-                    detail_parts = []
-                    if pos and pos != "—":
-                        detail_parts.append(pos)
-                    if size and size != "—":
-                        detail_parts.append(size)
-                    if team and team != "—":
-                        detail_parts.append(team)
-                    detail_parts.append(f"Recruit Score: {score:.1f}")
+                    detail_parts = [
+                        player,
+                        pos if pos and pos != "—" else "—",
+                        _fmt_height(ht) if ht else "—",
+                        f"{int(wt)} lbs" if wt else "—",
+                        team if team and team != "—" else "Unknown",
+                        f"Recruit Score: {score:.1f}",
+                    ]
 
-                    label = f"{parts[0]}\n" + " | ".join(detail_parts)
+                    label = " | ".join(detail_parts)
 
                     if pid and st.button(label, key=f"btn_{pid}", use_container_width=True):
                         st.query_params["player"] = pid
