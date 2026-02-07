@@ -8,6 +8,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
+# Ensure repo root on path
+REPO_ROOT = Path(__file__).resolve().parents[1]
+import sys
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 from src.ingestion.db import connect_db, ensure_schema
 
 
