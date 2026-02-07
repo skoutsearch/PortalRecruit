@@ -369,9 +369,9 @@ def _render_profile_overlay(player_id: str):
                 </div>
                 """, unsafe_allow_html=True)
 
-    if hasattr(st, "dialog"):
-        # Correctly use st.dialog as a decorator
-        @st.dialog("Player Profile")
+    dialog_fn = getattr(st, "dialog", None)
+    if callable(dialog_fn):
+        @dialog_fn("Player Profile")
         def show_dialog():
             if st.button("✖ Close", key="close_profile_top"):
                 _clear_qp("player")
