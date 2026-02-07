@@ -1,5 +1,6 @@
 import sys
 import streamlit as st
+import streamlit.components.v1 as components
 from pathlib import Path
 import zipfile
 import json
@@ -400,18 +401,17 @@ def render_header():
     </div>
     """
 
-    st.markdown(
-        f"""
-        <div class="pr-hero">
-          {banner_html}
-          <div class="pr-hero-sub" style="text-align:center; max-width:700px; margin:0 auto; opacity:0.8; font-size:1.1em; line-height:1.6;">
-            The world's first <strong>Semantic Scouting Engine</strong>. <br>
-            Search by playstyle ("downhill guard"), traits ("dog mentality"), or specific situations.
-          </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    hero_html = f"""
+    <div class="pr-hero">
+      {banner_html}
+      <div class="pr-hero-sub" style="text-align:center; max-width:700px; margin:0 auto; opacity:0.8; font-size:1.1em; line-height:1.6;">
+        The world's first <strong>Semantic Scouting Engine</strong>. <br>
+        Search by playstyle ("downhill guard"), traits ("dog mentality"), or specific situations.
+      </div>
+    </div>
+    """
+
+    components.html(hero_html, height=220)
 
 
 def _safe_float(val, default=0.0):
