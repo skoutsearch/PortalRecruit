@@ -33,6 +33,30 @@ class PdfPlayerStat:
 
 SUFFIXES = {"jr", "sr", "ii", "iii", "iv", "v"}
 
+TEAM_CODE_MAP = {
+    "DU": "Duke",
+    "BC": "Boston College",
+    "SU": "Syracuse",
+    "GT": "Georgia Tech",
+    "NC": "North Carolina",
+    "VT": "Virginia Tech",
+    "VA": "Virginia",
+    "WF": "Wake Forest",
+    "ND": "Notre Dame",
+    "UL": "Louisville",
+    "ST": "Florida State",
+    "FS": "Florida State",
+    "FSU": "Florida State",
+    "CU": "Clemson",
+    "MI": "Miami",
+    "MIA": "Miami",
+    "PIT": "Pittsburgh",
+    "PITT": "Pittsburgh",
+    "NCS": "NC State",
+    "NCSU": "NC State",
+    "NCST": "NC State",
+}
+
 
 def _norm_name(name: str) -> str:
     name = (name or "").lower()
@@ -40,6 +64,10 @@ def _norm_name(name: str) -> str:
     name = re.sub(r"\s+", " ", name).strip()
     parts = [p for p in name.split() if p and p not in SUFFIXES]
     return " ".join(parts)
+
+
+def _slug(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", value.lower()).strip("_")
 
 
 def _to_int(val: str | None) -> int | None:
@@ -123,6 +151,11 @@ def main() -> None:
         default=[],
         help="JSONL files (default: data/acc_stats_from_pdf_*.jsonl)",
     )
+    parser.add_argument(
+        "--create-missing",
+        action="store_true",
+        help="Insert missing players from PDFs into players table",
+    )
     args = parser.parse_args()
 
     if args.jsonl:
@@ -154,19 +187,41 @@ def main() -> None:
     unmatched = 0
     ambiguous = 0
     matched = 0
+    created = 0
 
     for row in iter_jsonl(paths):
         player = row.get("player")
         if not player:
             continue
         key = _norm_name(str(player))
+        team_code = (row.get("team") or "").upper()
         options = name_index.get(key) or []
+
         if not options:
-            unmatched += 1
-            continue
+            if not args.create_missing:
+                unmatched += 1
+                continue
+
+            team_name = TEAM_CODE_MAP.get(team_code, team_code or None)
+            pid = f"accpdf_{team_code.lower() if team_code else 'unk'}_{_slug(key)}"
+            first = key.split(" ")[0] if key else None
+            last = key.split(" ")[-1] if key else None
+            full_name = str(player)
+            cur.execute(
+                """
+                INSERT OR IGNORE INTO players (player_id, team_id, first_name, last_name, full_name)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (pid, team_name, first, last, full_name),
+            )
+            name_index.setdefault(key, []).append((pid, team_name))
+            created += 1
+            options = [(pid, team_name)]
+
         if len(options) > 1:
             ambiguous += 1
             continue
+
         pid, _team_id = options[0]
         matched += 1
         agg.setdefault(pid, PdfPlayerStat())
@@ -259,6 +314,7 @@ def main() -> None:
     print(f"   matched: {matched}")
     print(f"   unmatched: {unmatched}")
     print(f"   ambiguous: {ambiguous}")
+    print(f"   created players: {created}")
     print(f"   inserted: {inserted} | updated: {updated}")
 
 
