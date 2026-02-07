@@ -12,12 +12,14 @@ The transfer portal and NIL era compress recruiting into a high‑frequency envi
 ### 2.1 Frontend
 - Move from Streamlit to **React/Next.js** SPA.
 - CDN delivery (CloudFront) for fast asset loads.
+- PWA support for on‑road recruiting.
 
-### 2.2 Backend Services
-- **Auth** (SSO + RBAC)
-- **Scout Service** (semantic search, metrics)
-- **Ingest Service** (async jobs)
-- **Video Service** (secure clip delivery)
+### 2.2 Backend Services (Microservice split)
+- **Auth** (SSO + RBAC, university IT compliance)
+- **Scout Service** (semantic search, metrics, tags)
+- **Ingest Service** (async jobs + schedules)
+- **Video Service** (secure clip delivery + transcoding)
+- **Notes/Board Service** (recruiting boards, tags, collaboration)
 
 ### 2.3 Data Layer Migration
 - SQLite → **Aurora PostgreSQL**
@@ -28,9 +30,33 @@ The transfer portal and NIL era compress recruiting into a high‑frequency envi
 ### 2.4 Multi‑Tenancy
 - **Row‑Level Security** (tenant_id) for strict isolation.
 
+### 2.5 Infrastructure Diagram (Mermaid)
+```mermaid
+flowchart LR
+  UI[React/Next.js] -->|HTTPS| API[API Gateway]
+  API --> Auth
+  API --> Scout
+  API --> Ingest
+  API --> Video
+  API --> Board
+  Scout --> PG[(Postgres/Aurora)]
+  Scout --> Vec[(Vector DB)]
+  Ingest --> PG
+  Ingest --> Vec
+  Video --> S3[(S3)]
+  S3 --> CDN[CloudFront]
+  Board --> PG
+```
+
 ## 3. Productizing “Coach‑Speak”
 ### 3.1 Dog Index Definition
 Combine deflections, loose balls, charge rate, contested rebounding with conference normalization.
+
+**Proposed formula**
+```
+Dog Index = (w1*Deflections + w2*LooseBalls + w3*Charges + w4*ContestedReb%)
+            / Possessions * LeagueAdjustment
+```
 
 ### 3.2 Semantic Search
 Fine‑tune SBERT on scouting reports. Use LLM to generate **explainable scout breakdowns**.
@@ -38,13 +64,25 @@ Fine‑tune SBERT on scouting reports. Use LLM to generate **explainable scout b
 ### 3.3 Transfer Translation Model
 Train XGBoost to predict High‑Major outcomes based on Mid‑Major features. Output a “Translatability Score.”
 
+**Candidate features**
+- Usage rate, TS%, AST%, TOV%, ORB%, DRB%
+- Strength of schedule
+- Physicals (height/wingspan)
+
 ## 4. Video Intelligence (Future)
 - Event detection (YOLOv11 / RF‑DETR)
 - Tracking (SAM2 + OCR jersey ID)
 
 ## 5. Data Rights & Compliance
-- **BYOL** (customer uses their Synergy/Sportradar license)
-- **NCAA ECAG** certification – must provide analysis layer
+### 5.1 BYOL (Bring‑Your‑Own‑License)
+- Customer authenticates with Synergy/Sportradar.
+- PortalRecruit is a **processor**, not a distributor.
+- Enables enterprise customers without resale rights overhead.
+
+### 5.2 NCAA ECAG Certification
+- Must provide **analysis**, not just raw data.
+- Standardized pricing for all institutions.
+- Application deadline: May 31 (annual).
 
 ## 6. Go‑To‑Market
 ### 6.1 Tiered Pricing
