@@ -34,6 +34,42 @@ SECTION_SPECS = {
     "Minutes Played": SectionSpec("Minutes Played", ["g", "min", "avg"]),
 }
 
+TEAM_SECTION_SPECS = {
+    "SCORING OFFENSE": SectionSpec("Scoring Offense", []),
+    "SCORING DEFENSE": SectionSpec("Scoring Defense", []),
+    "SCORING MARGIN": SectionSpec("Scoring Margin", []),
+    "FREE THROW PERCENTAGE": SectionSpec("Free Throw Percentage (Team)", []),
+    "FIELD GOAL PERCENTAGE": SectionSpec("Field Goal Percentage", []),
+    "FIELD GOAL PCT DEFENSE": SectionSpec("Field Goal Pct Defense", []),
+    "3-POINT FG PERCENTAGE": SectionSpec("3-Point FG Percentage (Team)", []),
+    "3-POINT FG PCT DEFENSE": SectionSpec("3-Point FG Pct Defense", []),
+    "TOTAL REBOUNDS PER GAME": SectionSpec("Total Rebounds Per Game", []),
+    "OPPONENT TOTAL REBOUND": SectionSpec("Opponent Total Rebound", []),
+    "REBOUNDING MARGIN": SectionSpec("Rebounding Margin", []),
+    "BLOCKED SHOTS": SectionSpec("Blocked Shots (Team)", []),
+    "ASSISTS PER GAME": SectionSpec("Assists Per Game", []),
+    "STEALS PER GAME": SectionSpec("Steals Per Game", []),
+    "TURNOVER MARGIN": SectionSpec("Turnover Margin", []),
+    "ASSIST/TURNOVER RATIO": SectionSpec("Assist/Turnover Ratio (Team)", []),
+    "OFFENSIVE REBOUNDS": SectionSpec("Offensive Rebounds", []),
+    "DEFENSIVE REBOUNDS": SectionSpec("Defensive Rebounds", []),
+    "DEFENSIVE REB PCT.": SectionSpec("Defensive Reb Pct", []),
+    "OFFENSIVE REB PCT.": SectionSpec("Offensive Reb Pct", []),
+    "3-POINT FG MADE PER GAME": SectionSpec("3-Point FG Made Per Game", []),
+}
+
+TEAM_PAIR_SECTIONS = {
+    "SCORING OFFENSE": "SCORING DEFENSE",
+    "SCORING MARGIN": "FREE THROW PERCENTAGE",
+    "FIELD GOAL PERCENTAGE": "FIELD GOAL PCT DEFENSE",
+    "3-POINT FG PERCENTAGE": "3-POINT FG PCT DEFENSE",
+    "TOTAL REBOUNDS PER GAME": "OPPONENT TOTAL REBOUND",
+    "ASSISTS PER GAME": "STEALS PER GAME",
+    "TURNOVER MARGIN": "ASSIST/TURNOVER RATIO",
+    "OFFENSIVE REBOUNDS": "DEFENSIVE REBOUNDS",
+    "DEFENSIVE REB PCT.": "OFFENSIVE REB PCT.",
+}
+
 PAIR_SECTIONS = {
     "Scoring": "Rebounding",
     "Free Throw Percentage": "Steals",
@@ -42,6 +78,7 @@ PAIR_SECTIONS = {
 }
 
 RANK_RE = re.compile(r"(\d+)\.\s+([^\-]+?)\s+-\s+([A-Za-z]+)\s+", re.MULTILINE)
+TEAM_RANK_TOKEN = re.compile(r"(\d+)\.\s+")
 
 
 def iter_entries(line: str) -> Iterable[tuple[str, str, str, str]]:
@@ -58,19 +95,48 @@ def parse_numbers(text: str) -> list[str]:
     return re.findall(r"\d+\.\d+|\d+", text)
 
 
-def detect_sections(lines: list[str]) -> list[tuple[str, list[str]]]:
+def iter_team_entries(line: str) -> Iterable[tuple[int, int, str]]:
+    matches = list(TEAM_RANK_TOKEN.finditer(line))
+    for idx, m in enumerate(matches):
+        start = m.end()
+        end = matches[idx + 1].start() if idx + 1 < len(matches) else len(line)
+        seg = line[start:end].strip()
+        yield idx, int(m.group(1)), seg
+
+
+def parse_team_segment(segment: str) -> tuple[str, list[str], str] | None:
+    num_idx = None
+    for i, ch in enumerate(segment):
+        if ch.isdigit():
+            num_idx = i
+            break
+    if num_idx is None:
+        return None
+    team = segment[:num_idx].strip()
+    trailing = segment[num_idx:].strip()
+    nums = parse_numbers(trailing)
+    return team, nums, trailing
+
+
+def normalize_header(text: str) -> str:
+    return re.sub(r"\s+", " ", text.strip()).upper()
+
+
+def detect_sections(lines: list[str], section_specs: dict[str, SectionSpec]) -> list[tuple[str, list[str]]]:
     sections = []
     current_name = None
     buf: list[str] = []
+    spec_keys = {normalize_header(k): k for k in section_specs.keys()}
 
     for line in lines:
         if not line.strip():
             continue
 
         header_match = None
-        for key in SECTION_SPECS:
-            if line.startswith(key):
-                header_match = key
+        norm_line = normalize_header(line)
+        for norm_key, raw_key in spec_keys.items():
+            if norm_line.startswith(norm_key):
+                header_match = raw_key
                 break
 
         if header_match:
@@ -95,7 +161,9 @@ def parse_pdf(path: Path) -> list[dict]:
         for idx, page in enumerate(pdf.pages, start=1):
             text = page.extract_text() or ""
             lines = [l.strip() for l in text.splitlines()]
-            sections = detect_sections(lines)
+
+            sections = detect_sections(lines, SECTION_SPECS)
+            team_sections = detect_sections(lines, TEAM_SECTION_SPECS)
 
             for section_name, section_lines in sections:
                 spec = SECTION_SPECS.get(section_name)
@@ -126,8 +194,40 @@ def parse_pdf(path: Path) -> list[dict]:
                             "values": nums,
                             "raw": trailing,
                         }
-                        if active_spec and len(nums) >= len(active_spec.columns):
+                        if active_spec and active_spec.columns and len(nums) >= len(active_spec.columns):
                             row.update({k: nums[i] for i, k in enumerate(active_spec.columns)})
+                        records.append(row)
+
+            for section_name, section_lines in team_sections:
+                spec = TEAM_SECTION_SPECS.get(section_name)
+                if not spec:
+                    continue
+
+                paired = TEAM_PAIR_SECTIONS.get(section_name)
+                paired_spec = TEAM_SECTION_SPECS.get(paired) if paired else None
+
+                for line in section_lines:
+                    if not TEAM_RANK_TOKEN.search(line):
+                        continue
+                    for entry_idx, rank, segment in iter_team_entries(line):
+                        parsed = parse_team_segment(segment)
+                        if not parsed:
+                            continue
+                        team, nums, trailing = parsed
+
+                        active_spec = spec
+                        if paired and entry_idx == 1:
+                            active_spec = paired_spec
+
+                        if not active_spec:
+                            continue
+                        row = {
+                            "section": active_spec.name,
+                            "rank": rank,
+                            "team": team,
+                            "values": nums,
+                            "raw": trailing,
+                        }
                         records.append(row)
 
     return records
