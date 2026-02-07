@@ -593,7 +593,7 @@ def check_ingestion_status():
 def render_header():
     banner_html = """
     <div style="display:flex; justify-content:center; margin-bottom:12px;">
-         <img src="https://portalrecruit.github.io/PortalRecruit/PORTALRECRUIT_WORDMARK_LIGHT.jpg" style="max-width:92vw; width:680px; height:auto; object-fit:contain; display:block;">
+         <img src="https://portalrecruit.github.io/PortalRecruit/PORTALRECRUIT_WORDMARK_V4.jpg" style="max-width:92vw; width:680px; height:auto; object-fit:contain; display:block;">
     </div>
     """
 
