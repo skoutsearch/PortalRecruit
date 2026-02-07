@@ -1092,21 +1092,29 @@ elif st.session_state.app_mode == "Search":
 
             # Load player meta (name, team, height/weight)
             player_meta = {}
+            player_meta_by_name = {}
             try:
                 conn_meta = sqlite3.connect(DB_PATH)
                 cur_meta = conn_meta.cursor()
                 cur_meta.execute("SELECT player_id, full_name, position, team_id, height_in, weight_lb FROM players")
                 for r in cur_meta.fetchall():
-                    player_meta[r[0]] = {
+                    pid_norm = _normalize_player_id(r[0])
+                    meta_row = {
                         "full_name": r[1] or "",
                         "position": r[2] or "",
                         "team_id": r[3] or "",
                         "height_in": r[4],
                         "weight_lb": r[5],
                     }
+                    if pid_norm:
+                        player_meta[pid_norm] = meta_row
+                    name_key = (r[1] or "").strip().lower()
+                    if name_key:
+                        player_meta_by_name[name_key] = meta_row
                 conn_meta.close()
             except Exception:
                 player_meta = {}
+                player_meta_by_name = {}
 
             # Preload season stats + player names + full traits for similarity
             player_stats = {}
@@ -1447,10 +1455,17 @@ elif st.session_state.app_mode == "Search":
                 espn_url = f"https://www.espn.com/search/_/q/{q.replace(' ', '%20')}"
                 ncaa_url = f"https://stats.ncaa.org/search/m?search={q.replace(' ', '+')}"
 
-                pos_val = (player_meta.get(player_id, {}).get("position") if "player_meta" in locals() else "")
-                team_val = (player_meta.get(player_id, {}).get("team_id") if "player_meta" in locals() else "")
-                ht_val = (player_meta.get(player_id, {}).get("height_in") if "player_meta" in locals() else None)
-                wt_val = (player_meta.get(player_id, {}).get("weight_lb") if "player_meta" in locals() else None)
+                meta = {}
+                pid_norm = _normalize_player_id(player_id)
+                if "player_meta" in locals() and pid_norm:
+                    meta = player_meta.get(pid_norm, {})
+                if not meta and "player_meta_by_name" in locals():
+                    meta = player_meta_by_name.get((player_name or "").strip().lower(), {})
+
+                pos_val = meta.get("position", "")
+                team_val = meta.get("team_id", "")
+                ht_val = meta.get("height_in")
+                wt_val = meta.get("weight_lb")
                 pos_val = pos_val if pos_val not in [None, "", "None"] else "—"
                 team_val = team_val if team_val not in [None, "", "None"] else "—"
 
