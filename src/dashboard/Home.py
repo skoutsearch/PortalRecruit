@@ -392,6 +392,8 @@ def _llm_scout_breakdown(profile):
         if desc:
             clips.append({"id": play_id, "desc": desc})
 
+    model_name = os.getenv("OPENAI_MODEL") or st.secrets.get("OPENAI_MODEL") or "gpt-5-nano"
+
     prompt = f"""
 You are a legendary, veteran college basketball recruiter with 25+ years in the field. Write a rich, human scouting report for {name}.
 Use coach-speak and be specific. Reference 3–5 clips with citations like [clip:ID].
@@ -408,15 +410,15 @@ Clips: {clips}
             "https://api.openai.com/v1/chat/completions",
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             json={
-                "model": "gpt-5-nano",
+                "model": model_name,
                 "messages": [
                     {"role": "system", "content": "You are a veteran college basketball recruiter."},
                     {"role": "user", "content": prompt},
                 ],
-                "temperature": 0.7,
-                "max_tokens": 280,
+                "temperature": 0.75,
+                "max_tokens": 420,
             },
-            timeout=20,
+            timeout=25,
         )
         resp.raise_for_status()
         data = resp.json()
@@ -465,7 +467,10 @@ def _render_profile_overlay(player_id: str):
         if profile.get("position"): meta.append(f"Position: {profile['position']}")
         if profile.get("height_in") and profile.get("weight_lb"):
             meta.append(f"Ht/Wt: {profile['height_in']}\" / {profile['weight_lb']} lbs")
-        if profile.get("team_id"): meta.append(f"School: {profile['team_id']}")
+        if profile.get("team_id"):
+            team_label = str(profile["team_id"])
+            if not (len(team_label) > 16 and team_label.replace("-", "").isalnum() and " " not in team_label):
+                meta.append(f"School: {team_label}")
         if score is not None:
             meta.append(f"Score: {score:.1f}")
         if meta:
@@ -570,14 +575,22 @@ def _render_profile_overlay(player_id: str):
     if callable(dialog_fn):
         @dialog_fn("Player Profile")
         def show_dialog():
-            if st.button("✖ Close", key="close_profile_top"):
+            cols = st.columns([1, 1, 6])
+            if cols[0].button("← Back", key="back_profile"):
+                _clear_qp("player")
+                st.rerun()
+            if cols[1].button("✖ Close", key="close_profile_top"):
                 _clear_qp("player")
                 st.rerun()
             body()
         show_dialog()
     else:
         st.markdown("---")
-        if st.button("✖ Close Profile", key="close_profile"):
+        cols = st.columns([1, 1, 6])
+        if cols[0].button("← Back", key="back_profile"):
+            _clear_qp("player")
+            st.rerun()
+        if cols[1].button("✖ Close Profile", key="close_profile"):
             _clear_qp("player")
             st.rerun()
         body()
@@ -774,7 +787,13 @@ elif st.session_state.app_mode == "Search":
     st.markdown("<h3 style='text-align:center; opacity:0.6; font-weight:300;'>Find your next prospect</h3>", unsafe_allow_html=True)
 
     # Search box + autocomplete
-    query = st.text_input("Player Search", "", placeholder="e.g. 'Athletic wing who can finish at the rim'", label_visibility="collapsed")
+    last_q = st.session_state.get("last_query") or ""
+    query = st.text_input(
+        "Player Search",
+        last_q,
+        placeholder="e.g. 'Athletic wing who can finish at the rim'",
+        label_visibility="collapsed",
+    )
 
     # Recent searches
     try:
