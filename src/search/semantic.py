@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 from functools import lru_cache
 from typing import Iterable
@@ -7,19 +8,32 @@ from typing import Iterable
 EMBED_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 RERANK_MODEL_NAME = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 
+# Increase HF Hub timeouts for Streamlit Cloud cold starts
+os.environ.setdefault("HF_HUB_DOWNLOAD_TIMEOUT", "120")
+os.environ.setdefault("HF_HUB_ETAG_TIMEOUT", "60")
+
 
 @lru_cache(maxsize=1)
 def get_embedder(model_name: str = EMBED_MODEL_NAME):
     from sentence_transformers import SentenceTransformer
 
-    return SentenceTransformer(model_name)
+    try:
+        return SentenceTransformer(model_name)
+    except Exception:
+        # Retry once with a longer timeout window
+        os.environ.setdefault("HF_HUB_DOWNLOAD_TIMEOUT", "240")
+        return SentenceTransformer(model_name)
 
 
 @lru_cache(maxsize=1)
 def get_cross_encoder(model_name: str = RERANK_MODEL_NAME):
     from sentence_transformers import CrossEncoder
 
-    return CrossEncoder(model_name)
+    try:
+        return CrossEncoder(model_name)
+    except Exception:
+        os.environ.setdefault("HF_HUB_DOWNLOAD_TIMEOUT", "240")
+        return CrossEncoder(model_name)
 
 
 def build_expanded_query(query: str, matched_phrases: Iterable[str] | None = None) -> str:
