@@ -98,10 +98,21 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
             position TEXT,
             height_in REAL,
             weight_lb REAL,
-            class_year TEXT
+            class_year TEXT,
+            high_school TEXT
         )
         """
     )
+
+    # Safe migrations for players table
+    player_columns = [
+        ("high_school", "TEXT"),
+    ]
+    for col, ctype in player_columns:
+        try:
+            cur.execute(f"ALTER TABLE players ADD COLUMN {col} {ctype}")
+        except Exception:
+            pass
 
     cur.execute(
         """
@@ -201,6 +212,9 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
         ("ast", "INTEGER"),
         ("stl", "INTEGER"),
         ("blk", "INTEGER"),
+        ("ppg", "REAL"),
+        ("rpg", "REAL"),
+        ("apg", "REAL"),
     ]
     for col, ctype in stat_columns:
         try:
