@@ -810,14 +810,22 @@ def _enqueue_social_report(player_id: str) -> None:
 def _get_social_report(player_id: str):
     import sqlite3
 
-    con = sqlite3.connect(DB_PATH)
-    cur = con.cursor()
-    cur.execute(
-        "SELECT status, report_json, chosen_url, platform, handle, updated_at FROM social_scout_reports WHERE player_id = ?",
-        (player_id,),
-    )
-    row = cur.fetchone()
-    con.close()
+    try:
+        con = sqlite3.connect(DB_PATH)
+        cur = con.cursor()
+        cur.execute(
+            "SELECT status, report_json, chosen_url, platform, handle, updated_at FROM social_scout_reports WHERE player_id = ?",
+            (player_id,),
+        )
+        row = cur.fetchone()
+        con.close()
+    except Exception:
+        try:
+            con.close()
+        except Exception:
+            pass
+        return None
+
     if not row:
         return None
     status, report_json, chosen_url, platform, handle, updated_at = row
@@ -838,14 +846,22 @@ def _get_social_report(player_id: str):
 def _get_social_queue_status(player_id: str):
     import sqlite3
 
-    con = sqlite3.connect(DB_PATH)
-    cur = con.cursor()
-    cur.execute(
-        "SELECT status, requested_at, started_at, finished_at, last_error FROM social_scout_queue WHERE player_id = ? ORDER BY requested_at DESC LIMIT 1",
-        (player_id,),
-    )
-    row = cur.fetchone()
-    con.close()
+    try:
+        con = sqlite3.connect(DB_PATH)
+        cur = con.cursor()
+        cur.execute(
+            "SELECT status, requested_at, started_at, finished_at, last_error FROM social_scout_queue WHERE player_id = ? ORDER BY requested_at DESC LIMIT 1",
+            (player_id,),
+        )
+        row = cur.fetchone()
+        con.close()
+    except Exception:
+        try:
+            con.close()
+        except Exception:
+            pass
+        return None
+
     if not row:
         return None
     return {
