@@ -468,6 +468,10 @@ def _render_profile_overlay(player_id: str):
             meta.append(f"{profile['position']}")
         if profile.get("height_in") and profile.get("weight_lb"):
             meta.append(f"{_fmt_height(profile['height_in'])} / {int(profile['weight_lb'])} lbs")
+        elif profile.get("height_in"):
+            meta.append(f"{_fmt_height(profile['height_in'])}")
+        elif profile.get("weight_lb"):
+            meta.append(f"{int(profile['weight_lb'])} lbs")
         if profile.get("team_id"):
             team_label = str(profile["team_id"])
             if not (len(team_label) > 16 and team_label.replace("-", "").isalnum() and " " not in team_label):
@@ -641,6 +645,16 @@ def _fmt_height(height_in):
     ft = inches // 12
     inch = inches % 12
     return f"{ft}'{inch}\""
+
+
+def _norm_person_name(name: str) -> str:
+    if not name:
+        return ""
+    name = name.lower()
+    name = re.sub(r"[\.'\-]", " ", name)
+    name = re.sub(r"\s+", " ", name).strip()
+    parts = [p for p in name.split() if p not in {"jr", "sr", "ii", "iii", "iv", "v"}]
+    return " ".join(parts)
 
 
 def _normalize_player_id(pid):
@@ -1140,7 +1154,7 @@ elif st.session_state.app_mode == "Search":
                     }
                     if pid_norm:
                         player_meta[pid_norm] = meta_row
-                    name_key = (r[1] or "").strip().lower()
+                    name_key = _norm_person_name(r[1] or "")
                     if name_key:
                         player_meta_by_name[name_key] = meta_row
                 conn_meta.close()
@@ -1492,7 +1506,7 @@ elif st.session_state.app_mode == "Search":
                 if "player_meta" in locals() and pid_norm:
                     meta = player_meta.get(pid_norm, {})
                 if not meta and "player_meta_by_name" in locals():
-                    meta = player_meta_by_name.get((player_name or "").strip().lower(), {})
+                    meta = player_meta_by_name.get(_norm_person_name(player_name or ""), {})
 
                 pos_val = meta.get("position", "")
                 team_val = meta.get("team_id", "")
@@ -1582,12 +1596,25 @@ elif st.session_state.app_mode == "Search":
                     wt = clips[0].get("Weight") if clips else None
                     pos = pos if pos not in [None, "", "None"] else "—"
                     team = team if team not in [None, "", "None"] else "—"
-                    size = f"{_fmt_height(ht)} / {int(wt)} lbs" if ht and wt else "—"
+                    size = "—"
+                    if ht and wt:
+                        size = f"{_fmt_height(ht)} / {int(wt)} lbs"
+                    elif ht:
+                        size = f"{_fmt_height(ht)}"
+                    elif wt:
+                        size = f"{int(wt)} lbs"
 
-                    label = (
-                        f"{player}\n"
-                        f"{pos} | {size} | {team} | Recruit Score: {score:.1f}"
-                    )
+                    parts = [player]
+                    detail_parts = []
+                    if pos and pos != "—":
+                        detail_parts.append(pos)
+                    if size and size != "—":
+                        detail_parts.append(size)
+                    if team and team != "—":
+                        detail_parts.append(team)
+                    detail_parts.append(f"Recruit Score: {score:.1f}")
+
+                    label = f"{parts[0]}\n" + " | ".join(detail_parts)
 
                     if pid and st.button(label, key=f"btn_{pid}", use_container_width=True):
                         st.query_params["player"] = pid
