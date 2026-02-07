@@ -1,9 +1,30 @@
-def tag_play(description: str, clock_seconds: int = None) -> list[str]:
+def _parse_clock_to_seconds(clock: int | str | None) -> int | None:
+    if clock is None:
+        return None
+    if isinstance(clock, int):
+        return clock
+    if isinstance(clock, str):
+        cleaned = clock.strip()
+        if ":" in cleaned:
+            minutes, _, seconds = cleaned.partition(":")
+            try:
+                return int(minutes) * 60 + int(seconds)
+            except ValueError:
+                return None
+        try:
+            return int(cleaned)
+        except ValueError:
+            return None
+    return None
+
+
+def tag_play(description: str, clock: int | str | None = None) -> list[str]:
     """
     Analyzes a play description and game clock to assign tactical tags.
     """
     tags = set()
     desc = (description or "").lower()
+    clock_seconds = _parse_clock_to_seconds(clock)
 
     # --- OFFENSIVE ACTIONS ---
     if "screen" in desc or "pick" in desc or "p&r" in desc:
