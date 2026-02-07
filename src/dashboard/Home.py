@@ -474,6 +474,13 @@ def _render_profile_overlay(player_id: str):
             meta.append(f"{int(profile['weight_lb'])} lbs")
         if profile.get("team_id"):
             team_label = str(profile["team_id"])
+            if len(team_label) > 16 and team_label.replace("-", "").isalnum() and " " not in team_label:
+                # try map from plays cache
+                try:
+                    if "team_name_by_id" in locals():
+                        team_label = team_name_by_id.get(team_label, team_label)
+                except Exception:
+                    pass
             if not (len(team_label) > 16 and team_label.replace("-", "").isalnum() and " " not in team_label):
                 meta.append(team_label)
         if score is not None:
@@ -1161,6 +1168,7 @@ elif st.session_state.app_mode == "Search":
             # Load player meta (name, team, height/weight)
             player_meta = {}
             player_meta_by_name = {}
+            team_name_by_id = {}
             try:
                 conn_meta = sqlite3.connect(DB_PATH)
                 cur_meta = conn_meta.cursor()
@@ -1179,10 +1187,35 @@ elif st.session_state.app_mode == "Search":
                     name_key = _norm_person_name(r[1] or "")
                     if name_key:
                         player_meta_by_name[name_key] = meta_row
+
+                # Build team_id -> name map from plays (offense/defense team labels)
+                try:
+                    cur_meta.execute(
+                        """
+                        SELECT team_id, offense_team, defense_team
+                        FROM plays
+                        WHERE team_id IS NOT NULL
+                          AND (offense_team IS NOT NULL OR defense_team IS NOT NULL)
+                        """
+                    )
+                    counts = {}
+                    for tid, off_t, def_t in cur_meta.fetchall():
+                        for t in (off_t, def_t):
+                            if not t:
+                                continue
+                            key = (tid, t)
+                            counts[key] = counts.get(key, 0) + 1
+                    for (tid, name), cnt in sorted(counts.items(), key=lambda x: -x[1]):
+                        if tid not in team_name_by_id:
+                            team_name_by_id[tid] = name
+                except Exception:
+                    team_name_by_id = {}
+
                 conn_meta.close()
             except Exception:
                 player_meta = {}
                 player_meta_by_name = {}
+                team_name_by_id = {}
 
             # Preload season stats + player names + full traits for similarity
             player_stats = {}
@@ -1536,11 +1569,11 @@ elif st.session_state.app_mode == "Search":
                 wt_val = meta.get("weight_lb")
                 pos_val = pos_val if pos_val not in [None, "", "None"] else "—"
                 team_val = team_val if team_val not in [None, "", "None"] else "—"
-                # Hide internal IDs if team name isn't human-friendly
+                # Replace internal IDs with team name when possible
                 if team_val != "—":
                     team_clean = str(team_val).strip()
                     if len(team_clean) > 16 and team_clean.replace("-", "").isalnum() and " " not in team_clean:
-                        team_val = "—"
+                        team_val = team_name_by_id.get(team_val, "—")
 
                 rows.append({
                     "Match": f"{home} vs {away}",
