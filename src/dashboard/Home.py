@@ -1221,6 +1221,7 @@ elif st.session_state.app_mode == "Search":
             player_stats = {}
             player_names = {}
             traits_all = {}
+            player_team_guess = {}
             try:
                 conn2 = sqlite3.connect(DB_PATH)
                 cur2 = conn2.cursor()
@@ -1247,6 +1248,41 @@ elif st.session_state.app_mode == "Search":
                         "shot3_attempt": r[11],
                         "turnover": r[12],
                     }
+
+                # Guess team name per player from play-by-play
+                try:
+                    cur2.execute(
+                        """
+                        SELECT p.player_id, p.offense_team, p.defense_team, p.is_home, p.game_id
+                        FROM plays p
+                        WHERE p.player_id IS NOT NULL
+                        """
+                    )
+                    counts = {}
+                    for pid, off_t, def_t, is_home, gid in cur2.fetchall():
+                        if off_t:
+                            counts[(pid, off_t)] = counts.get((pid, off_t), 0) + 1
+                        if def_t:
+                            counts[(pid, def_t)] = counts.get((pid, def_t), 0) + 1
+                    # fallback using games if no offense/defense labels
+                    if not counts:
+                        cur2.execute(
+                            """
+                            SELECT p.player_id, p.is_home, g.home_team, g.away_team
+                            FROM plays p
+                            JOIN games g ON g.game_id = p.game_id
+                            WHERE p.player_id IS NOT NULL AND g.home_team IS NOT NULL AND g.away_team IS NOT NULL
+                            """
+                        )
+                        for pid, is_home, home, away in cur2.fetchall():
+                            team = home if is_home else away
+                            if team:
+                                counts[(pid, team)] = counts.get((pid, team), 0) + 1
+                    for (pid, team), cnt in sorted(counts.items(), key=lambda x: -x[1]):
+                        if pid not in player_team_guess:
+                            player_team_guess[pid] = team
+                except Exception:
+                    player_team_guess = {}
                 cur2.execute("SELECT player_id, full_name FROM players")
                 for r in cur2.fetchall():
                     player_names[r[0]] = r[1]
@@ -1574,6 +1610,8 @@ elif st.session_state.app_mode == "Search":
                     team_clean = str(team_val).strip()
                     if len(team_clean) > 16 and team_clean.replace("-", "").isalnum() and " " not in team_clean:
                         team_val = team_name_by_id.get(team_val, "—")
+                if team_val == "—" and player_team_guess:
+                    team_val = player_team_guess.get(player_id, "—")
 
                 rows.append({
                     "Match": f"{home} vs {away}",
