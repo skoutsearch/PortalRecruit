@@ -204,7 +204,7 @@ def _clear_qp(key):
         pass
 
 def _get_player_profile(player_id: str):
-    'Fetch player profile with ID normalization and fallbacks.'
+    """Fetch player profile with traits, stats, and plays."""
     import sqlite3
 
     pid = _normalize_player_id(player_id)
@@ -233,18 +233,11 @@ def _get_player_profile(player_id: str):
     try:
         con = sqlite3.connect(DB_PATH)
         cur = con.cursor()
-
-        # Attempt 1: as normalized string
         row = fetch_by_id(cur, pid)
-
-        # Attempt 2: as int (if numeric)
         if not row and pid.isdigit():
             row = fetch_by_id(cur, int(pid))
-
-        # Attempt 3: original raw (sometimes includes prefixes)
         if not row and player_id is not None:
             row = fetch_by_id(cur, str(player_id))
-
         if not row:
             con.close()
             return None
@@ -258,6 +251,46 @@ def _get_player_profile(player_id: str):
             "height_in": row[5] if cols.get("height_in") else None,
             "weight_lb": row[6] if cols.get("weight_lb") else None,
         }
+
+        # traits
+        cur.execute("SELECT * FROM player_traits WHERE player_id = ?", (pid,))
+        trow = cur.fetchone()
+        traits = {}
+        if trow:
+            cols_t = [d[0] for d in cur.description]
+            traits = dict(zip(cols_t, trow))
+        profile["traits"] = traits
+
+        # season stats
+        cur.execute("SELECT gp, possessions, points, fg_percent, shot3_percent, ft_percent, turnover FROM player_season_stats WHERE player_id = ?", (pid,))
+        srow = cur.fetchone()
+        if srow:
+            profile["stats"] = {
+                "gp": srow[0],
+                "possessions": srow[1],
+                "points": srow[2],
+                "fg_percent": srow[3],
+                "shot3_percent": srow[4],
+                "ft_percent": srow[5],
+                "turnover": srow[6],
+            }
+        else:
+            profile["stats"] = {}
+
+        # plays
+        cur.execute("SELECT play_id, description, game_id, clock_display FROM plays WHERE player_id = ? LIMIT 25", (pid,))
+        plays = cur.fetchall()
+        profile["plays"] = plays
+
+        # matchups + video
+        game_ids = list({p[2] for p in plays})
+        matchups = {}
+        if game_ids:
+            ph = ",".join(["?"] * len(game_ids))
+            cur.execute(f"SELECT game_id, home_team, away_team, video_path FROM games WHERE game_id IN ({ph})", game_ids)
+            matchups = {r[0]: (r[1], r[2], r[3]) for r in cur.fetchall()}
+        profile["matchups"] = matchups
+
         con.close()
         return profile
     except Exception:
@@ -267,9 +300,87 @@ def _get_player_profile(player_id: str):
             pass
         return None
 
+
+def _scout_breakdown(profile: dict) -> str:
+    name = profile.get("name", "Player")
+    traits = profile.get("traits", {}) or {}
+    strengths = []
+    weaknesses = []
+    trait_map = [
+        ("dog_index", "dog mentality"),
+        ("menace_index", "defensive menace"),
+        ("unselfish_index", "unselfish playmaking"),
+        ("toughness_index", "tough, competitive edge"),
+        ("rim_pressure_index", "rim pressure"),
+        ("shot_making_index", "shot making"),
+        ("size_index", "size/length"),
+    ]
+    for key, label in trait_map:
+        val = traits.get(key)
+        if val is None:
+            continue
+        if val >= 70:
+            strengths.append(label)
+        elif val <= 35:
+            weaknesses.append(label)
+
+    lines = []
+    if strengths:
+        lines.append(f"{name} consistently shows {', '.join(strengths[:3])} on film and in the data.")
+    if weaknesses:
+        lines.append(f"Primary growth areas: {', '.join(weaknesses[:2])}.")
+    if not lines:
+        lines.append(f"{name} profiles as a balanced contributor with a mix of skill and competitive traits.")
+    return " ".join(lines)
+
+
 def _llm_scout_breakdown(profile):
-    """Mock/Placeholder if not imported"""
-    return "Automated scouting report not available."
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        return _scout_breakdown(profile)
+
+    name = profile.get("name", "Player")
+    traits = profile.get("traits", {}) or {}
+    stats = profile.get("stats", {}) or {}
+    plays = profile.get("plays", [])[:6]
+    clips = []
+    for play_id, desc, game_id, clock in plays:
+        if desc:
+            clips.append({"id": play_id, "desc": desc})
+
+    prompt = f"""
+You are a wise, veteran college basketball recruiter. Write a personalized, human scout report for {name}.
+Use the traits and stats below, and reference 3-5 clips with citations like [clip:ID].
+Be specific, coach-speak, and make it feel unique to this player.
+
+Traits: {traits}
+Stats: {stats}
+Clips: {clips}
+
+Write 1 short paragraph and end with a 1-sentence summary of fit.
+""".strip()
+
+    try:
+        resp = requests.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={
+                "model": "gpt-4o-mini",
+                "messages": [
+                    {"role": "system", "content": "You are a veteran college basketball recruiter."},
+                    {"role": "user", "content": prompt},
+                ],
+                "temperature": 0.7,
+                "max_tokens": 280,
+            },
+            timeout=20,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        return data["choices"][0]["message"]["content"].strip()
+    except Exception:
+        return _scout_breakdown(profile)
+
 
 def _render_profile_overlay(player_id: str):
     pid = _normalize_player_id(player_id)
@@ -288,6 +399,7 @@ def _render_profile_overlay(player_id: str):
                 "class_year": meta.get("class_year"),
                 "height_in": meta.get("height_in") or meta.get("height"),
                 "weight_lb": meta.get("weight_lb") or meta.get("weight"),
+                "traits": meta.get("traits") or {},
             }
 
     if not profile:
@@ -296,81 +408,100 @@ def _render_profile_overlay(player_id: str):
     title = profile.get("name", "Player Profile")
 
     def body():
-        # Clean Modern Header for Modal
         st.markdown(f"""
-            <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <h2 style="margin:0; padding:0; color:white; font-size:2rem;">{title}</h2>
             </div>
         """, unsafe_allow_html=True)
-        
+
+        cache = st.session_state.get("player_meta_cache", {}) or {}
+        meta_cache = cache.get(pid, {}) if pid else {}
+        score = meta_cache.get("score")
+
         meta = []
-        if profile.get("position"): meta.append(f"**{profile['position']}**")
+        if profile.get("position"): meta.append(f"{profile['position']}")
         if profile.get("height_in") and profile.get("weight_lb"):
             meta.append(f"{profile['height_in']}\" / {profile['weight_lb']} lbs")
-        if profile.get("class_year"): meta.append(f"Class: {profile['class_year']}")
         if profile.get("team_id"): meta.append(f"{profile['team_id']}")
-        
-        st.markdown("  •  ".join(meta))
-        st.divider()
+        if score is not None:
+            meta.append(f"Score: {score:.1f}")
+        if meta:
+            st.caption(" • ".join(meta))
 
-        cols = st.columns([2, 1])
-        with cols[0]:
-             st.markdown("### Scout Breakdown")
-             breakdown = _llm_scout_breakdown(profile) 
-             breakdown = re.sub(r"\[clip:(\d+)\]", r"[clip](#clip-\\1)", breakdown)
-             st.info(breakdown)
+        st.markdown("### Scout Breakdown")
+        breakdown = _llm_scout_breakdown(profile)
+        breakdown = re.sub(r"\[clip:(\d+)\]", r"[clip](#clip-\1)", breakdown)
+        st.info(breakdown)
 
-        with cols[1]:
-            # traits + strengths/weaknesses
-            traits = profile.get("traits", {}) or {}
-            if traits:
-                st.markdown("### Archetype")
-                strengths = []
-                weaknesses = []
-                for key, label in [
-                    ("dog_index", "Dog"),
-                    ("menace_index", "Menace"),
-                    ("unselfish_index", "Unselfish"),
-                    ("toughness_index", "Toughness"),
-                    ("rim_pressure_index", "Rim Pressure"),
-                    ("shot_making_index", "Shot Making"),
-                    ("gravity_index", "Gravity"),
-                    ("size_index", "Size"),
-                ]:
-                    val = traits.get(key)
-                    if val is None:
-                        continue
-                    if val >= 70:
-                        strengths.append(label)
-                    elif val <= 35:
-                        weaknesses.append(label)
-                    
-                    # Custom progress bar
-                    st.caption(f"{label}")
-                    st.progress(min(100, max(0, int(val))))
-                
-                if strengths:
-                    st.success(f"**Elite:** {', '.join(strengths[:4])}")
-                if weaknesses:
-                    st.error(f"**Needs Work:** {', '.join(weaknesses[:3])}")
-
-        # clips (anchors for citations)
+        # tags applied
+        from src.processing.play_tagger import tag_play
         plays = profile.get("plays", [])
+        tag_counts = {}
+        for _, desc, _, _ in plays:
+            for t in tag_play(desc):
+                tag_counts[t] = tag_counts.get(t, 0) + 1
+        if tag_counts:
+            st.markdown("### Tags Applied")
+            tags_sorted = sorted(tag_counts.items(), key=lambda x: (-x[1], x[0]))
+            st.write(", ".join([t for t, _ in tags_sorted[:12]]))
+
+        # traits + strengths/weaknesses
+        traits = profile.get("traits", {}) or {}
+        if traits:
+            st.markdown("### Strengths / Weaknesses")
+            strengths = []
+            weaknesses = []
+            for key, label in [
+                ("dog_index", "Dog"),
+                ("menace_index", "Menace"),
+                ("unselfish_index", "Unselfish"),
+                ("toughness_index", "Toughness"),
+                ("rim_pressure_index", "Rim Pressure"),
+                ("shot_making_index", "Shot Making"),
+                ("gravity_index", "Gravity"),
+                ("size_index", "Size"),
+            ]:
+                val = traits.get(key)
+                if val is None:
+                    continue
+                if val >= 70:
+                    strengths.append(label)
+                elif val <= 35:
+                    weaknesses.append(label)
+            if strengths:
+                st.success(f"**Strengths:** {', '.join(strengths[:4])}")
+            if weaknesses:
+                st.error(f"**Weaknesses:** {', '.join(weaknesses[:3])}")
+
+        # clips section
         matchups = profile.get("matchups", {})
+        last_tags = set(st.session_state.get("last_query_tags", []) or [])
+        filtered = []
         if plays:
-            st.markdown("### Film Room")
-            for play_id, desc, game_id, clock in plays[:15]:
+            for play_id, desc, game_id, clock in plays:
+                tags = set(tag_play(desc))
+                if last_tags and not tags.intersection(last_tags):
+                    continue
+                filtered.append((play_id, desc, game_id, clock, tags))
+
+        clips = filtered if filtered else [(p[0], p[1], p[2], p[3], set(tag_play(p[1]))) for p in plays]
+        st.markdown("### Film Room")
+        if clips:
+            for play_id, desc, game_id, clock, tags in clips[:15]:
                 st.markdown(f"<a name='clip-{play_id}'></a>", unsafe_allow_html=True)
-                home, away = matchups.get(game_id, ("Unknown", "Unknown"))
-                
-                st.markdown(f"""
-                <div style="background:rgba(255,255,255,0.05); padding:12px; border-radius:8px; border-left:4px solid #ea580c; margin-bottom:12px;">
-                    <div style="font-size:0.85em; opacity:0.7; margin-bottom:4px;">{home} vs {away} @ {clock}</div>
-                    <div style="font-size:1em; color:#e2e8f0;">{desc}</div>
-                </div>
-                """, unsafe_allow_html=True)
+                home, away, video = matchups.get(game_id, ("Unknown", "Unknown", None))
+                st.markdown(f"**{home} vs {away}** @ {clock}")
+                st.write(desc)
+                if tags:
+                    st.caption("Tags: " + ", ".join(sorted(tags)))
+                if video:
+                    st.markdown(f"[Video Link]({video})")
+                st.divider()
+        else:
+            st.caption("No clips available for this player.")
 
     dialog_fn = getattr(st, "dialog", None)
+
     if callable(dialog_fn):
         @dialog_fn("Player Profile")
         def show_dialog():
@@ -397,7 +528,7 @@ def check_ingestion_status():
 def render_header():
     banner_html = """
     <div style="display:flex; justify-content:center; margin-bottom:20px;">
-         <img src="https://portalrecruit.github.io/PortalRecruit/PORTALRECRUIT_LOGO.png" style="max-width:100%; width:400px;">
+         <img src="https://portalrecruit.github.io/PortalRecruit/PORTALRECRUIT_WORDMARK_LIGHT.jpg" style="max-width:92vw; width:520px; height:auto; object-fit:contain;">
     </div>
     """
 
@@ -411,7 +542,7 @@ def render_header():
     </div>
     """
 
-    components.html(hero_html, height=220)
+    components.html(hero_html, height=180)
 
 
 def _safe_float(val, default=0.0):
@@ -636,7 +767,7 @@ elif st.session_state.app_mode == "Search":
         slider_rim = slider_shot = slider_gravity = slider_size = 0
         intent_dog = intent_menace = intent_unselfish = intent_tough = 0
         intent_rim = intent_shot = intent_gravity = intent_size = 0
-        n_results = 15
+        n_results = 50
         intent_tags = []
         required_tags = []
         finishing_intent = False
@@ -719,6 +850,9 @@ elif st.session_state.app_mode == "Search":
         # Finishing intent should hard-require rim finish + made
         if finishing_intent:
             required_tags = list(set(required_tags + ["rim_finish", "layup", "dunk", "made"]))
+
+        st.session_state["last_query"] = query
+        st.session_state["last_query_tags"] = sorted(set(intent_tags + required_tags))
 
         # --- VECTOR SEARCH ---
         import chromadb
@@ -1341,7 +1475,8 @@ elif st.session_state.app_mode == "Search":
                 st.markdown("<h3 style='margin-top:40px;'>Top Prospects</h3>", unsafe_allow_html=True)
 
                 for player, clips in grouped.items():
-                    pid = _normalize_player_id(clips[0].get("Player ID"))
+                    pid = _normalize_player_id(clips[0].get("Player ID")) if clips else None
+                    score = clips[0].get("Score", 0) if clips else 0
                     st.session_state.setdefault("player_meta_cache", {})
                     if pid:
                         st.session_state["player_meta_cache"][pid] = {
@@ -1350,6 +1485,7 @@ elif st.session_state.app_mode == "Search":
                             "team": clips[0].get("Team", "") if clips else "",
                             "height": clips[0].get("Height") if clips else None,
                             "weight": clips[0].get("Weight") if clips else None,
+                            "score": score,
                         }
 
                     pos = clips[0].get("Position", "") if clips else ""
@@ -1357,12 +1493,13 @@ elif st.session_state.app_mode == "Search":
                     ht = clips[0].get("Height") if clips else None
                     wt = clips[0].get("Weight") if clips else None
                     size = f"{ht}\" / {wt} lbs" if ht and wt else ""
-                    
-                    # Formatting text for the button label
-                    # Note: st.button only takes text, so we rely on CSS to make it look like a card with the newline structure
-                    label = f"{player}\n{team}   |   {pos}   |   {size}"
-                    
-                    if st.button(label, key=f"btn_{pid}", use_container_width=True):
+
+                    label = (
+                        f"{player}\n"
+                        f"{pos} | {size} | {team} | Score: {score:.1f}"
+                    )
+
+                    if pid and st.button(label, key=f"btn_{pid}", use_container_width=True):
                         st.query_params["player"] = pid
                         st.rerun()
             else:
