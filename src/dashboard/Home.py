@@ -163,29 +163,22 @@ def _lookup_player_id_by_name(name: str):
 
 def _get_qp():
     try:
-        return st.experimental_get_query_params()
+        return st.query_params
     except Exception:
-        return dict(st.query_params)
+        return {}
 
 
 def _set_qp(**kwargs):
-    try:
-        st.experimental_set_query_params(**kwargs)
-    except Exception:
-        for k,v in kwargs.items():
-            st.query_params[k] = v
+    for k, v in kwargs.items():
+        st.query_params[k] = v
 
 
 def _clear_qp(key):
     try:
-        params = st.experimental_get_query_params()
-        params.pop(key, None)
-        st.experimental_set_query_params(**params)
+        if key in st.query_params:
+            del st.query_params[key]
     except Exception:
-        try:
-            st.query_params.pop(key, None)
-        except Exception:
-            pass
+        pass
 def _get_player_profile(player_id: str):
     'Fetch player profile with ID normalization and fallbacks.'
     import sqlite3
