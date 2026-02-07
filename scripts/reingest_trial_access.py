@@ -235,6 +235,11 @@ def main() -> int:
     try:
         from src.processing.generate_embeddings import generate_embeddings
         generate_embeddings()
+    except ModuleNotFoundError as e:
+        if "chromadb" in str(e):
+            print("⚠️ Embeddings skipped: chromadb not installed. Install deps via `pip install -r requirements.txt`.")
+        else:
+            print(f"⚠️ Embeddings failed: {e}")
     except Exception as e:
         print(f"⚠️ Embeddings failed: {e}")
 

@@ -14,19 +14,30 @@ def _near_rim(x, y) -> bool:
     try:
         if x is None or y is None:
             return False
-        # Assume shotX/shotY are feet with rim at (0,0)
+        # Assume shot/loc coordinates are feet with rim at (0,0)
         return math.hypot(float(x), float(y)) <= RIM_RADIUS
     except Exception:
         return False
 
 
+def _choose_xy_columns(cur: sqlite3.Cursor) -> tuple[str, str]:
+    cur.execute("PRAGMA table_info(plays)")
+    cols = {r[1] for r in cur.fetchall()}
+    if "shotX" in cols and "shotY" in cols:
+        return "shotX", "shotY"
+    if "x_loc" in cols and "y_loc" in cols:
+        return "x_loc", "y_loc"
+    raise RuntimeError("plays table missing both shotX/shotY and x_loc/y_loc coordinate pairs")
+
+
 def build_defensive_big_metrics() -> None:
     conn = sqlite3.connect(db_path())
     cur = conn.cursor()
+    x_col, y_col = _choose_xy_columns(cur)
 
     cur.execute(
-        """
-        SELECT play_id, description, shotX, shotY, d_player_id, r_player_id
+        f"""
+        SELECT play_id, description, {x_col}, {y_col}, d_player_id, r_player_id
         FROM plays
         WHERE d_player_id IS NOT NULL OR r_player_id IS NOT NULL
         """

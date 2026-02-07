@@ -7,13 +7,24 @@ from src.processing.play_tagger import tag_play
 from src.ingestion.db import db_path
 
 
+def _choose_quarter_column(cur: sqlite3.Cursor) -> str:
+    cur.execute("PRAGMA table_info(plays)")
+    cols = {r[1] for r in cur.fetchall()}
+    if "gameQuarter" in cols:
+        return "gameQuarter"
+    if "period" in cols:
+        return "period"
+    raise RuntimeError("plays table missing both gameQuarter and period columns")
+
+
 def build_clutch_metrics() -> None:
     conn = sqlite3.connect(db_path())
     cur = conn.cursor()
+    quarter_col = _choose_quarter_column(cur)
 
     cur.execute(
-        """
-        SELECT player_id, description, gameQuarter, clock_seconds,
+        f"""
+        SELECT player_id, description, {quarter_col}, clock_seconds,
                short_clock, ato, home_score, away_score, is_home,
                assist_player_id
         FROM plays
