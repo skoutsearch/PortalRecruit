@@ -1,3 +1,4 @@
+import json
 import os
 import sqlite3
 import sys
@@ -25,6 +26,29 @@ GRAVITY_KEYWORDS = [
     "flare screen", "flare", "pin down", "pin-down", "stagger", "ghost screen",
     "ghost", "slip screen", "slip", "handoff", "dho",
 ]
+
+DOG_TAGS = ["oreb", "loose_ball", "charge_taken", "deflection", "steal", "block"]
+DEFAULT_DOG_WEIGHTS = {
+    "oreb": 1.5,
+    "steal": 2.0,
+    "block": 1.5,
+    "charge_taken": 3.0,
+    "loose_ball": 1.0,
+    "deflection": 1.0,
+}
+DOG_WEIGHTS_PATH = REPO_ROOT / "models" / "dog_index_weights.json"
+
+
+def _load_dog_weights() -> dict:
+    if DOG_WEIGHTS_PATH.exists():
+        try:
+            with open(DOG_WEIGHTS_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            weights = data.get("weights", data)
+            return {k: float(weights.get(k, DEFAULT_DOG_WEIGHTS.get(k, 1.0))) for k in DOG_TAGS}
+        except Exception:
+            return DEFAULT_DOG_WEIGHTS
+    return DEFAULT_DOG_WEIGHTS
 
 
 def _count_keywords(desc: str, keywords: list[str]) -> int:
@@ -101,6 +125,7 @@ def build_player_traits():
             agg[player_id] = {
                 "player_name": player_name,
                 "dog_events": 0,
+                "dog_tag_counts": {k: 0 for k in DOG_TAGS},
                 "menace_events": 0,
                 "tough_events": 0,
                 "rim_events": 0,
@@ -116,7 +141,12 @@ def build_player_traits():
             continue
 
         agg[player_id]["total_events"] += 1
-        agg[player_id]["dog_events"] += int(bool(tags & {"oreb", "loose_ball", "charge_taken", "deflection"}))
+        dog_hit = False
+        for tag in DOG_TAGS:
+            if tag in tags:
+                agg[player_id]["dog_tag_counts"][tag] += 1
+                dog_hit = True
+        agg[player_id]["dog_events"] += int(dog_hit)
         agg[player_id]["menace_events"] += int(bool(tags & {"steal", "block", "deflection"}))
         agg[player_id]["tough_events"] += int(bool(tags & {"oreb", "loose_ball", "charge_taken"}))
         agg[player_id]["rim_events"] += int(bool(tags & {"drive", "rim_pressure"}))
@@ -133,9 +163,11 @@ def build_player_traits():
         agg[player_id]["gravity_events"] += int(gravity_signal)
 
     # Compute indices and persist
+    dog_weights = _load_dog_weights()
     for pid, data in agg.items():
         total = max(1, data["total_events"])
-        dog_index = round((data["dog_events"] / total) * 100, 3)
+        dog_score = sum(data["dog_tag_counts"].get(tag, 0) * dog_weights.get(tag, 1.0) for tag in DOG_TAGS)
+        dog_index = round((dog_score / total) * 100, 3)
         menace_index = round((data["menace_events"] / total) * 100, 3)
         toughness_index = round((data["tough_events"] / total) * 100, 3)
         rim_pressure_index = round((data["rim_events"] / total) * 100, 3)
