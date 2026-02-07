@@ -261,4 +261,38 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
         except Exception:
             pass
 
+    # Social scouting tables
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS social_scout_queue (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            player_id TEXT,
+            status TEXT,
+            requested_at TEXT,
+            started_at TEXT,
+            finished_at TEXT,
+            last_error TEXT
+        )
+        """
+    )
+
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS social_scout_reports (
+            player_id TEXT PRIMARY KEY,
+            status TEXT,
+            created_at TEXT,
+            updated_at TEXT,
+            search_query TEXT,
+            search_results_json TEXT,
+            chosen_url TEXT,
+            platform TEXT,
+            handle TEXT,
+            bio TEXT,
+            captions_json TEXT,
+            report_json TEXT
+        )
+        """
+    )
+
     conn.commit()

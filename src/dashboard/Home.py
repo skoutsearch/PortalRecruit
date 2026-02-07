@@ -635,6 +635,48 @@ def _render_profile_overlay(player_id: str):
         except Exception:
             pass
 
+        # Social media scouting report (Auto-Scout)
+        st.markdown("### Social Media Scouting Report")
+        report = _get_social_report(pid)
+        queue_status = _get_social_queue_status(pid)
+
+        if report and report.get("status") == "complete":
+            rep = report.get("report") or {}
+            handle = rep.get("verified_handle") or report.get("handle") or ""
+            platform = rep.get("platform") or report.get("platform") or ""
+            confidence = rep.get("confidence", "—")
+            vibe = rep.get("vibe_check", "—")
+            green = rep.get("green_flags") or []
+            red = rep.get("red_flags") or []
+            summary = rep.get("summary") or ""
+
+            st.markdown(
+                f"**Verified:** {handle} {f'({platform})' if platform else ''} — **Confidence:** {confidence}%**" 
+                if handle else "**Verified:** —"
+            )
+            if vibe:
+                st.success(f"Vibe Check: {vibe}")
+            if green:
+                st.markdown("**Green Flags**")
+                st.write("• " + "\n• ".join(green))
+            if red:
+                st.markdown("**Red Flags**")
+                st.write("• " + "\n• ".join(red))
+            if summary:
+                st.info(summary)
+
+            if report.get("chosen_url"):
+                st.markdown(f"[Source Profile]({report['chosen_url']})")
+
+        elif queue_status and queue_status.get("status") in {"queued", "running"}:
+            st.caption("Scouting in progress… this may take a few minutes.")
+        elif queue_status and queue_status.get("status") == "error":
+            st.error(f"Scouting failed: {queue_status.get('last_error')}")
+
+        if st.button("Generate Social Media Scouting Report", key=f"gen_social_{pid}"):
+            _enqueue_social_report(pid)
+            st.success("Scouting queued. Refresh in a couple minutes.")
+
         # video evidence (placeholder)
         st.markdown("### Video Evidence")
         video_links = [v for _, _, v in matchups.values() if v]
@@ -747,6 +789,70 @@ def _build_social_search_query(profile: dict) -> str:
         parts.append("(" + " OR ".join(validators) + ")")
 
     return " ".join([p for p in parts if p])
+
+
+def _enqueue_social_report(player_id: str) -> None:
+    import sqlite3
+    from datetime import datetime
+
+    con = sqlite3.connect(DB_PATH)
+    cur = con.cursor()
+    cur.execute(
+        "INSERT INTO social_scout_queue (player_id, status, requested_at) VALUES (?, 'queued', ?)",
+        (player_id, datetime.utcnow().isoformat()),
+    )
+    con.commit()
+    con.close()
+
+
+def _get_social_report(player_id: str):
+    import sqlite3
+
+    con = sqlite3.connect(DB_PATH)
+    cur = con.cursor()
+    cur.execute(
+        "SELECT status, report_json, chosen_url, platform, handle, updated_at FROM social_scout_reports WHERE player_id = ?",
+        (player_id,),
+    )
+    row = cur.fetchone()
+    con.close()
+    if not row:
+        return None
+    status, report_json, chosen_url, platform, handle, updated_at = row
+    try:
+        report = json.loads(report_json) if report_json else {}
+    except Exception:
+        report = {}
+    return {
+        "status": status,
+        "report": report,
+        "chosen_url": chosen_url,
+        "platform": platform,
+        "handle": handle,
+        "updated_at": updated_at,
+    }
+
+
+def _get_social_queue_status(player_id: str):
+    import sqlite3
+
+    con = sqlite3.connect(DB_PATH)
+    cur = con.cursor()
+    cur.execute(
+        "SELECT status, requested_at, started_at, finished_at, last_error FROM social_scout_queue WHERE player_id = ? ORDER BY requested_at DESC LIMIT 1",
+        (player_id,),
+    )
+    row = cur.fetchone()
+    con.close()
+    if not row:
+        return None
+    return {
+        "status": row[0],
+        "requested_at": row[1],
+        "started_at": row[2],
+        "finished_at": row[3],
+        "last_error": row[4],
+    }
 
 
 def _norm_person_name(name: str) -> str:
