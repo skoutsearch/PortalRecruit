@@ -77,6 +77,13 @@ p, label, li, .stMarkdown {
 
 /* --- HERO SEARCH INPUT --- */
 /* Transform standard input into a "Mega Search Bar" */
+[data-testid="stTextInput"],
+.stTextInput {
+  max-width: 640px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 .stTextInput > div > div > input,
 [data-testid="stTextInput"] input {
   background: rgba(248, 250, 252, 0.95) !important;
