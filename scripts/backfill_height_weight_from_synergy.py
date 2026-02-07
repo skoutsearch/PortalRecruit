@@ -3,6 +3,14 @@ from __future__ import annotations
 import re
 from typing import Iterable
 
+from pathlib import Path
+
+# Ensure repo root on path
+REPO_ROOT = Path(__file__).resolve().parents[1]
+import sys
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 from config.ncaa_di_mens_basketball import NCAA_DI_MENS_BASKETBALL
 from src.ingestion.db import connect_db, ensure_schema
 from src.ingestion.synergy_client import SynergyClient
