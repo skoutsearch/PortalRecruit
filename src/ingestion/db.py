@@ -183,11 +183,30 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
             shot_foul INTEGER,
             score INTEGER,
             turnover INTEGER,
+            minutes REAL,
+            reb INTEGER,
+            ast INTEGER,
+            stl INTEGER,
+            blk INTEGER,
             updated_at TEXT,
             PRIMARY KEY (player_id, season_id)
         )
         """
     )
+
+    # Safe migrations for boxscore columns
+    stat_columns = [
+        ("minutes", "REAL"),
+        ("reb", "INTEGER"),
+        ("ast", "INTEGER"),
+        ("stl", "INTEGER"),
+        ("blk", "INTEGER"),
+    ]
+    for col, ctype in stat_columns:
+        try:
+            cur.execute(f"ALTER TABLE player_season_stats ADD COLUMN {col} {ctype}")
+        except Exception:
+            pass
 
     trait_cols = [
         ("leadership_index", "REAL"),
