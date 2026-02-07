@@ -618,7 +618,7 @@ def render_header():
     hero_html = f"""
     <div class="pr-hero">
       {banner_html}
-      <div style="display:flex; justify-content:center; margin:16px auto 0;">
+      <div style="display:flex; justify-content:center; margin:6px auto 0;">
         <img src="https://portalrecruit.github.io/PortalRecruit/PORTALRECRUIT_TAGLINE_SEARCH_RECRUIT_WIN.webp" style="max-width:92vw; width:520px; height:auto; object-fit:contain; opacity:0.95;" />
       </div>
     </div>
@@ -811,7 +811,7 @@ elif st.session_state.app_mode == "Search":
     
     # Custom Search Container
     st.markdown(
-        "<div style='display:flex; justify-content:center; margin:8px 0 18px;'>"
+        "<div style='display:flex; justify-content:center; margin:-6px 0 14px;'>"
         "<img src='https://portalrecruit.github.io/PortalRecruit/PORTALRECRUIT_TAGLINE_SEARCH_RECRUIT_WIN.webp' "
         "style='max-width:92vw; width:520px; height:auto; object-fit:contain; opacity:0.95;'/>"
         "</div>",
