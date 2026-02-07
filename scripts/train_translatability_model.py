@@ -63,6 +63,9 @@ def main() -> None:
         model = xgb.XGBRegressor()
         model.load_model(args.model_path)
         pred_df = predict_latest(df, model, result.features)
+        if pred_df.empty:
+            print("  Skipping predictions: no valid latest-season rows")
+            return
         os.makedirs(os.path.dirname(args.pred_path), exist_ok=True)
         pred_df.to_csv(args.pred_path, index=False)
         print(f"  Predictions saved: {args.pred_path}")
