@@ -1375,7 +1375,7 @@ elif st.session_state.app_mode == "Search":
             try:
                 conn_meta = sqlite3.connect(DB_PATH)
                 cur_meta = conn_meta.cursor()
-                cur_meta.execute("SELECT player_id, full_name, position, team_id, height_in, weight_lb FROM players")
+                cur_meta.execute("SELECT player_id, full_name, position, team_id, height_in, weight_lb, class_year, high_school FROM players")
                 for r in cur_meta.fetchall():
                     pid_norm = _normalize_player_id(r[0])
                     meta_row = {
@@ -1384,6 +1384,8 @@ elif st.session_state.app_mode == "Search":
                         "team_id": r[3] or "",
                         "height_in": r[4],
                         "weight_lb": r[5],
+                        "class_year": r[6] or "",
+                        "high_school": r[7] or "",
                     }
                     if pid_norm:
                         player_meta[pid_norm] = meta_row
@@ -1430,26 +1432,35 @@ elif st.session_state.app_mode == "Search":
                 cur2 = conn2.cursor()
                 cur2.execute(
                     """
-                    SELECT player_id, team_id, gp, possessions, points,
+                    SELECT player_id, season_id, team_id, gp, possessions, points,
                            fg_percent, shot2_percent, shot3_percent, ft_percent,
-                           fg_attempt, shot2_attempt, shot3_attempt, turnover
+                           fg_attempt, shot2_attempt, shot3_attempt, turnover,
+                           ppg, rpg, apg
                     FROM player_season_stats
+                    ORDER BY season_id DESC
                     """
                 )
                 for r in cur2.fetchall():
-                    player_stats[r[0]] = {
-                        "team_id": r[1],
-                        "gp": r[2],
-                        "possessions": r[3],
-                        "points": r[4],
-                        "fg_percent": r[5],
-                        "shot2_percent": r[6],
-                        "shot3_percent": r[7],
-                        "ft_percent": r[8],
-                        "fg_attempt": r[9],
-                        "shot2_attempt": r[10],
-                        "shot3_attempt": r[11],
-                        "turnover": r[12],
+                    pid = r[0]
+                    if pid in player_stats:
+                        continue
+                    player_stats[pid] = {
+                        "season_id": r[1],
+                        "team_id": r[2],
+                        "gp": r[3],
+                        "possessions": r[4],
+                        "points": r[5],
+                        "fg_percent": r[6],
+                        "shot2_percent": r[7],
+                        "shot3_percent": r[8],
+                        "ft_percent": r[9],
+                        "fg_attempt": r[10],
+                        "shot2_attempt": r[11],
+                        "shot3_attempt": r[12],
+                        "turnover": r[13],
+                        "ppg": r[14],
+                        "rpg": r[15],
+                        "apg": r[16],
                     }
 
                 # Guess team name per player from play-by-play
@@ -1806,8 +1817,15 @@ elif st.session_state.app_mode == "Search":
                 team_val = meta.get("team_id", "")
                 ht_val = meta.get("height_in")
                 wt_val = meta.get("weight_lb")
+                class_val = meta.get("class_year", "")
+                hs_val = meta.get("high_school", "")
+                ppg_val = (player_stats.get(pid_norm) or {}).get("ppg") if pid_norm else None
+                rpg_val = (player_stats.get(pid_norm) or {}).get("rpg") if pid_norm else None
+                apg_val = (player_stats.get(pid_norm) or {}).get("apg") if pid_norm else None
                 pos_val = pos_val if pos_val not in [None, "", "None"] else "—"
                 team_val = team_val if team_val not in [None, "", "None"] else "—"
+                class_val = class_val if class_val not in [None, "", "None"] else "—"
+                hs_val = hs_val if hs_val not in [None, "", "None"] else "—"
                 # Replace internal IDs with team name when possible
                 if team_val != "—":
                     team_clean = str(team_val).strip()
@@ -1827,6 +1845,11 @@ elif st.session_state.app_mode == "Search":
                     "Team": team_val,
                     "Height": ht_val,
                     "Weight": wt_val,
+                    "Class": class_val,
+                    "High School": hs_val,
+                    "PPG": ppg_val,
+                    "RPG": rpg_val,
+                    "APG": apg_val,
                     "Why": reason,
                     "Strengths": ", ".join(strengths) if strengths else "—",
                     "Weaknesses": ", ".join(weaknesses) if weaknesses else "—",
@@ -1885,6 +1908,11 @@ elif st.session_state.app_mode == "Search":
                             "team_id": clips[0].get("Team", "") if clips else "",
                             "height": clips[0].get("Height") if clips else None,
                             "weight": clips[0].get("Weight") if clips else None,
+                            "class_year": clips[0].get("Class") if clips else None,
+                            "high_school": clips[0].get("High School") if clips else None,
+                            "ppg": clips[0].get("PPG") if clips else None,
+                            "rpg": clips[0].get("RPG") if clips else None,
+                            "apg": clips[0].get("APG") if clips else None,
                             "score": score,
                         }
 
@@ -1916,5 +1944,21 @@ elif st.session_state.app_mode == "Search":
                     if pid and st.button(label, key=f"btn_{pid}", use_container_width=True):
                         st.query_params["player"] = pid
                         st.rerun()
+
+                    # Secondary line with HS + class + per-game stats (if available)
+                    class_line = clips[0].get("Class") if clips else None
+                    hs_line = clips[0].get("High School") if clips else None
+                    ppg_line = clips[0].get("PPG") if clips else None
+                    rpg_line = clips[0].get("RPG") if clips else None
+                    apg_line = clips[0].get("APG") if clips else None
+                    extra = []
+                    if class_line and class_line != "—":
+                        extra.append(f"Class: {class_line}")
+                    if hs_line and hs_line != "—":
+                        extra.append(f"HS: {hs_line}")
+                    if ppg_line is not None and rpg_line is not None and apg_line is not None:
+                        extra.append(f"{ppg_line:.1f} / {rpg_line:.1f} / {apg_line:.1f} PPG/RPG/APG")
+                    if extra:
+                        st.caption(" • ".join(extra))
             else:
                 st.info("No results after filters.")
