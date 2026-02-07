@@ -553,8 +553,8 @@ def check_ingestion_status():
 
 def render_header():
     banner_html = """
-    <div style="display:flex; justify-content:center; margin-bottom:16px;">
-         <img src="https://portalrecruit.github.io/PortalRecruit/PORTALRECRUIT_WORDMARK_LIGHT.jpg" style="max-width:92vw; width:620px; height:auto; object-fit:contain;">
+    <div style="display:flex; justify-content:center; margin-bottom:12px;">
+         <img src="https://portalrecruit.github.io/PortalRecruit/PORTALRECRUIT_WORDMARK_LIGHT.jpg" style="max-width:92vw; width:680px; height:auto; object-fit:contain; display:block;">
     </div>
     """
 
@@ -568,7 +568,7 @@ def render_header():
     </div>
     """
 
-    components.html(hero_html, height=320)
+    components.html(hero_html, height=360)
 
 
 def _safe_float(val, default=0.0):
@@ -1445,10 +1445,12 @@ elif st.session_state.app_mode == "Search":
                 espn_url = f"https://www.espn.com/search/_/q/{q.replace(' ', '%20')}"
                 ncaa_url = f"https://stats.ncaa.org/search/m?search={q.replace(' ', '+')}"
 
-                pos_val = (player_meta.get(player_id, {}).get("position") if "player_meta" in locals() else "") or "—"
-                team_val = (player_meta.get(player_id, {}).get("team_id") if "player_meta" in locals() else "") or "—"
+                pos_val = (player_meta.get(player_id, {}).get("position") if "player_meta" in locals() else "")
+                team_val = (player_meta.get(player_id, {}).get("team_id") if "player_meta" in locals() else "")
                 ht_val = (player_meta.get(player_id, {}).get("height_in") if "player_meta" in locals() else None)
                 wt_val = (player_meta.get(player_id, {}).get("weight_lb") if "player_meta" in locals() else None)
+                pos_val = pos_val if pos_val not in [None, "", "None"] else "—"
+                team_val = team_val if team_val not in [None, "", "None"] else "—"
 
                 rows.append({
                     "Match": f"{home} vs {away}",
