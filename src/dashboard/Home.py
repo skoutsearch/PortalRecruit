@@ -360,8 +360,8 @@ def render_header():
         f"""
         <div class="pr-hero">
           <img src="{WORDMARK_DARK_URL}" style="max-width:560px; width:min(560px, 92vw); height:auto; object-fit:contain;" />
-          <div class="pr-hero-sub" style="font-family: var(--pr-font-body);">
-            <strong>How to use:</strong> Describe the player you need in coachâspeak (e.g., âdownhill guard who can guardâ). Use filters to narrow.
+          <div class="pr-hero-sub">
+            <strong>How to use:</strong> Describe the player you need in coach‑speak (e.g., “downhill guard who can guard”). Use filters to narrow.
             <br/>
             <strong>How to read results:</strong> Ranked by semantic fit + traits. Use <em>Why</em>, <em>Strengths</em>, and tags to interpret.
           </div>
@@ -699,30 +699,49 @@ elif st.session_state.app_mode == "Search":
                 st.stop()
 
         # Query expansion: add matched phrases to help retrieval
-        expanded_query = query
-        if matched_phrases:
-            expanded_query = query + " | " + " | ".join(matched_phrases)
-
-        results = collection.query(
-            query_texts=[expanded_query],
-            n_results=n_results
+        from src.search.semantic import (
+            blend_score,
+            build_expanded_query,
+            encode_query,
+            get_cross_encoder,
         )
 
-        # Optional cross-encoder re-rank for better semantic precision
+        expanded_query = build_expanded_query(query, matched_phrases)
+
+        # Query using pre-encoded normalized embedding for stable retrieval quality.
+        query_vector = encode_query(expanded_query)
+        results = collection.query(
+            query_embeddings=[query_vector],
+            n_results=n_results,
+            include=["documents", "distances", "metadatas"],
+        )
+
+        # Cross-encoder re-rank + blend with vector similarity and tag overlap.
+        ids = results.get("ids", [[]])[0]
+        docs = results.get("documents", [[]])[0]
+        distances = results.get("distances", [[]])[0]
+        metadatas = results.get("metadatas", [[]])[0]
+
         try:
-            from sentence_transformers import CrossEncoder
-            docs = results.get("documents", [[]])[0]
-            ids = results.get("ids", [[]])[0]
             if docs and ids:
-                cross = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+                cross = get_cross_encoder()
                 pairs = [[expanded_query, d] for d in docs]
-                scores = cross.predict(pairs)
-                reranked = sorted(zip(ids, scores, docs), key=lambda x: x[1], reverse=True)
-                play_ids = [r[0] for r in reranked]
+                rerank_scores = cross.predict(pairs)
+                ranked = []
+                for pid, doc, dist, meta, rerank_score in zip(ids, docs, distances, metadatas, rerank_scores):
+                    tag_overlap = 0
+                    if isinstance(meta, dict):
+                        meta_tags = set(str(meta.get("tags", "")).replace("|", ",").split(","))
+                        meta_tags = {t.strip().lower() for t in meta_tags if t and t.strip()}
+                        tag_overlap = len(meta_tags.intersection({t.lower() for t in required_tags}))
+                    ranked.append((pid, blend_score(dist, rerank_score, tag_overlap)))
+                ranked.sort(key=lambda x: x[1], reverse=True)
+                play_ids = [r[0] for r in ranked]
             else:
-                play_ids = results.get("ids", [[]])[0]
+                play_ids = ids
         except Exception:
-            play_ids = results.get("ids", [[]])[0]
+            play_ids = ids
+
         if not play_ids:
             st.warning("No results found.")
         else:

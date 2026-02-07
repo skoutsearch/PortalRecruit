@@ -13,6 +13,8 @@ DB_PATH = REPO_ROOT / "data" / "skout.db"
 VECTOR_DB = REPO_ROOT / "data" / "vector_db"
 
 def main():
+    from src.search.semantic import blend_score, build_expanded_query, encode_query, get_cross_encoder
+
     p = argparse.ArgumentParser()
     p.add_argument("query", nargs="?")
     p.add_argument("--n", type=int, default=15)
@@ -38,20 +40,49 @@ def main():
 
     if args.explain:
         from src.search.coach_dictionary import infer_intents_verbose
+
         intents = infer_intents_verbose(args.query)
         print("Matched:", ", ".join([p for _, p in intents.values()]))
 
     # Expand query with matched phrases
     from src.search.coach_dictionary import infer_intents_verbose
+
     intents = infer_intents_verbose(args.query)
     matched = [p for _, p in intents.values()]
-    expanded_query = args.query + (" | " + " | ".join(matched) if matched else "")
+    expanded_query = build_expanded_query(args.query, matched)
 
     client = chromadb.PersistentClient(path=str(VECTOR_DB))
     collection = client.get_collection(name="skout_plays")
-    results = collection.query(query_texts=[expanded_query], n_results=args.n)
+    results = collection.query(
+        query_embeddings=[encode_query(expanded_query)],
+        n_results=args.n,
+        include=["documents", "distances", "metadatas"],
+    )
 
-    play_ids = results.get("ids", [[]])[0]
+    ids = results.get("ids", [[]])[0]
+    docs = results.get("documents", [[]])[0]
+    dists = results.get("distances", [[]])[0]
+    metas = results.get("metadatas", [[]])[0]
+    play_ids = ids
+
+    if docs and ids:
+        try:
+            cross = get_cross_encoder()
+            rerank_scores = cross.predict([[expanded_query, d] for d in docs])
+            ranked = []
+            query_tags = {t.lower() for t in args.tags}
+            for pid, dist, meta, rerank in zip(ids, dists, metas, rerank_scores):
+                tag_overlap = 0
+                if isinstance(meta, dict):
+                    meta_tags = set(str(meta.get("tags", "")).replace("|", ",").split(","))
+                    meta_tags = {t.strip().lower() for t in meta_tags if t and t.strip()}
+                    tag_overlap = len(meta_tags.intersection(query_tags))
+                ranked.append((pid, blend_score(dist, rerank, tag_overlap)))
+            ranked.sort(key=lambda x: x[1], reverse=True)
+            play_ids = [r[0] for r in ranked]
+        except Exception:
+            play_ids = ids
+
     if not play_ids:
         print("No results.")
         return

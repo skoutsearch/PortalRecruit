@@ -1,23 +1,28 @@
 import os
 import sqlite3
+from pathlib import Path
+
 import chromadb
-from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 
-DB_PATH = os.path.join(os.getcwd(), "data/skout.db")
-VECTOR_DB_PATH = os.path.join(os.getcwd(), "data/vector_db")
+from src.search.semantic import get_embedder
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DB_PATH = REPO_ROOT / "data" / "skout.db"
+VECTOR_DB_PATH = REPO_ROOT / "data" / "vector_db"
+
 
 def generate_embeddings():
     print("🧠 Loading AI Model (all-MiniLM-L6-v2)...")
     # This acts as a local, offline "Brain" for the system
-    model = SentenceTransformer('all-MiniLM-L6-v2')
-    
+    model = get_embedder()
+
     # Initialize Vector DB
-    client = chromadb.PersistentClient(path=VECTOR_DB_PATH)
+    client = chromadb.PersistentClient(path=str(VECTOR_DB_PATH))
     collection = client.get_or_create_collection(name="skout_plays")
 
     # Fetch Data
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(str(DB_PATH))
     cursor = conn.cursor()
     cursor.execute("SELECT play_id, description, tags, game_id, clock_display, player_id, player_name FROM plays")
     rows = cursor.fetchall()
@@ -27,14 +32,13 @@ def generate_embeddings():
 
     batch_size = 100
     for i in tqdm(range(0, len(rows), batch_size)):
-        batch = rows[i:i+batch_size]
-        
+        batch = rows[i:i + batch_size]
+
         ids = [r[0] for r in batch]
-        
-        # We combine description + tags to give the AI maximum context
-        # e.g. "Missed 3pt Jump Shot (PnR) [Tags: 3pt, pnr, missed]"
-        documents = [f"{r[1]} [Tags: {r[2]}]" for r in batch]
-        
+
+        # We combine description + tags + player hint for better retrieval quality.
+        documents = [f"{r[6] or 'Unknown Player'} | {r[1]} [Tags: {r[2] or ''}]" for r in batch]
+
         metadatas = [
             {
                 "game_id": r[3],
@@ -48,18 +52,19 @@ def generate_embeddings():
         ]
 
         # Generate Embeddings
-        embeddings = model.encode(documents).tolist()
+        embeddings = model.encode(documents, normalize_embeddings=True).tolist()
 
         # Save to Chroma
         collection.upsert(
             ids=ids,
             embeddings=embeddings,
             documents=documents,
-            metadatas=metadatas
+            metadatas=metadatas,
         )
 
     print(f"✅ Successfully indexed {len(rows)} plays.")
     print("   The system is now ready for Semantic Search.")
+
 
 if __name__ == "__main__":
     generate_embeddings()
