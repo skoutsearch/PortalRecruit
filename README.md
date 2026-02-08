@@ -1,81 +1,74 @@
-# PortalRecruit 🏀
+# PortalRecruit (Developer Guide) 🏀
 
-**PortalRecruit is an AI scouting engine for college basketball coaches.**
-It turns coach‑speak into precise search, surfaces hidden impact traits, and delivers instant, actionable player intel—without spreadsheets.
-
----
-
-## ✨ What it does
-- **Natural‑language search** for prospects (“guard who can defend late clock”).
-- **Trait‑driven rankings** (dog, menace, rim pressure, gravity, etc.).
-- **Player profiles** with stats snapshots, scouting summaries, and film context.
-- **ACC 2021–22 data pipeline** (PDF parsing + DB ingestion).
-- **Social Media Scout (beta)**: queue‑driven report generation with LLM analysis.
+PortalRecruit is an AI scouting engine for college basketball coaches. This README focuses on **developer setup, architecture, and workflows**.
 
 ---
 
-## 🧭 Quick Start
+## ✅ Prerequisites
+- **Python 3.10**
+- **Streamlit**
+- **SQLite**
+- **ffmpeg** (for media utilities)
 
+---
+
+## ⚡ Quick Start
 ```bash
-# 1) Create venv
+# Create venv
 python3 -m venv ~/.venv_310
 source ~/.venv_310/bin/activate
 
-# 2) Install deps
+# Install deps
 pip install -r requirements.txt
 
-# 3) Run app
+# Run app
 streamlit run src/dashboard/Home.py
 ```
 
 ---
 
-## 🔍 Data & Search
-
-PortalRecruit combines:
-- **Vector search** (Chroma)
-- **Reranking** (cross‑encoder)
-- **Trait + stats signals**
-- **Coach‑speak intent parsing**
-
-Search results are ranked with blended scoring for precision, speed, and interpretability.
-
----
-
-## 📊 Player Profiles
-Profiles surface:
-- Position / school / height / weight
-- Stats snapshot (boxscore + per‑game)
-- Trait strengths/weaknesses
-- Film context (tagged clips)
-- LLM scouting summary
-- Social media report (when available)
-
----
-
-## 🧪 Social Media Scout (Beta)
-Queue‑driven pipeline:
-1) Search (Serper.dev)
-2) Verify (LLM)
-3) Scrape (Instagram via Instaloader)
-4) Analyze (LLM)
-
-Run worker:
-```bash
-export SERPER_API_KEY="..."
-export OPENAI_API_KEY="..."
-source ~/.venv_310/bin/activate
-python scripts/social_scout_worker.py
+## 🔐 Environment Variables
+Create `.env` (repo root):
+```
+OPENAI_API_KEY=...
+OPENAI_MODEL=gpt-4o
+SERPER_API_KEY=...
 ```
 
 ---
 
-## 🗂️ Project Structure
+## 🧠 Search Architecture
+Search pipeline combines:
+1) **Vector retrieval** (Chroma)
+2) **Cross‑encoder rerank**
+3) **Trait/intent blending**
+4) **Coach‑speak intent expansion**
+
+Key files:
+- `src/search/semantic.py`
+- `src/search/coach_dictionary.py`
+
+---
+
+## 📊 Data Pipeline
+Primary ingestion + backfill tools live under `scripts/`:
+- `scripts/acc_stats_from_pdf.py`
+- `scripts/ingest_acc_stats_from_pdf.py`
+- `scripts/backfill_height_weight_from_synergy.py`
+- `scripts/ingest_acc_roster_txt.py`
+- `scripts/ingest_acc_hs_stats_txt.py`
+
+DB schema in:
+- `src/ingestion/db.py`
+
+---
+
+## 🗂 Project Structure
 ```
 PortalRecruit/
 ├── src/
 │   ├── dashboard/        # Streamlit UI
-│   ├── ingestion/        # DB + pipelines
+│   ├── ingestion/        # DB + ingestion pipelines
 │   ├── search/           # semantic search + rerank
 │   └── ml/               # models & training
 ├── scripts/              # backfills, ingests, workers
@@ -85,24 +78,50 @@ PortalRecruit/
 
 ---
 
-## 🔐 Environment Variables
-```
-OPENAI_API_KEY=...
-OPENAI_MODEL=gpt-4o
-SERPER_API_KEY=...
+## 🔄 Social Media Scout (Beta)
+Queue‑driven pipeline:
+1) **Search** (Serper.dev)
+2) **Verify** (LLM)
+3) **Scrape** (Instaloader)
+4) **Analyze** (LLM)
+
+Worker:
+```bash
+source ~/.venv_310/bin/activate
+python scripts/social_scout_worker.py
 ```
 
 ---
 
-## ✅ Notes
+## 🧪 Tests
+```bash
+pytest -q tests/test_semantic_search.py
+```
+
+---
+
+## 🚀 Deployment Notes
 - Streamlit entry: `src/dashboard/Home.py`
-- ACC focus: 2021–2022 (current data scope)
-- DB: `data/skout.db`
+- Local DB: `data/skout.db`
+- Vector DB: `data/vector_db/`
 
 ---
 
-## 🤝 Contributing
-If you’re a coach, analyst, or engineer and want to help improve PortalRecruit, open a PR or message the team.
+## 🛠 Common Tasks
+**Rebuild vector DB**
+```bash
+python src/processing/generate_embeddings.py
+```
+
+**Backfill boxscore stats from plays**
+```bash
+python scripts/backfill_boxscore_from_plays.py
+```
+
+---
+
+## ✅ License / Access
+Private by default. Coordinate with the PortalRecruit team before sharing.
 
 ---
 
