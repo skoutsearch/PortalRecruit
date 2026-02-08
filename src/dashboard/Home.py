@@ -468,9 +468,31 @@ def _llm_scout_breakdown(profile):
 
     model_name = os.getenv("OPENAI_MODEL") or st.secrets.get("OPENAI_MODEL") or "gpt-5-nano"
 
+    # force specificity with unique facts
+    fact_bits = []
+    if stats.get("ppg") is not None:
+        fact_bits.append(f"{stats.get('ppg'):.1f} PPG")
+    if stats.get("rpg") is not None:
+        fact_bits.append(f"{stats.get('rpg'):.1f} RPG")
+    if stats.get("apg") is not None:
+        fact_bits.append(f"{stats.get('apg'):.1f} APG")
+    if profile.get("height_in"):
+        fact_bits.append(f"Height {profile.get('height_in')} in")
+    if profile.get("weight_lb"):
+        fact_bits.append(f"Weight {profile.get('weight_lb')} lb")
+    if profile.get("class_year"):
+        fact_bits.append(f"Class {profile.get('class_year')}")
+    if profile.get("team_id"):
+        fact_bits.append(f"School {profile.get('team_id')}")
+
     prompt = f"""
 You are The Old Recruiter — a 25+ year college basketball scout. Produce a premium, structured player breakdown for {name}.
 Be specific, grounded in the data, and use coach-speak. Keep it clean and readable.
+
+STRICT REQUIREMENTS:
+- Mention at least 3 UNIQUE facts from this list: {fact_bits}
+- Reference the season label when citing production.
+- If you cannot comply, reply ONLY: INSUFFICIENT
 
 FORMAT (use headings and bullets):
 1) Snapshot (1–2 lines)
@@ -480,8 +502,6 @@ FORMAT (use headings and bullets):
 5) Search Tag Fit (bullet list of the most relevant tags)
 6) Old Recruiter Summary (1–2 strong, human paragraphs — colloquial, realistic, and decisive)
 7) Clip Notes (reference 3–5 clips with citations like [clip:ID] if available)
-
-Make sure the analysis explicitly uses the season label and interprets the per‑game stats accordingly.
 
 Season: {season_label}
 Traits: {traits}
@@ -500,14 +520,17 @@ Clips: {clips}
                     {"role": "system", "content": "You are a veteran college basketball recruiter."},
                     {"role": "user", "content": prompt},
                 ],
-                "temperature": 0.75,
-                "max_tokens": 420,
+                "temperature": 0.7,
+                "max_tokens": 520,
             },
             timeout=25,
         )
         resp.raise_for_status()
         data = resp.json()
-        return data["choices"][0]["message"]["content"].strip()
+        content = data["choices"][0]["message"]["content"].strip()
+        if content.strip() == "INSUFFICIENT":
+            return _scout_breakdown(profile)
+        return content
     except Exception:
         return _scout_breakdown(profile)
 
@@ -2055,6 +2078,12 @@ elif st.session_state.app_mode == "Search":
 
             rows = []
             for pid, desc, gid, clock, player_id, player_name in play_rows:
+                pid_norm = _normalize_player_id(player_id)
+                meta = player_meta.get(pid_norm) if pid_norm else None
+                if meta is None and player_name:
+                    meta = player_meta_by_name.get(_norm_person_name(player_name))
+                if meta is None:
+                    continue  # skip players without roster/meta info
                 t = traits.get(player_id, {})
                 dog_index = t.get("dog")
                 menace_index = t.get("menace")
@@ -2117,12 +2146,13 @@ elif st.session_state.app_mode == "Search":
 
                 # Role-based position filtering
                 pos = (player_positions.get(player_id) or "").upper()
-                if "guard" in role_hints and not ("G" in pos or "PG" in pos or "SG" in pos):
-                    continue
-                if "wing" in role_hints and not ("F" in pos or "W" in pos or "G/F" in pos or "F/G" in pos or "SF" in pos):
-                    continue
-                if "big" in role_hints and not ("C" in pos or "F/C" in pos or "PF" in pos):
-                    continue
+                if pos:
+                    if "guard" in role_hints and not ("G" in pos or "PG" in pos or "SG" in pos):
+                        continue
+                    if "wing" in role_hints and not ("F" in pos or "W" in pos or "G/F" in pos or "F/G" in pos or "SF" in pos):
+                        continue
+                    if "big" in role_hints and not ("C" in pos or "F/C" in pos or "PF" in pos):
+                        continue
 
                 # Rerank score: trait alignment + tag matches
                 score = 0
