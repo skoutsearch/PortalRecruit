@@ -616,40 +616,73 @@ def _render_profile_overlay(player_id: str):
         clips = filtered if filtered else [(p[0], p[1], p[2], p[3], set(tag_play(p[1]))) for p in plays]
         st.markdown("### Film Room")
         if clips:
-            for play_id, desc, game_id, clock, tags in clips[:15]:
-                st.markdown(f"<a name='clip-{play_id}'></a>", unsafe_allow_html=True)
+            # Build unique video list
+            vid_items = []
+            for play_id, desc, game_id, clock, tags in clips:
                 home, away, video = matchups.get(game_id, ("Unknown", "Unknown", None))
-                st.markdown(f"**{home} vs {away}** @ {clock}")
-                st.write(desc)
-                if tags:
-                    st.caption("Tags: " + ", ".join(sorted(tags)))
                 if video:
-                    st.markdown(f"[Video Link]({video})")
-                st.divider()
+                    vid_items.append({
+                        "play_id": play_id,
+                        "desc": desc,
+                        "game": f"{home} vs {away}",
+                        "clock": clock,
+                        "video": video,
+                        "tags": tags,
+                    })
+            # de-dupe by video url
+            uniq = []
+            seen = set()
+            for v in vid_items:
+                if v["video"] in seen:
+                    continue
+                seen.add(v["video"])
+                uniq.append(v)
+
+            top3 = uniq[:3]
+            if top3:
+                cols = st.columns(3)
+                for i, v in enumerate(top3):
+                    with cols[i % 3]:
+                        st.markdown(f"**{v['game']}**")
+                        st.caption(v["clock"])
+                        st.video(v["video"], start_time=0)
+                if len(uniq) > 3:
+                    if st.button("See more", key=f"see_more_{pid}"):
+                        st.session_state[f"show_more_videos_{pid}"] = True
+            else:
+                st.caption("No video clips available.")
+
+            if st.session_state.get(f"show_more_videos_{pid}"):
+                st.markdown("#### All Relevant Clips")
+                cols = st.columns(3)
+                for i, v in enumerate(uniq):
+                    with cols[i % 3]:
+                        st.markdown(f"**{v['game']}**")
+                        st.caption(v["clock"])
+                        st.video(v["video"], start_time=0)
+                if st.button("Close", key=f"close_more_{pid}"):
+                    st.session_state[f"show_more_videos_{pid}"] = False
         else:
             st.caption("No clips available for this player.")
-
-        # Social media finder
-        st.markdown("### Social Media Finder")
-        try:
-            import urllib.parse as _urlparse
-            q = _build_social_search_query(profile)
-            q_url = _urlparse.quote_plus(q)
-            search_url = f"https://www.google.com/search?q={q_url}"
-            st.markdown(
-                f"<a href='{search_url}' target='_blank' style='text-decoration:none;'>"
-                f"<div style='display:inline-block; padding:10px 16px; border-radius:10px; background:rgba(255,255,255,0.1);"
-                f" border:1px solid rgba(255,255,255,0.2); color:white; font-weight:600;'>🔎 Find Social Media</div></a>",
-                unsafe_allow_html=True,
-            )
-            st.caption("Uses a focused search across Instagram, TikTok, X/Twitter, and Facebook with school + HS validators.")
-        except Exception:
-            pass
 
         # Social media scouting report (Auto-Scout)
         st.markdown("### Social Media Scouting Report")
         report = _get_social_report(pid)
         queue_status = _get_social_queue_status(pid)
+
+        # Progress indicator
+        progress_val = 0
+        if queue_status:
+            if queue_status.get("status") == "queued":
+                progress_val = 25
+            elif queue_status.get("status") == "running":
+                progress_val = 60
+            elif queue_status.get("status") == "done":
+                progress_val = 100
+            elif queue_status.get("status") == "error":
+                progress_val = 0
+        if progress_val:
+            st.progress(progress_val)
 
         if report and report.get("status") == "complete":
             rep = report.get("report") or {}
