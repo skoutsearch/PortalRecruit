@@ -89,6 +89,37 @@ def _meta_player_id(meta: dict | None) -> str:
     return ""
 
 
+def _filter_candidates_by_tags(
+    candidates: list[tuple[str, str | None, float | None, dict | None, float]],
+    required_tag_set: set[str],
+    requested_n: int,
+) -> tuple[list[tuple[str, str | None, float | None, dict | None, float]], bool]:
+    """Prefer strict tag matches, but degrade gracefully when too sparse."""
+    if not required_tag_set:
+        return candidates, False
+
+    strict = []
+    for row in candidates:
+        meta_tags = _parse_tags(row[3])
+        if required_tag_set.issubset(meta_tags):
+            strict.append(row)
+
+    if len(strict) >= max(3, min(requested_n, 8)):
+        return strict, False
+
+    # Fallback: keep plays with partial overlap and prioritize by overlap during scoring.
+    partial = []
+    for row in candidates:
+        meta_tags = _parse_tags(row[3])
+        if meta_tags.intersection(required_tag_set):
+            partial.append(row)
+
+    if partial:
+        return partial, True
+
+    return candidates, True
+
+
 def _lexical_overlap_score(query_tokens: set[str], doc: str | None, meta: dict | None) -> float:
     if not query_tokens:
         return 0.0
@@ -144,12 +175,10 @@ def semantic_search(
 
     candidates: list[tuple[str, str | None, float | None, dict | None, float]] = []
     for pid, doc, dist, meta in zip(ids, docs, distances, metadatas):
-        if required_tag_set:
-            meta_tags = _parse_tags(meta)
-            if not required_tag_set.issubset(meta_tags):
-                continue
         lexical = _lexical_overlap_score(query_tokens, doc, meta)
         candidates.append((pid, doc, dist, meta, lexical))
+
+    candidates, used_tag_fallback = _filter_candidates_by_tags(candidates, required_tag_set, requested_n)
 
     # Fast pre-ranking improves precision and reduces cross-encoder workload.
     candidates.sort(
@@ -170,6 +199,8 @@ def semantic_search(
                     meta_tags = _parse_tags(meta)
                     tag_overlap = len(meta_tags.intersection(required_tag_set))
                 score = blend_score(dist, float(rerank_score), tag_overlap) + (0.10 * lexical)
+                if required_tag_set and used_tag_fallback:
+                    score += 0.08 * float(tag_overlap)
                 ranked.append((pid, score))
             ranked.sort(key=lambda x: x[1], reverse=True)
             ranked_ids = [r[0] for r in ranked]
