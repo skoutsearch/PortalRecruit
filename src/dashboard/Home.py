@@ -196,6 +196,20 @@ def _lookup_player_id_by_name(name: str):
 
 
 
+@st.cache_resource(show_spinner=False)
+def _get_search_collection():
+    import chromadb
+
+    vector_db_path = REPO_ROOT / "data" / "vector_db"
+    client = chromadb.PersistentClient(path=str(vector_db_path))
+    try:
+        return client.get_collection(name="skout_plays")
+    except Exception:
+        _restore_vector_db_if_needed()
+        client = chromadb.PersistentClient(path=str(vector_db_path))
+        return client.get_collection(name="skout_plays")
+
+
 def _get_qp():
     try:
         return st.query_params
@@ -1357,35 +1371,32 @@ elif st.session_state.app_mode == "Search":
         if finishing_intent:
             required_tags = list(set(required_tags + ["rim_finish", "layup", "dunk", "made"]))
 
-        # User requested no filters
-        required_tags = []
         st.session_state["last_query"] = query
-        st.session_state["last_query_tags"] = []
+        st.session_state["last_query_tags"] = sorted(set(required_tags + intent_tags))
 
         # --- VECTOR SEARCH ---
-        import chromadb
         import sqlite3
 
-        VECTOR_DB_PATH = REPO_ROOT / "data" / "vector_db"
         DB_PATH = REPO_ROOT / "data" / "skout.db"
 
-        client = chromadb.PersistentClient(path=str(VECTOR_DB_PATH))
         try:
-            collection = client.get_collection(name="skout_plays")
+            collection = _get_search_collection()
         except Exception:
-            # try restore once more if parts exist
-            _restore_vector_db_if_needed()
-            client = chromadb.PersistentClient(path=str(VECTOR_DB_PATH))
-            try:
-                collection = client.get_collection(name="skout_plays")
-            except Exception:
-                st.error("Vector DB not found. Run embeddings first (generate_embeddings.py) to create 'skout_plays'.")
-                st.stop()
+            st.error("Vector DB not found. Run embeddings first (generate_embeddings.py) to create 'skout_plays'.")
+            st.stop()
 
         # Query expansion: add matched phrases to help retrieval
         from src.search.semantic import build_expanded_query, semantic_search
 
         expanded_query = build_expanded_query(query, matched_phrases)
+        if matched_phrases or required_tags:
+            hints = []
+            if matched_phrases:
+                hints.append("Matched concepts: " + ", ".join(sorted(set(matched_phrases))[:6]))
+            if required_tags:
+                hints.append("Required tags: " + ", ".join(sorted(set(required_tags))))
+            if hints:
+                st.caption(" • ".join(hints))
 
         status = st.status("Searching…", expanded=False)
         status.update(state="running")
@@ -1409,7 +1420,7 @@ elif st.session_state.app_mode == "Search":
         # Stage 2: vector search
         play_ids = semantic_search(
             collection,
-            query=expanded_query,
+            query=query,
             n_results=n_results,
             extra_query_terms=matched_phrases,
             required_tags=required_tags,

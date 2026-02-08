@@ -76,6 +76,19 @@ def _parse_tags(meta: dict | None) -> set[str]:
     return {t.strip().lower() for t in raw_tags.split(",") if t and t.strip()}
 
 
+def _meta_player_id(meta: dict | None) -> str:
+    if not isinstance(meta, dict):
+        return ""
+    for key in ("player_id", "player", "pid"):
+        val = meta.get(key)
+        if val is None:
+            continue
+        sval = str(val).strip()
+        if sval:
+            return sval
+    return ""
+
+
 def _lexical_overlap_score(query_tokens: set[str], doc: str | None, meta: dict | None) -> float:
     if not query_tokens:
         return 0.0
@@ -102,6 +115,7 @@ def semantic_search(
     n_results: int = 15,
     extra_query_terms: Iterable[str] | None = None,
     required_tags: Iterable[str] | None = None,
+    diversify_by_player: bool = True,
 ) -> list[str]:
     """Run semantic search with normalized embeddings + optional rerank blend.
 
@@ -125,11 +139,15 @@ def semantic_search(
     if not ids:
         return []
 
-    required_tag_set = {t.lower() for t in (required_tags or [])}
+    required_tag_set = {str(t).strip().lower() for t in (required_tags or []) if str(t).strip()}
     query_tokens = _tokenize(expanded_query)
 
     candidates: list[tuple[str, str | None, float | None, dict | None, float]] = []
     for pid, doc, dist, meta in zip(ids, docs, distances, metadatas):
+        if required_tag_set:
+            meta_tags = _parse_tags(meta)
+            if not required_tag_set.issubset(meta_tags):
+                continue
         lexical = _lexical_overlap_score(query_tokens, doc, meta)
         candidates.append((pid, doc, dist, meta, lexical))
 
@@ -154,7 +172,30 @@ def semantic_search(
                 score = blend_score(dist, float(rerank_score), tag_overlap) + (0.10 * lexical)
                 ranked.append((pid, score))
             ranked.sort(key=lambda x: x[1], reverse=True)
-            return [r[0] for r in ranked[:requested_n]]
+            ranked_ids = [r[0] for r in ranked]
+            if not diversify_by_player:
+                return ranked_ids[:requested_n]
+            # Light diversity pass: avoid flooding top results with one player.
+            max_per_player = 2 if requested_n >= 12 else 1
+            counts: dict[str, int] = {}
+            selected: list[str] = []
+            by_id_meta = {pid: meta for pid, _doc, _dist, meta, _lex in rerank_pool}
+            for pid in ranked_ids:
+                pkey = _meta_player_id(by_id_meta.get(pid)) or "__unknown__"
+                if counts.get(pkey, 0) >= max_per_player:
+                    continue
+                selected.append(pid)
+                counts[pkey] = counts.get(pkey, 0) + 1
+                if len(selected) >= requested_n:
+                    break
+            if len(selected) < requested_n:
+                for pid in ranked_ids:
+                    if pid in selected:
+                        continue
+                    selected.append(pid)
+                    if len(selected) >= requested_n:
+                        break
+            return selected
     except Exception:
         return [row[0] for row in candidates[:requested_n]]
 
