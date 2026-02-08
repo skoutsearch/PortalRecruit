@@ -485,7 +485,7 @@ PHRASES: Dict[str, List[str]] = {
         "standing reach",
         "frame",
         "physical profile",
-        "big guard",
+        # "big guard",  # removed to avoid mis-matching 'big men'
         "switchable size",
         "nba body",
         "athletic tools",

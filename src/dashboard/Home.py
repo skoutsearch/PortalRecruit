@@ -866,6 +866,31 @@ def _build_social_search_query(profile: dict) -> str:
     return " ".join([p for p in parts if p])
 
 
+def _build_old_recruiter_subject(query: str, matched_phrases: list[str] | None) -> str:
+    phrases = [p for p in (matched_phrases or []) if p]
+    # prefer unique, short phrases
+    uniq = []
+    for p in phrases:
+        if p not in uniq:
+            uniq.append(p)
+    phrases = uniq[:3]
+
+    # normalize big-men wording
+    normalized = []
+    for p in phrases:
+        p_low = p.lower()
+        if "big men" in p_low or "big man" in p_low:
+            normalized.append("athletic center")
+        else:
+            normalized.append(p)
+    phrases = normalized
+
+    if phrases:
+        return "Heard you were looking for " + ", ".join(phrases) + "..."
+    q = (query or "").strip()
+    return f"Here's the report you requested regarding {q}..."
+
+
 def _enqueue_social_report(player_id: str) -> None:
     import sqlite3
     from datetime import datetime
@@ -1208,11 +1233,12 @@ elif st.session_state.app_mode == "Search":
 
             progress_placeholder = st.session_state.get("progress_placeholder")
             if progress_placeholder is not None:
-                progress_placeholder.markdown(
+                subject_line = _build_old_recruiter_subject(query_text, st.session_state.get("last_matched_phrases") or [])
+            progress_placeholder.markdown(
                     f"""
                     <div class='old-recuiter-final'>
                       <div><strong>From:</strong> &lt;The Old Recruiter&gt; <a href='mailto:theoldrecruiter@portalrecruit.com'>theoldrecruiter@portalrecruit.com</a></div>
-                      <div><strong>Subject:</strong> Here's the report you requested regarding {query_text}...</div>
+                      <div><strong>Subject:</strong> {subject_line}</div>
                     </div>
                     """,
                     unsafe_allow_html=True,
@@ -1288,13 +1314,6 @@ elif st.session_state.app_mode == "Search":
             st.info("No results after filters.")
 
     if query and st.session_state.get("search_requested"):
-        # Immediate progress feedback before heavy work
-        progress_placeholder = st.empty()
-        st.session_state["progress_placeholder"] = progress_placeholder
-        progress_placeholder.markdown(
-            "<div class='old-recuiter-stage' style='color:#7aa2f7'>Phoning the Old Recruiter...</div>",
-            unsafe_allow_html=True,
-        )
         st.session_state["search_status"] = "Searching"
         if not st.session_state.get("search_started_at"):
             st.session_state["search_started_at"] = __import__("time").time()
@@ -1357,6 +1376,8 @@ elif st.session_state.app_mode == "Search":
             matched_phrases.append(phrase)
             explain.append(f"Matched '{phrase}' → {list(intent.traits.keys())}")
 
+        st.session_state["last_matched_phrases"] = matched_phrases
+
             intent_dog = max(intent_dog, int(intent.traits.get("dog", 0) * w))
             intent_menace = max(intent_menace, int(intent.traits.get("menace", 0) * w))
             intent_unselfish = max(intent_unselfish, int(intent.traits.get("unselfish", 0) * w))
@@ -1405,19 +1426,6 @@ elif st.session_state.app_mode == "Search":
         from src.search.semantic import build_expanded_query, semantic_search
 
         expanded_query = build_expanded_query(query, matched_phrases)
-        if matched_phrases or required_tags:
-            hints = []
-            if matched_phrases:
-                hints.append("Matched concepts: " + ", ".join(sorted(set(matched_phrases))[:6]))
-            if required_tags:
-                req_threshold = _required_tag_threshold(required_tags)
-                hints.append(
-                    "Required tags: "
-                    + ", ".join(sorted(set(required_tags)))
-                    + f" (need {req_threshold}+)"
-                )
-            if hints:
-                st.caption(" • ".join(hints))
 
         status = st.status("Searching…", expanded=False)
         status.update(state="running")
