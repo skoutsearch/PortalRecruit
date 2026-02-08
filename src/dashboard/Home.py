@@ -1465,8 +1465,6 @@ elif st.session_state.app_mode == "Search":
             matched_phrases.append(phrase)
             explain.append(f"Matched '{phrase}' → {list(intent.traits.keys())}")
 
-        st.session_state["last_matched_phrases"] = matched_phrases
-
             intent_dog = max(intent_dog, int(intent.traits.get("dog", 0) * w))
             intent_menace = max(intent_menace, int(intent.traits.get("menace", 0) * w))
             intent_unselfish = max(intent_unselfish, int(intent.traits.get("unselfish", 0) * w))
@@ -1484,6 +1482,8 @@ elif st.session_state.app_mode == "Search":
             # If "and" logic, treat intent tags as required
             if logic == "and":
                 required_tags = list(set(required_tags + list(intent.tags)))
+
+        st.session_state["last_matched_phrases"] = matched_phrases
 
         # Role hints to lightly nudge tags
         if "guard" in role_hints:
