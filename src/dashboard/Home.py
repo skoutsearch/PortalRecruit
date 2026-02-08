@@ -1113,7 +1113,7 @@ elif st.session_state.app_mode == "Search":
         if st.button(search_status, key="search_btn", use_container_width=True):
             st.session_state["search_requested"] = True
             st.session_state["search_status"] = "Searching"
-            st.session_state["search_started_at"] = time.time()
+            st.session_state["search_started_at"] = __import__("time").time()
 
     # Recent searches
     try:
@@ -1165,10 +1165,109 @@ elif st.session_state.app_mode == "Search":
                     st.stop()
         st.stop()
 
+    # Persist last results when not actively searching
+    if not st.session_state.get("search_requested") and st.session_state.get("last_rows"):
+        _render_results(st.session_state.get("last_rows") or [], query or st.session_state.get("last_query") or "")
+
+    def _render_results(rows, query_text):
+        if rows:
+            # Group by player (top 3 clips each)
+            grouped = {}
+            for r in rows:
+                grouped.setdefault(r["Player"], []).append(r)
+
+            progress_placeholder = st.session_state.get("progress_placeholder")
+            if progress_placeholder is not None:
+                progress_placeholder.markdown(
+                    f"""
+                    <div class='old-recuiter-final'>
+                      <div><strong>From:</strong> &lt;The Old Recruiter&gt; <a href='mailto:theoldrecruiter@portalrecruit.com'>theoldrecruiter@portalrecruit.com</a></div>
+                      <div><strong>Subject:</strong> Here's the report you requested regarding {query_text}...</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+            st.markdown("<h3 style='margin-top:40px;'>Top Prospects</h3>", unsafe_allow_html=True)
+
+            for player, clips in grouped.items():
+                pid = _normalize_player_id(clips[0].get("Player ID")) if clips else None
+                score = clips[0].get("Score", 0) if clips else 0
+                st.session_state.setdefault("player_meta_cache", {})
+                if pid:
+                    st.session_state["player_meta_cache"][pid] = {
+                        "name": player,
+                        "position": clips[0].get("Position", "") if clips else "",
+                        "team": clips[0].get("Team", "") if clips else "",
+                        "team_id": clips[0].get("Team", "") if clips else "",
+                        "height": clips[0].get("Height") if clips else None,
+                        "weight": clips[0].get("Weight") if clips else None,
+                        "class_year": clips[0].get("Class") if clips else None,
+                        "high_school": clips[0].get("High School") if clips else None,
+                        "ppg": clips[0].get("PPG") if clips else None,
+                        "rpg": clips[0].get("RPG") if clips else None,
+                        "apg": clips[0].get("APG") if clips else None,
+                        "score": score,
+                    }
+
+                pos = clips[0].get("Position") if clips else None
+                team = clips[0].get("Team") if clips else None
+                ht = clips[0].get("Height") if clips else None
+                wt = clips[0].get("Weight") if clips else None
+                pos = pos if pos not in [None, "", "None"] else "—"
+                team = team if team not in [None, "", "None"] else "—"
+                size = "—"
+                if ht and wt:
+                    size = f"{_fmt_height(ht)} / {int(wt)} lbs"
+                elif ht:
+                    size = f"{_fmt_height(ht)}"
+                elif wt:
+                    size = f"{int(wt)} lbs"
+
+                detail_parts = [
+                    player,
+                    pos if pos and pos != "—" else "—",
+                    _fmt_height(ht) if ht else "—",
+                    f"{int(wt)} lbs" if wt else "—",
+                    team if team and team != "—" else "Unknown",
+                    f"Recruit Score: {score:.1f}",
+                ]
+
+                label = " | ".join(detail_parts)
+
+                if pid and st.button(label, key=f"btn_{pid}", use_container_width=True):
+                    st.query_params["player"] = pid
+                    st.rerun()
+
+                # Secondary line with HS + class + per-game stats (if available)
+                class_line = clips[0].get("Class") if clips else None
+                hs_line = clips[0].get("High School") if clips else None
+                ppg_line = clips[0].get("PPG") if clips else None
+                rpg_line = clips[0].get("RPG") if clips else None
+                apg_line = clips[0].get("APG") if clips else None
+                extra = []
+                if class_line and class_line != "—":
+                    extra.append(f"Class: {class_line}")
+                if hs_line and hs_line != "—":
+                    extra.append(f"HS: {hs_line}")
+                if ppg_line is not None and rpg_line is not None and apg_line is not None:
+                    extra.append(f"{ppg_line:.1f} / {rpg_line:.1f} / {apg_line:.1f} PPG/RPG/APG")
+                if extra:
+                    st.caption(" • ".join(extra))
+        else:
+            st.info("No results after filters.")
+
     if query and st.session_state.get("search_requested"):
+        # Immediate progress feedback before heavy work
+        progress_placeholder = st.empty()
+        st.session_state["progress_placeholder"] = progress_placeholder
+        progress_placeholder.markdown(
+            "<div class='old-recuiter-stage' style='color:#7aa2f7'>Phoning the Old Recruiter...</div>",
+            unsafe_allow_html=True,
+        )
         st.session_state["search_status"] = "Searching"
         if not st.session_state.get("search_started_at"):
-            st.session_state["search_started_at"] = time.time()
+            st.session_state["search_started_at"] = __import__("time").time()
         # Search vars (Advanced Filters removed but logic kept for defaults)
         slider_dog = slider_menace = slider_unselfish = slider_tough = 0
         slider_rim = slider_shot = slider_gravity = slider_size = 0
@@ -1295,6 +1394,7 @@ elif st.session_state.app_mode == "Search":
 
         # Old Recruiter progress display (milestone-based)
         progress_placeholder = st.empty()
+        st.session_state["progress_placeholder"] = progress_placeholder
         def _stage(msg, color="#7aa2f7"):
             progress_placeholder.markdown(
                 f"<div class='old-recuiter-stage' style='color:{color}'>" + msg + "</div>",
@@ -1997,92 +2097,8 @@ elif st.session_state.app_mode == "Search":
             except Exception:
                 pass
 
-            if rows:
-                st.session_state["search_status"] = "Search"
-                st.session_state["search_requested"] = False
+            st.session_state["search_status"] = "Search"
+            st.session_state["search_requested"] = False
+            st.session_state["last_rows"] = rows
 
-                # Group by player (top 3 clips each)
-                grouped = {}
-                for r in rows:
-                    grouped.setdefault(r["Player"], []).append(r)
-
-                progress_placeholder.markdown(
-                    f"""
-                    <div class='old-recuiter-final'>
-                      <div><strong>From:</strong> &lt;The Old Recruiter&gt; <a href='mailto:theoldrecruiter@portalrecruit.com'>theoldrecruiter@portalrecruit.com</a></div>
-                      <div><strong>Subject:</strong> Here's the report you requested regarding {query}...</div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-
-                st.markdown("<h3 style='margin-top:40px;'>Top Prospects</h3>", unsafe_allow_html=True)
-
-                for player, clips in grouped.items():
-                    pid = _normalize_player_id(clips[0].get("Player ID")) if clips else None
-                    score = clips[0].get("Score", 0) if clips else 0
-                    st.session_state.setdefault("player_meta_cache", {})
-                    if pid:
-                        st.session_state["player_meta_cache"][pid] = {
-                            "name": player,
-                            "position": clips[0].get("Position", "") if clips else "",
-                            "team": clips[0].get("Team", "") if clips else "",
-                            "team_id": clips[0].get("Team", "") if clips else "",
-                            "height": clips[0].get("Height") if clips else None,
-                            "weight": clips[0].get("Weight") if clips else None,
-                            "class_year": clips[0].get("Class") if clips else None,
-                            "high_school": clips[0].get("High School") if clips else None,
-                            "ppg": clips[0].get("PPG") if clips else None,
-                            "rpg": clips[0].get("RPG") if clips else None,
-                            "apg": clips[0].get("APG") if clips else None,
-                            "score": score,
-                        }
-
-                    pos = clips[0].get("Position") if clips else None
-                    team = clips[0].get("Team") if clips else None
-                    ht = clips[0].get("Height") if clips else None
-                    wt = clips[0].get("Weight") if clips else None
-                    pos = pos if pos not in [None, "", "None"] else "—"
-                    team = team if team not in [None, "", "None"] else "—"
-                    size = "—"
-                    if ht and wt:
-                        size = f"{_fmt_height(ht)} / {int(wt)} lbs"
-                    elif ht:
-                        size = f"{_fmt_height(ht)}"
-                    elif wt:
-                        size = f"{int(wt)} lbs"
-
-                    detail_parts = [
-                        player,
-                        pos if pos and pos != "—" else "—",
-                        _fmt_height(ht) if ht else "—",
-                        f"{int(wt)} lbs" if wt else "—",
-                        team if team and team != "—" else "Unknown",
-                        f"Recruit Score: {score:.1f}",
-                    ]
-
-                    label = " | ".join(detail_parts)
-
-                    if pid and st.button(label, key=f"btn_{pid}", use_container_width=True):
-                        st.query_params["player"] = pid
-                        st.rerun()
-
-                    # Secondary line with HS + class + per-game stats (if available)
-                    class_line = clips[0].get("Class") if clips else None
-                    hs_line = clips[0].get("High School") if clips else None
-                    ppg_line = clips[0].get("PPG") if clips else None
-                    rpg_line = clips[0].get("RPG") if clips else None
-                    apg_line = clips[0].get("APG") if clips else None
-                    extra = []
-                    if class_line and class_line != "—":
-                        extra.append(f"Class: {class_line}")
-                    if hs_line and hs_line != "—":
-                        extra.append(f"HS: {hs_line}")
-                    if ppg_line is not None and rpg_line is not None and apg_line is not None:
-                        extra.append(f"{ppg_line:.1f} / {rpg_line:.1f} / {apg_line:.1f} PPG/RPG/APG")
-                    if extra:
-                        st.caption(" • ".join(extra))
-            else:
-                st.session_state["search_status"] = "Search"
-                st.session_state["search_requested"] = False
-                st.info("No results after filters.")
+            _render_results(rows, query)
