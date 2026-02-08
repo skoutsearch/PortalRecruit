@@ -1089,13 +1089,27 @@ elif st.session_state.app_mode == "Search":
     )
 
     # Search box + autocomplete
+    def _mark_search_requested():
+        st.session_state["search_requested"] = True
+        st.session_state["search_status"] = "Search"
+
     last_q = st.session_state.get("last_query") or ""
-    query = st.text_input(
-        "Player Search",
-        last_q,
-        placeholder="e.g. 'Athletic wing who can finish at the rim'",
-        label_visibility="collapsed",
-    )
+    search_status = st.session_state.get("search_status") or "Search"
+
+    cols = st.columns([6, 1])
+    with cols[0]:
+        query = st.text_input(
+            "Player Search",
+            last_q,
+            placeholder="e.g. 'Athletic wing who can finish at the rim'",
+            label_visibility="collapsed",
+            on_change=_mark_search_requested,
+            key="search_query_input",
+        )
+    with cols[1]:
+        if st.button(search_status, key="search_btn", use_container_width=True):
+            st.session_state["search_requested"] = True
+            st.session_state["search_status"] = "Search"
 
     # Recent searches
     try:
@@ -1147,7 +1161,7 @@ elif st.session_state.app_mode == "Search":
                     st.stop()
         st.stop()
 
-    if query:
+    if query and st.session_state.get("search_requested"):
         # Search vars (Advanced Filters removed but logic kept for defaults)
         slider_dog = slider_menace = slider_unselfish = slider_tough = 0
         slider_rim = slider_shot = slider_gravity = slider_size = 0
@@ -1265,12 +1279,29 @@ elif st.session_state.app_mode == "Search":
 
         expanded_query = build_expanded_query(query, matched_phrases)
 
+        import time
+
         status = st.status("Searching…", expanded=False)
         status.update(state="running")
         st.markdown(
             "<script>document.body.classList.add('searching');</script>",
             unsafe_allow_html=True,
         )
+
+        # Old Recruiter progress display
+        progress_placeholder = st.empty()
+        stages = [
+            (25, "Phoning the Old Recruiter...", "#7aa2f7"),
+            (50, "Explaining Uber to the Old Recruiter...", "#f6c177"),
+            (75, "Confirming arrival of the Old Recruiter at Prospect's local gym...", "#7bdcb5"),
+            (100, "Incoming email from <a href='mailto:theoldrecruiter@portalrecruit.com'>theoldrecruiter@portalrecruit.com</a>...", "#ff7eb6"),
+        ]
+        for pct, msg, color in stages:
+            progress_placeholder.markdown(
+                f"<div class='old-recuiter-stage' style='color:{color}'>" + msg + "</div>",
+                unsafe_allow_html=True,
+            )
+            time.sleep(2.0)
 
         # semantic_search handles fast candidate expansion + reranking.
         play_ids = semantic_search(
@@ -1279,6 +1310,17 @@ elif st.session_state.app_mode == "Search":
             n_results=n_results,
             extra_query_terms=matched_phrases,
             required_tags=required_tags,
+        )
+
+        # Final email-style header
+        progress_placeholder.markdown(
+            f"""
+            <div class='old-recuiter-final'>
+              <div><strong>From:</strong> &lt;The Old Recruiter&gt; <a href='mailto:theoldrecruiter@portalrecruit.com'>theoldrecruiter@portalrecruit.com</a></div>
+              <div><strong>Subject:</strong> Here's the report you requested regarding {query}...</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
 
         if not play_ids:
@@ -1954,6 +1996,9 @@ elif st.session_state.app_mode == "Search":
                 pass
 
             if rows:
+                st.session_state["search_status"] = "Finished"
+                st.session_state["search_requested"] = False
+
                 # Group by player (top 3 clips each)
                 grouped = {}
                 for r in rows:
@@ -2026,4 +2071,6 @@ elif st.session_state.app_mode == "Search":
                     if extra:
                         st.caption(" • ".join(extra))
             else:
+                st.session_state["search_status"] = "Finished"
+                st.session_state["search_requested"] = False
                 st.info("No results after filters.")

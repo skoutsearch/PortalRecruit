@@ -217,6 +217,23 @@ code {
   font-size: 0.85em;
 }
 
+/* Old Recruiter progress */
+.old-recuiter-stage {
+  font-size: 1.05rem;
+  font-weight: 600;
+  animation: oldrecruiter-pulse 1.6s ease-in-out infinite;
+}
+.old-recuiter-final {
+  font-size: 1.02rem;
+  font-weight: 600;
+  margin-top: 8px;
+}
+@keyframes oldrecruiter-pulse {
+  0% { opacity: 0.45; }
+  50% { opacity: 1.0; }
+  100% { opacity: 0.45; }
+}
+
 /* Hide Streamlit footer */
 footer { display: none !important; }
 
