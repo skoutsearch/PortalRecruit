@@ -1091,6 +1091,7 @@ elif st.session_state.app_mode == "Search":
     # Search box + autocomplete
     def _mark_search_requested():
         # User hit enter in the search bar
+        import time
         st.session_state["search_requested"] = True
         st.session_state["search_status"] = "Searching"
         st.session_state["search_started_at"] = time.time()
