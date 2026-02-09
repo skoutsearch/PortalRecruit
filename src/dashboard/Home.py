@@ -839,18 +839,23 @@ def check_ingestion_status():
     return db_path.exists()
 
 def render_header():
-    banner_html = """
-    <div style="display:flex; justify-content:center; margin-bottom:12px;">
-         <img src="https://portalrecruit.github.io/PortalRecruit/PORTALRECRUIT_WORDMARK_V4.webp" style="max-width:92vw; width:680px; height:auto; object-fit:contain; display:block;">
-    </div>
-    """
+    header_logo = get_base64_image("www/PR_LOGO_NEW_RECTANGLE.png")
+    if header_logo:
+        banner_html = f"""
+        <div style=\"display:flex; justify-content:center; margin-bottom:12px;\">
+             <img src=\"data:image/png;base64,{header_logo}\" style=\"max-width:92vw; width:680px; height:auto; object-fit:contain; display:block;\">
+        </div>
+        """
+    else:
+        banner_html = """
+        <div style=\"display:flex; justify-content:center; margin-bottom:12px;\">
+             <img src=\"https://portalrecruit.github.io/PortalRecruit/PR_LOGO_NEW_RECTANGLE.png\" style=\"max-width:92vw; width:680px; height:auto; object-fit:contain; display:block;\">
+        </div>
+        """
 
     hero_html = f"""
-    <div class="pr-hero">
+    <div class=\"pr-hero\">
       {banner_html}
-      <div style="display:flex; justify-content:center; margin:-6px auto 0;">
-        <img src="https://portalrecruit.github.io/PortalRecruit/PORTALRECRUIT_TAGLINE_SEARCH_RECRUIT_WIN.webp" style="max-width:92vw; width:680px; height:auto; object-fit:contain; opacity:0.95;" />
-      </div>
     </div>
     """
 
@@ -1175,14 +1180,7 @@ elif st.session_state.app_mode == "Search":
     # --- SEARCH INTERFACE ---
     st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
     
-    # Custom Search Container
-    st.markdown(
-        "<div style='display:flex; justify-content:center; margin:-14px 0 14px;'>"
-        "<img src='https://portalrecruit.github.io/PortalRecruit/PORTALRECRUIT_TAGLINE_SEARCH_RECRUIT_WIN.webp' "
-        "style='max-width:92vw; width:520px; height:auto; object-fit:contain; opacity:0.95;'/>"
-        "</div>",
-        unsafe_allow_html=True,
-    )
+    # Custom Search Container (byline removed)
 
     # Search box + autocomplete
     def _mark_search_requested():
