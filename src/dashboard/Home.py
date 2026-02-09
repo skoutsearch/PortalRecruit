@@ -1492,27 +1492,46 @@ elif st.session_state.app_mode == "Search":
         # Old Recruiter progress display already initiated above
 
         # Vector search
-        play_ids = semantic_search(
-            collection,
-            query=query,
-            n_results=n_results,
-            extra_query_terms=(matched_phrases or []) + (expanded_terms or []),
-            required_tags=required_tags,
-            boost_tags=intent_tags,
-        )
+        try:
+            play_ids = semantic_search(
+                collection,
+                query=query,
+                n_results=n_results,
+                extra_query_terms=(matched_phrases or []) + (expanded_terms or []),
+                required_tags=required_tags,
+                boost_tags=intent_tags,
+            )
+        except Exception:
+            try:
+                collection = _get_search_collection()
+                play_ids = semantic_search(
+                    collection,
+                    query=query,
+                    n_results=n_results,
+                    extra_query_terms=(matched_phrases or []) + (expanded_terms or []),
+                    required_tags=required_tags,
+                    boost_tags=intent_tags,
+                )
+            except Exception:
+                st.error("Search index error. Please refresh the app or re-run embeddings.")
+                st.stop()
         count_initial = len(play_ids)
 
         # Fallback expansion if results too thin
         if len(play_ids) < 8:
-            play_ids = semantic_search(
-                collection,
-                query=expanded_query,
-                n_results=max(n_results, 200),
-                extra_query_terms=(matched_phrases or []) + (expanded_terms or []),
-                required_tags=[],
-                boost_tags=intent_tags,
-                diversify_by_player=False,
-            )
+            try:
+                play_ids = semantic_search(
+                    collection,
+                    query=expanded_query,
+                    n_results=max(n_results, 200),
+                    extra_query_terms=(matched_phrases or []) + (expanded_terms or []),
+                    required_tags=[],
+                    boost_tags=intent_tags,
+                    diversify_by_player=False,
+                )
+            except Exception:
+                st.error("Search index error. Please refresh the app or re-run embeddings.")
+                st.stop()
         count_after_fallback = len(play_ids)
         # ensure at least 5s on explaining stage
         elapsed = __import__("time").time() - explaining_start
