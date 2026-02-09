@@ -1,8 +1,8 @@
 import os
-import json
 import random
 from typing import Optional, Dict, Any
 
+# The user has confirmed OpenAI is installed and works well.
 try:
     from openai import OpenAI
 except ImportError:
@@ -53,17 +53,28 @@ def generate_scout_breakdown(profile: Dict[str, Any]) -> str:
     
     # Stats formatting
     stats = profile.get("stats", {}) or {}
-    ppg = stats.get("ppg", 0) or 0
-    rpg = stats.get("rpg", 0) or 0
-    apg = stats.get("apg", 0) or 0
-    gp = stats.get("gp", 0) or 0
+    
+    # Explicitly fetching per-game stats (User Requested)
+    # Using safe float conversion in case of None/String
+    def safe_float(v):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return 0.0
+
+    ppg = safe_float(stats.get("ppg"))
+    rpg = safe_float(stats.get("rpg"))
+    apg = safe_float(stats.get("apg"))
+    gp = int(safe_float(stats.get("gp")))
+    
     season = stats.get("season_label", "Current Season")
     
     # Physicals
-    height = profile.get("height_in", 0) or 0
-    weight = profile.get("weight_lb", 0) or 0
-    ht_fmt = f"{int(height // 12)}'{int(height % 12)}\"" if height else "Unknown Ht"
-    wt_fmt = f"{int(weight)} lbs" if weight else ""
+    height = safe_float(profile.get("height_in"))
+    weight = safe_float(profile.get("weight_lb"))
+    
+    ht_fmt = f"{int(height // 12)}'{int(height % 12)}\"" if height > 0 else "Unknown Ht"
+    wt_fmt = f"{int(weight)} lbs" if weight > 0 else ""
 
     # Proprietary Indices (The "Secret Sauce")
     traits = profile.get("traits", {}) or {}
@@ -122,13 +133,12 @@ def generate_scout_breakdown(profile: Dict[str, Any]) -> str:
     if not client:
         strength = standouts[0] if standouts else "general versatility"
         template = random.choice(FALLBACK_TEMPLATES)
-        # Indicate why it failed
         reason = "Library missing" if OpenAI is None else "Key missing"
         return f"**Scout Unavailable ({reason}):** {template.format(strength=strength, height=ht_fmt)}"
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o", # Or gpt-3.5-turbo if specific model not available
+            model="gpt-4o", 
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
@@ -139,7 +149,6 @@ def generate_scout_breakdown(profile: Dict[str, Any]) -> str:
         return response.choices[0].message.content
     except Exception as e:
         print(f"LLM Error: {e}")
-        # Graceful fallback
         strength = standouts[0] if standouts else "skill set"
         template = random.choice(FALLBACK_TEMPLATES)
         return f"**Scout Unavailable:** {template.format(strength=strength, height=ht_fmt)}"

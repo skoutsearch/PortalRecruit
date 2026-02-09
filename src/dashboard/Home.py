@@ -307,7 +307,7 @@ def _get_player_profile(player_id: str):
             traits = dict(zip(cols_t, trow))
         profile["traits"] = traits
 
-        # season stats
+        # season stats - WITH FALLBACK CALCULATION
         cur.execute(
             """
             SELECT season_id, season_label, gp, possessions, points, fg_made, shot3_made, ft_made,
@@ -322,12 +322,22 @@ def _get_player_profile(player_id: str):
         )
         srow = cur.fetchone()
         if srow:
+            gp = srow[2] or 0
+            points = srow[4] or 0
+            reb = srow[13] or 0
+            ast = srow[14] or 0
+            
+            # Use column value if present, else calculate from totals
+            ppg = srow[17] if srow[17] is not None and srow[17] > 0 else (points / gp if gp > 0 else 0.0)
+            rpg = srow[18] if srow[18] is not None and srow[18] > 0 else (reb / gp if gp > 0 else 0.0)
+            apg = srow[19] if srow[19] is not None and srow[19] > 0 else (ast / gp if gp > 0 else 0.0)
+
             profile["stats"] = {
                 "season_id": srow[0],
                 "season_label": srow[1],
-                "gp": srow[2],
+                "gp": gp,
                 "possessions": srow[3],
-                "points": srow[4],
+                "points": points,
                 "fg_made": srow[5],
                 "shot3_made": srow[6],
                 "ft_made": srow[7],
@@ -336,13 +346,13 @@ def _get_player_profile(player_id: str):
                 "ft_percent": srow[10],
                 "turnover": srow[11],
                 "minutes": srow[12],
-                "reb": srow[13],
-                "ast": srow[14],
+                "reb": reb,
+                "ast": ast,
                 "stl": srow[15],
                 "blk": srow[16],
-                "ppg": srow[17],
-                "rpg": srow[18],
-                "apg": srow[19],
+                "ppg": ppg,
+                "rpg": rpg,
+                "apg": apg,
             }
         else:
             profile["stats"] = {}
@@ -1238,123 +1248,6 @@ elif st.session_state.app_mode == "Search":
             if progress_placeholder is not None:
                 subject_line = _build_old_recruiter_subject(query_text, st.session_state.get("last_matched_phrases") or [])
                 progress_placeholder.markdown(
-                    f"""
-                    <div class='old-recuiter-final'>
-                      <div><strong>From:</strong> &lt;The Old Recruiter&gt; <a href='mailto:theoldrecruiter@portalrecruit.com'>theoldrecruiter@portalrecruit.com</a></div>
-                      <div><strong>Subject:</strong> {subject_line}</div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-
-            st.markdown("<h3 style='margin-top:40px;'>Top Prospects</h3>", unsafe_allow_html=True)
-
-            for player, clips in grouped.items():
-                pid = _normalize_player_id(clips[0].get("Player ID")) if clips else None
-                score = clips[0].get("Score", 0) if clips else 0
-                st.session_state.setdefault("player_meta_cache", {})
-                if pid:
-                    st.session_state["player_meta_cache"][pid] = {
-                        "name": player,
-                        "position": clips[0].get("Position", "") if clips else "",
-                        "team": clips[0].get("Team", "") if clips else "",
-                        "team_id": clips[0].get("Team", "") if clips else "",
-                        "height": clips[0].get("Height") if clips else None,
-                        "weight": clips[0].get("Weight") if clips else None,
-                        "class_year": clips[0].get("Class") if clips else None,
-                        "high_school": clips[0].get("High School") if clips else None,
-                        "ppg": clips[0].get("PPG") if clips else None,
-                        "rpg": clips[0].get("RPG") if clips else None,
-                        "apg": clips[0].get("APG") if clips else None,
-                        "score": score,
-                    }
-
-                pos = clips[0].get("Position") if clips else None
-                team = clips[0].get("Team") if clips else None
-                ht = clips[0].get("Height") if clips else None
-                wt = clips[0].get("Weight") if clips else None
-                pos = pos if pos not in [None, "", "None"] else "—"
-                team = team if team not in [None, "", "None"] else "—"
-                size = "—"
-                if ht and wt:
-                    size = f"{_fmt_height(ht)} / {int(wt)} lbs"
-                elif ht:
-                    size = f"{_fmt_height(ht)}"
-                elif wt:
-                    size = f"{int(wt)} lbs"
-
-                detail_parts = [
-                    player,
-                    pos if pos and pos != "—" else "—",
-                    _fmt_height(ht) if ht else "—",
-                    f"{int(wt)} lbs" if wt else "—",
-                    team if team and team != "—" else "Unknown",
-                    f"Recruit Score: {score:.1f}",
-                ]
-
-                label = " | ".join(detail_parts)
-
-                if pid and st.button(label, key=f"btn_{pid}", use_container_width=True):
-                    st.query_params["player"] = pid
-                    st.rerun()
-
-                # Secondary line with HS + class + per-game stats (if available)
-                class_line = clips[0].get("Class") if clips else None
-                hs_line = clips[0].get("High School") if clips else None
-                ppg_line = clips[0].get("PPG") if clips else None
-                rpg_line = clips[0].get("RPG") if clips else None
-                apg_line = clips[0].get("APG") if clips else None
-                extra = []
-                if class_line and class_line != "—":
-                    extra.append(f"Class: {class_line}")
-                if hs_line and hs_line != "—":
-                    extra.append(f"HS: {hs_line}")
-                if ppg_line is not None and rpg_line is not None and apg_line is not None:
-                    extra.append(f"{ppg_line:.1f} / {rpg_line:.1f} / {apg_line:.1f} PPG/RPG/APG")
-                if extra:
-                    st.caption(" • ".join(extra))
-        else:
-            st.info("No results after filters.")
-
-    # Name-aware search routing (skip while active search)
-    if not st.session_state.get("search_requested"):
-        name_resolution = _resolve_name_query(query)
-        if name_resolution.get("mode") == "exact_single":
-            _set_qp(player=name_resolution["matches"][0]["player_id"])
-            st.rerun()
-        elif name_resolution.get("mode") in {"exact_multi", "fuzzy_multi"}:
-            st.markdown("### Did you mean")
-            cols = st.columns(2)
-            for i, p in enumerate(name_resolution["matches"]):
-                with cols[i % 2]:
-                    # Card style for 'Did you mean'
-                    st.markdown(f"""
-                    <div style="background:rgba(255,255,255,0.05); padding:10px; border-radius:8px; margin-bottom:8px;">
-                        <div style="font-weight:bold; color:white;">{p['full_name']}</div>
-                        <div style="font-size:0.8em; opacity:0.7;">{p.get('team_id','')} • {p.get('position','')}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    if st.button("View Profile", key=f"didyoumean_{p['player_id']}"):
-                        st.session_state.profile_player_id = p["player_id"]
-                        _render_profile_overlay(st.session_state.profile_player_id)
-                        st.stop()
-            st.stop()
-
-    # Persist last results when not actively searching
-    if not st.session_state.get("search_requested") and st.session_state.get("last_rows"):
-        _render_results(st.session_state.get("last_rows") or [], query or st.session_state.get("last_query") or "")
-
-    def _render_results(rows, query_text):
-        if rows:
-            # Group by player (top 3 clips each)
-            grouped = {}
-            for r in rows:
-                grouped.setdefault(r["Player"], []).append(r)
-
-            progress_placeholder = st.session_state.get("progress_placeholder")
-            if progress_placeholder is not None:
-                subject_line = _build_old_recruiter_subject(query_text, st.session_state.get("last_matched_phrases") or [])
-            progress_placeholder.markdown(
                     f"""
                     <div class='old-recuiter-final'>
                       <div><strong>From:</strong> &lt;The Old Recruiter&gt; <a href='mailto:theoldrecruiter@portalrecruit.com'>theoldrecruiter@portalrecruit.com</a></div>
