@@ -20,7 +20,6 @@ __pycache__/
 .venv/
 
 # Data
-/data/vector_db.zip.part*
 
 # Never track video files
 *.mp4
