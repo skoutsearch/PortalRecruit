@@ -9,11 +9,13 @@ import base64
 import time
 import zipfile
 import sqlite3
+import shutil
+import tempfile
 from pathlib import Path
 from difflib import SequenceMatcher
 import requests
 
-# --- 1. PAGE CONFIG (Must be the very first Streamlit command) ---
+# --- 1. PAGE CONFIG (Must be first) ---
 st.set_page_config(
     page_title="PortalRecruit | AI Scouting",
     layout="wide",
@@ -21,83 +23,116 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# --- 2. ROBUST PATH SETUP ---
-# Snowflake often changes where files are mounted. We dynamically find the 'src' folder.
+# --- 2. ROBUST PATH & STORAGE SETUP ---
+# Strategy: REPO_ROOT is Read-Only. WORK_DIR (in /tmp) is Read-Write.
 try:
+    # A. Find the Read-Only Repo Root
     current_path = Path(__file__).resolve()
     repo_root = current_path.parent
-    
-    # Walk up the tree until we find 'src' or hit the root
     for _ in range(5):
         if (repo_root / "src").exists():
             break
-        if repo_root == repo_root.parent: # Reached system root
+        if repo_root == repo_root.parent: 
             break
         repo_root = repo_root.parent
-        
+    
     REPO_ROOT = repo_root
     
-    # CRITICAL FIX: Force string conversion for sys.path
+    # Add Repo Root to sys.path so imports work
     root_str = str(REPO_ROOT)
     if root_str not in sys.path:
         sys.path.insert(0, root_str)
 
-    # CRITICAL FIX: Force string conversion for DB path
-    DB_PATH = REPO_ROOT / "data" / "skout.db"
-    DB_PATH_STR = str(DB_PATH)
+    # B. Setup Writable Working Directory in /tmp
+    # Snowflake allows writing to tempfile.gettempdir()
+    WORK_DIR = Path(tempfile.gettempdir()) / "portal_recruit_workspace"
+    WORK_DIR.mkdir(parents=True, exist_ok=True)
+    
+    # C. Database Setup (Copy from Repo to Temp if needed)
+    # We must operate on a copy because we cannot write to REPO_ROOT
+    RO_DB_PATH = REPO_ROOT / "data" / "skout.db"
+    RW_DB_PATH = WORK_DIR / "skout.db"
+    DB_PATH_STR = str(RW_DB_PATH) # Global String for SQLite connections
+
+    if not RW_DB_PATH.exists():
+        if RO_DB_PATH.exists():
+            # Copy the master DB to the writable location
+            try:
+                shutil.copy2(RO_DB_PATH, RW_DB_PATH)
+            except Exception as e:
+                st.error(f"Failed to copy database to workspace: {e}")
+        else:
+            # Create empty if it doesn't exist at all
+            pass
 
 except Exception as e:
-    st.error(f"Critical Path Error: {e}")
+    st.error(f"Critical Storage Setup Error: {e}")
     st.stop()
 
-# --- 3. IMPORTS (After sys.path is fixed) ---
+# --- 3. SAFE IMPORTS ---
+# We load these inside try/except blocks so if one fails, we see WHY on the screen.
+
+NCAA_DI_MENS_BASKETBALL = None
+connect_db = None
+ensure_schema = None
+generate_scout_breakdown = None
+
 try:
-    import streamlit.components.v1 as components
-    from src.ingestion.db import connect_db, ensure_schema
-    from src.llm.scout import generate_scout_breakdown
-    from src.dashboard.theme import inject_background
-    # Note: config import assumes config folder is in sys.path or relative import works
-    # We will try to add config to path if needed
-    if (REPO_ROOT / "config").exists() and str(REPO_ROOT / "config") not in sys.path:
-        sys.path.append(str(REPO_ROOT / "config"))
-except ImportError as e:
-    # Fallback for when the folder structure is completely flattened
-    st.warning(f"Import Warning: {e}. Attempting flat import.")
-    pass
+    # Try importing Config
+    try:
+        from config.ncaa_di_mens_basketball import NCAA_DI_MENS_BASKETBALL
+    except ImportError:
+        pass 
+
+    # Try importing DB Utils
+    try:
+        from src.ingestion.db import connect_db, ensure_schema
+    except Exception:
+        # We will fallback to local sqlite3 logic if this fails
+        pass
+    
+    # Try importing Scout logic
+    try:
+        from src.llm.scout import generate_scout_breakdown
+    except Exception:
+         st.error(f"⚠️ Error loading Scout Module (src.llm.scout):\n\n{traceback.format_exc()}")
+
+    # Try importing Theme
+    try:
+        from src.dashboard.theme import inject_background
+        inject_background()
+    except Exception:
+        pass
+
+except Exception as e:
+    st.error(f"Global Import Error: {e}")
 
 # --- 4. INITIALIZATION ---
 
-# Run DB setup safely - prevents "bad argument type" crash on load
+# Run DB setup safely on the WRITABLE path
 try:
-    # Check if DB file exists before connecting
-    if not os.path.exists(DB_PATH_STR):
-        # Create directory if missing
-        os.makedirs(os.path.dirname(DB_PATH_STR), exist_ok=True)
+    # Create directory if missing
+    os.makedirs(os.path.dirname(DB_PATH_STR), exist_ok=True)
     
-    # Connect using STRING path (not Path object)
+    # Initialize Schema on the temp DB
     _conn = sqlite3.connect(DB_PATH_STR)
-    ensure_schema(_conn)
+    if ensure_schema:
+        ensure_schema(_conn)
     _conn.close()
+
 except Exception:
-    # Fail silently on init, specific functions will handle errors later
     pass
 
-# Load CSS safely
+# Load CSS (Read from REPO_ROOT is fine)
 css_path = REPO_ROOT / "www" / "streamlit.css"
 if css_path.exists():
     with open(str(css_path), "r") as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
-try:
-    inject_background()
-except:
-    pass
-
-
 # --- 5. HELPER FUNCTIONS ---
 
 def get_base64_image(image_path):
-    """Encodes a local image to base64 for embedding in HTML."""
+    """Encodes a local image from Read-Only Repo to base64."""
     try:
         full_path = REPO_ROOT / image_path
         if not full_path.exists():
@@ -108,33 +143,46 @@ def get_base64_image(image_path):
         return None
 
 def _restore_vector_db_if_needed() -> bool:
-    """Rebuild vector_db from split zip parts if missing."""
-    db_path = REPO_ROOT / "data" / "vector_db" / "chroma.sqlite3"
-    if db_path.exists():
+    """
+    Rebuilds vector_db into the WRITABLE WORK_DIR.
+    Reads zip parts from REPO_ROOT, Writes extracted DB to WORK_DIR.
+    """
+    # Check if already exists in writable space
+    writable_chroma_path = WORK_DIR / "vector_db" / "chroma.sqlite3"
+    if writable_chroma_path.exists():
         return True
 
+    # Check for source parts in Repo
     parts = sorted((REPO_ROOT / "data").glob("vector_db.zip.part*"))
     if not parts:
-        return False
+        # Check if un-split zip exists in repo
+        single_zip = REPO_ROOT / "data" / "vector_db.zip"
+        if single_zip.exists():
+            zip_source = single_zip
+        else:
+            return False
+    else:
+        # Reassemble zip into TEMP dir
+        zip_source = WORK_DIR / "vector_db.zip"
+        try:
+            with open(str(zip_source), "wb") as out:
+                for part in parts:
+                    out.write(part.read_bytes())
+        except Exception:
+            return False
 
-    zip_path = REPO_ROOT / "data" / "vector_db.zip"
-    if not zip_path.exists():
-        with open(str(zip_path), "wb") as out:
-            for part in parts:
-                out.write(part.read_bytes())
-
+    # Extract to TEMP dir
     try:
-        with zipfile.ZipFile(str(zip_path)) as zf:
-            zf.extractall(str(REPO_ROOT / "data"))
+        with zipfile.ZipFile(str(zip_source)) as zf:
+            zf.extractall(str(WORK_DIR)) # Extracts 'vector_db' folder here
     except Exception:
         return False
 
-    return db_path.exists()
+    return writable_chroma_path.exists()
 
 @st.cache_data(show_spinner=False)
 def _load_players_index():
     try:
-        # ALWAYS use string path for sqlite3
         con = sqlite3.connect(DB_PATH_STR)
         cur = con.cursor()
         cur.execute("SELECT player_id, full_name, position, team_id, class_year FROM players")
@@ -176,6 +224,7 @@ def _resolve_name_query(query: str):
     if exact:
         return {"mode": "exact_single" if len(exact) == 1 else "exact_multi", "matches": exact}
 
+    # fuzzy match
     scored = []
     for p in players:
         name_norm = _norm_name(p["full_name"])
@@ -228,12 +277,19 @@ def _lookup_player_id_by_name(name: str):
 @st.cache_resource(show_spinner=False)
 def _get_search_collection():
     import chromadb
-    vector_db_path = REPO_ROOT / "data" / "vector_db"
-    # Ensure path is string
-    client = chromadb.PersistentClient(path=str(vector_db_path))
+    # IMPORTANT: Use the Writable Work Dir for Chroma
+    vector_db_path = WORK_DIR / "vector_db"
+    
+    # Try to init client
     try:
+        # If folder doesn't exist, restore it first
+        if not vector_db_path.exists():
+            _restore_vector_db_if_needed()
+            
+        client = chromadb.PersistentClient(path=str(vector_db_path))
         return client.get_collection(name="skout_plays")
     except Exception:
+        # Retry restore logic once
         _restore_vector_db_if_needed()
         client = chromadb.PersistentClient(path=str(vector_db_path))
         return client.get_collection(name="skout_plays")
@@ -600,14 +656,19 @@ def _render_profile_overlay(player_id: str):
             cols[2].metric("APG", _val(stats.get("apg")))
 
         st.markdown("### Scout Breakdown")
-        with st.spinner("The Old Recruiter is watching tape..."):
-            breakdown = generate_scout_breakdown(profile)
         
-        breakdown = re.sub(r"\[clip:(\d+)\]", r"[clip](#clip-\1)", breakdown)
-        st.markdown(
-            f"<div style='background:rgba(59,130,246,0.12); border:1px solid rgba(59,130,246,0.25); padding:12px 14px; border-radius:10px; color:#e5e7eb;'>" + breakdown + "</div>",
-            unsafe_allow_html=True,
-        )
+        # Guard against missing module
+        if generate_scout_breakdown:
+            with st.spinner("The Old Recruiter is watching tape..."):
+                breakdown = generate_scout_breakdown(profile)
+            
+            breakdown = re.sub(r"\[clip:(\d+)\]", r"[clip](#clip-\1)", breakdown)
+            st.markdown(
+                f"<div style='background:rgba(59,130,246,0.12); border:1px solid rgba(59,130,246,0.25); padding:12px 14px; border-radius:10px; color:#e5e7eb;'>" + breakdown + "</div>",
+                unsafe_allow_html=True,
+            )
+        else:
+             st.warning("Scout logic module not loaded. Check logs.")
 
         from src.processing.play_tagger import tag_play
         plays = profile.get("plays", [])
@@ -843,7 +904,7 @@ def _render_profile_overlay(player_id: str):
 
 def check_ingestion_status():
     _restore_vector_db_if_needed()
-    db_path = REPO_ROOT / "data" / "vector_db" / "chroma.sqlite3"
+    db_path = WORK_DIR / "vector_db" / "chroma.sqlite3"
     return db_path.exists()
 
 def render_header():
@@ -1095,13 +1156,17 @@ with st.sidebar:
 if st.session_state.app_mode == "Admin":
     render_header()
     st.caption("⚙️ Ingestion Pipeline & Settings")
+    # Robust admin path loading
     admin_path = REPO_ROOT / "src" / "admin" / "admin_content.py"
     if not admin_path.exists():
-        admin_path = REPO_ROOT / "admin_content.py" # Fallback
+        admin_path = REPO_ROOT / "admin_content.py"
     
     if admin_path.exists():
-        code = admin_path.read_text(encoding="utf-8")
-        exec(compile(code, str(admin_path), "exec"), globals(), globals())
+        try:
+            code = admin_path.read_text(encoding="utf-8")
+            exec(compile(code, str(admin_path), "exec"), globals(), globals())
+        except Exception:
+            st.error(f"Admin Module Failed to Load:\n{traceback.format_exc()}")
     else:
         st.error(f"Could not find {admin_path}")
 
@@ -1154,7 +1219,16 @@ elif st.session_state.app_mode == "Search":
             st.session_state["search_started_at"] = time.time()
 
     try:
-        mem_path = REPO_ROOT / "data" / "search_memory.json"
+        # NOTE: Using writable WORK_DIR for search memory
+        mem_path = WORK_DIR / "search_memory.json"
+        # If it doesn't exist in writable, check read-only repo and copy it
+        if not mem_path.exists():
+             ro_mem_path = REPO_ROOT / "data" / "search_memory.json"
+             if ro_mem_path.exists():
+                 try:
+                     shutil.copy2(ro_mem_path, mem_path)
+                 except: pass
+
         if mem_path.exists():
             memory = json.loads(mem_path.read_text())
             recent = list(reversed(memory.get("queries", [])))[:8]
