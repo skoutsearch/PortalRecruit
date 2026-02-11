@@ -24,72 +24,97 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# --- Snowflake/Cloud runtime helpers ---
+def _is_running_in_snowflake() -> bool:
+    try:
+        from snowflake.snowpark.context import get_active_session  # type: ignore
+        get_active_session()
+        return True
+    except Exception:
+        return False
 
-# --- 1B. SNOWFLAKE SESSION CONTEXT (prevents STAGE GET 090105) ---
+
 def _init_snowflake_context() -> None:
-    """
-    Ensures CURRENT_DATABASE/CURRENT_SCHEMA are set in Streamlit in Snowflake.
-    This avoids failures like: 090105 Cannot perform STAGE GET (no current database).
-    """
+    """Best-effort USE DATABASE/SCHEMA/WAREHOUSE to avoid STAGE GET 090105 errors."""
     try:
         from snowflake.snowpark.context import get_active_session  # type: ignore
     except Exception:
         return
 
-    def _secret(key: str) -> str | None:
-        try:
-            if key in st.secrets:
-                return str(st.secrets[key])
-            if "snowflake" in st.secrets and key in st.secrets["snowflake"]:
-                return str(st.secrets["snowflake"][key])
-        except Exception:
-            pass
-        v = os.getenv(key)
-        return str(v) if v else None
-
-    session = None
     try:
         session = get_active_session()
     except Exception:
         return
 
-    db = _secret("SNOWFLAKE_DATABASE") or _secret("database") or "PORTALRECRUIT_DB"
-    schema = _secret("SNOWFLAKE_SCHEMA") or _secret("schema") or "PORTALRECRUIT_SCHEMA"
-    wh = _secret("SNOWFLAKE_WAREHOUSE") or _secret("warehouse")
+    def _pick(*keys: str) -> str | None:
+        for k in keys:
+            try:
+                if k in st.secrets:
+                    return str(st.secrets[k])
+                if "snowflake" in st.secrets and k in st.secrets["snowflake"]:
+                    return str(st.secrets["snowflake"][k])
+            except Exception:
+                pass
+            v = os.getenv(k)
+            if v:
+                return v
+        return None
 
-    try:
-        if db:
-            session.sql(f'USE DATABASE "{db}"').collect()
-        if schema:
-            session.sql(f'USE SCHEMA "{schema}"').collect()
-        if wh:
-            session.sql(f'USE WAREHOUSE "{wh}"').collect()
-    except Exception:
-        # Don't hard-fail: app should still render useful errors elsewhere.
-        return
+    db = _pick("SNOWFLAKE_DATABASE", "database", "DB")
+    schema = _pick("SNOWFLAKE_SCHEMA", "schema")
+    wh = _pick("SNOWFLAKE_WAREHOUSE", "warehouse", "WH")
 
-
-_init_snowflake_context()
+    if db:
+        session.sql(f'USE DATABASE "{db}"').collect()
+    if schema:
+        session.sql(f'USE SCHEMA "{schema}"').collect()
+    if wh:
+        session.sql(f'USE WAREHOUSE "{wh}"').collect()
 
 # --- 2. ROBUST PATH & STORAGE SETUP ---
 # Strategy: REPO_ROOT is Read-Only. WORK_DIR (in /tmp) is Read-Write.
 try:
-    # A. Find the Read-Only Repo Root
+    # A. Find the project root (works on local, Streamlit Cloud, and Snowflake)
     current_path = Path(__file__).resolve()
-    repo_root = current_path.parent
-    for _ in range(5):
-        if (repo_root / "src").exists():
-            break
-        if repo_root == repo_root.parent:
-            break
-        repo_root = repo_root.parent
+    probe = current_path.parent
+    markers = [
+        ("data", "skout.db"),
+        ("www", "streamlit.css"),
+        ("src", "dashboard", "admin_content.py"),
+    ]
 
-    REPO_ROOT = repo_root
+    def _is_root(p: Path) -> bool:
+        return all((p / Path(*m)).exists() for m in markers)
+
+    for _ in range(12):
+        if _is_root(probe):
+            break
+        if probe == probe.parent:
+            break
+        probe = probe.parent
+
+    # Fallback: first ancestor with "src" folder
+    if not _is_root(probe):
+        probe2 = current_path.parent
+        for _ in range(12):
+            if (probe2 / "src").exists():
+                probe = probe2
+                break
+            if probe2 == probe2.parent:
+                break
+            probe2 = probe2.parent
+
+    REPO_ROOT = probe
 
     # Add Repo Root to sys.path so imports work
     root_str = str(REPO_ROOT)
     if root_str not in sys.path:
         sys.path.insert(0, root_str)
+
+
+    # D. Snowflake: set current database/schema early (prevents STAGE GET 090105)
+    if _is_running_in_snowflake():
+        _init_snowflake_context()
 
     # B. Setup Writable Working Directory in /tmp
     # Snowflake allows writing to tempfile.gettempdir()
@@ -166,13 +191,12 @@ if css_path.exists():
 # --- 5. HELPER FUNCTIONS ---
 
 def _get_secret(name: str, default: str | None = None) -> str | None:
-    """
-    Fetch secret values in a Snowflake-safe way.
+    """Fetch a secret consistently across local, Streamlit Cloud, and Snowflake.
 
-    Precedence:
-      1) Streamlit secrets (Snowflake Secrets are surfaced here in Streamlit in Snowflake)
-      2) Env vars (local/dev)
-      3) default
+    Order:
+      1) st.secrets[name]
+      2) st.secrets["snowflake"][name] (if you nest secrets)
+      3) environment variables
     """
     try:
         if name in st.secrets:
@@ -183,10 +207,7 @@ def _get_secret(name: str, default: str | None = None) -> str | None:
         pass
 
     val = os.getenv(name)
-    if val:
-        return str(val)
-
-    return default
+    return val if val else default
 
 
 
@@ -203,14 +224,31 @@ def get_base64_image(image_path):
 
 
 def _restore_vector_db_if_needed() -> bool:
-    """
-    Rebuilds vector_db into the WRITABLE WORK_DIR.
-    Reads zip parts from REPO_ROOT, Writes extracted DB to WORK_DIR.
+    """Ensure a writable Chroma vector DB exists under WORK_DIR.
+
+    Strategy:
+      - If WORK_DIR/vector_db/chroma.sqlite3 exists -> done.
+      - If repo has data/vector_db folder -> copytree into WORK_DIR (fast + reliable).
+      - Else, if repo has vector_db.zip(.part*) -> reconstruct into WORK_DIR and extract.
     """
     writable_chroma_path = WORK_DIR / "vector_db" / "chroma.sqlite3"
     if writable_chroma_path.exists():
         return True
 
+    repo_vector_dir = REPO_ROOT / "data" / "vector_db"
+    work_vector_dir = WORK_DIR / "vector_db"
+
+    # Prefer copying the folder (your repo contains data/vector_db/)
+    if repo_vector_dir.exists() and repo_vector_dir.is_dir():
+        try:
+            if work_vector_dir.exists():
+                shutil.rmtree(work_vector_dir)
+            shutil.copytree(repo_vector_dir, work_vector_dir)
+            return writable_chroma_path.exists()
+        except Exception:
+            pass
+
+    # Fallback: zip parts
     parts = sorted((REPO_ROOT / "data").glob("vector_db.zip.part*"))
     if not parts:
         single_zip = REPO_ROOT / "data" / "vector_db.zip"
@@ -221,73 +259,20 @@ def _restore_vector_db_if_needed() -> bool:
     else:
         zip_source = WORK_DIR / "vector_db.zip"
         try:
-            with open(str(zip_source), "wb") as out:
+            with open(zip_source, "wb") as out:
                 for part in parts:
                     out.write(part.read_bytes())
         except Exception:
             return False
 
     try:
-        with zipfile.ZipFile(str(zip_source)) as zf:
-            zf.extractall(str(WORK_DIR))
+        with zipfile.ZipFile(zip_source) as zf:
+            zf.extractall(WORK_DIR)
     except Exception:
         return False
 
     return writable_chroma_path.exists()
 
-
-def _fallback_play_search_sqlite(
-    query: str,
-    *,
-    n_results: int,
-    required_tags: list[str] | None,
-    boost_tags: list[str] | None,
-) -> list[str]:
-    """
-    Minimal Snowflake-safe fallback if Chroma/semantic search is unavailable.
-    Uses SQLite LIKE matching over plays.description and optional tag filtering.
-    Returns play_id list as strings.
-    """
-    query = (query or "").strip()
-    if not query:
-        return []
-
-    terms = [t for t in re.split(r"\s+", query.lower()) if len(t) >= 3][:8]
-    if not terms:
-        return []
-
-    sql = "SELECT play_id, description FROM plays WHERE " + " AND ".join(["LOWER(description) LIKE ?"] * len(terms)) + " LIMIT ?"
-    params = [f"%{t}%" for t in terms] + [max(n_results * 5, 250)]
-
-    try:
-        con = sqlite3.connect(DB_PATH_STR)
-        cur = con.cursor()
-        cur.execute(sql, params)
-        rows = cur.fetchall()
-        con.close()
-    except Exception:
-        try:
-            con.close()
-        except Exception:
-            pass
-        return []
-
-    req = [t for t in (required_tags or []) if t]
-    boost = set([t for t in (boost_tags or []) if t])
-
-    scored: list[tuple[int, str]] = []
-    for play_id, desc in rows:
-        tags = set(_tag_play_cached(desc or ""))
-        if req and not tags.intersection(req):
-            continue
-        score = 0
-        if boost:
-            score += len(tags.intersection(boost)) * 3
-        score += sum(1 for t in terms if t in (desc or "").lower())
-        scored.append((score, str(play_id)))
-
-    scored.sort(reverse=True, key=lambda x: x[0])
-    return [pid for _, pid in scored[:n_results]]
 
 
 @st.cache_data(show_spinner=False)
@@ -772,14 +757,9 @@ def _render_profile_overlay(player_id: str):
             cols[2].metric("APG", _val(stats.get("apg")))
 
         st.markdown("### Scout Breakdown")
-        st.markdown("### Scout Breakdown")
         with st.spinner("The Old Recruiter is watching tape..."):
-            if not generate_scout_breakdown:
-                st.error("Scout module unavailable (src.llm.scout).")
-                breakdown = "Scout breakdown unavailable in this environment."
-            else:
-                breakdown = generate_scout_breakdown(profile)
-
+            breakdown = generate_scout_breakdown(profile)
+        
         breakdown = re.sub(r"\[clip:(\d+)\]", r"[clip](#clip-\1)", breakdown)
         st.markdown(
             f"<div style='background:rgba(59,130,246,0.12); border:1px solid rgba(59,130,246,0.25); padding:12px 14px; border-radius:10px; color:#e5e7eb;'>" + breakdown + "</div>",
@@ -1272,7 +1252,7 @@ with st.sidebar:
 if st.session_state.app_mode == "Admin":
     render_header()
     st.caption("⚙️ Ingestion Pipeline & Settings")
-    admin_path = REPO_ROOT / "src" / "admin" / "admin_content.py"
+    admin_path = REPO_ROOT / "src" / "dashboard" / "admin_content.py"
     if not admin_path.exists():
         admin_path = REPO_ROOT / "admin_content.py" # Fallback
     
@@ -1537,28 +1517,33 @@ elif st.session_state.app_mode == "Search":
         required_tags = [] # Default off
         st.session_state["last_query"] = query
         st.session_state["last_query_tags"] = intent_tags
-        collection = None
-        semantic_search = None
-        build_expanded_query = None
-        expand_query_terms = None
 
         try:
             collection = _get_search_collection()
-            from src.search.semantic import build_expanded_query, semantic_search, expand_query_terms
-        except Exception:
-            collection = None
+        except:
+            st.error("Vector DB not found.")
+            st.stop()
 
-        expanded_terms = expand_query_terms(query) if expand_query_terms else []
-        expanded_query = build_expanded_query(query, (matched_phrases or []) + (expanded_terms or [])) if build_expanded_query else query
+        from src.search.semantic import build_expanded_query, semantic_search, expand_query_terms
+        expanded_terms = expand_query_terms(query)
+        expanded_query = build_expanded_query(query, (matched_phrases or []) + (expanded_terms or []))
 
         status = st.status("Searching…", expanded=False)
         status.update(state="running")
         st.markdown("<script>document.body.classList.add('searching');</script>", unsafe_allow_html=True)
 
-        play_ids: list[str] = []
-
-        if collection is not None and semantic_search is not None:
+        try:
+            play_ids = semantic_search(
+                collection,
+                query=query,
+                n_results=n_results,
+                extra_query_terms=(matched_phrases or []) + (expanded_terms or []),
+                required_tags=required_tags,
+                boost_tags=intent_tags,
+            )
+        except:
             try:
+                collection = _get_search_collection()
                 play_ids = semantic_search(
                     collection,
                     query=query,
@@ -1567,20 +1552,12 @@ elif st.session_state.app_mode == "Search":
                     required_tags=required_tags,
                     boost_tags=intent_tags,
                 )
-            except Exception:
-                play_ids = []
-
-        if not play_ids:
-            play_ids = _fallback_play_search_sqlite(
-                query,
-                n_results=n_results,
-                required_tags=required_tags,
-                boost_tags=intent_tags,
-            )
-
+            except:
+                st.error("Search index error.")
+                st.stop()
         count_initial = len(play_ids)
 
-        if len(play_ids) < 8 and collection is not None and semantic_search is not None:
+        if len(play_ids) < 8:
             try:
                 play_ids = semantic_search(
                     collection,
