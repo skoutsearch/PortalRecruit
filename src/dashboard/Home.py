@@ -24,97 +24,25 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# --- Snowflake/Cloud runtime helpers ---
-def _is_running_in_snowflake() -> bool:
-    try:
-        from snowflake.snowpark.context import get_active_session  # type: ignore
-        get_active_session()
-        return True
-    except Exception:
-        return False
-
-
-def _init_snowflake_context() -> None:
-    """Best-effort USE DATABASE/SCHEMA/WAREHOUSE to avoid STAGE GET 090105 errors."""
-    try:
-        from snowflake.snowpark.context import get_active_session  # type: ignore
-    except Exception:
-        return
-
-    try:
-        session = get_active_session()
-    except Exception:
-        return
-
-    def _pick(*keys: str) -> str | None:
-        for k in keys:
-            try:
-                if k in st.secrets:
-                    return str(st.secrets[k])
-                if "snowflake" in st.secrets and k in st.secrets["snowflake"]:
-                    return str(st.secrets["snowflake"][k])
-            except Exception:
-                pass
-            v = os.getenv(k)
-            if v:
-                return v
-        return None
-
-    db = _pick("SNOWFLAKE_DATABASE", "database", "DB")
-    schema = _pick("SNOWFLAKE_SCHEMA", "schema")
-    wh = _pick("SNOWFLAKE_WAREHOUSE", "warehouse", "WH")
-
-    if db:
-        session.sql(f'USE DATABASE "{db}"').collect()
-    if schema:
-        session.sql(f'USE SCHEMA "{schema}"').collect()
-    if wh:
-        session.sql(f'USE WAREHOUSE "{wh}"').collect()
-
 # --- 2. ROBUST PATH & STORAGE SETUP ---
 # Strategy: REPO_ROOT is Read-Only. WORK_DIR (in /tmp) is Read-Write.
 try:
-    # A. Find the project root (works on local, Streamlit Cloud, and Snowflake)
+    # A. Find the Read-Only Repo Root
     current_path = Path(__file__).resolve()
-    probe = current_path.parent
-    markers = [
-        ("data", "skout.db"),
-        ("www", "streamlit.css"),
-        ("src", "dashboard", "admin_content.py"),
-    ]
-
-    def _is_root(p: Path) -> bool:
-        return all((p / Path(*m)).exists() for m in markers)
-
-    for _ in range(12):
-        if _is_root(probe):
+    repo_root = current_path.parent
+    for _ in range(5):
+        if (repo_root / "src").exists():
             break
-        if probe == probe.parent:
+        if repo_root == repo_root.parent:
             break
-        probe = probe.parent
+        repo_root = repo_root.parent
 
-    # Fallback: first ancestor with "src" folder
-    if not _is_root(probe):
-        probe2 = current_path.parent
-        for _ in range(12):
-            if (probe2 / "src").exists():
-                probe = probe2
-                break
-            if probe2 == probe2.parent:
-                break
-            probe2 = probe2.parent
-
-    REPO_ROOT = probe
+    REPO_ROOT = repo_root
 
     # Add Repo Root to sys.path so imports work
     root_str = str(REPO_ROOT)
     if root_str not in sys.path:
         sys.path.insert(0, root_str)
-
-
-    # D. Snowflake: set current database/schema early (prevents STAGE GET 090105)
-    if _is_running_in_snowflake():
-        _init_snowflake_context()
 
     # B. Setup Writable Working Directory in /tmp
     # Snowflake allows writing to tempfile.gettempdir()
@@ -191,24 +119,14 @@ if css_path.exists():
 # --- 5. HELPER FUNCTIONS ---
 
 def _get_secret(name: str, default: str | None = None) -> str | None:
-    """Fetch a secret consistently across local, Streamlit Cloud, and Snowflake.
-
-    Order:
-      1) st.secrets[name]
-      2) st.secrets["snowflake"][name] (if you nest secrets)
-      3) environment variables
-    """
-    try:
-        if name in st.secrets:
-            return str(st.secrets[name])
-        if "snowflake" in st.secrets and name in st.secrets["snowflake"]:
-            return str(st.secrets["snowflake"][name])
-    except Exception:
-        pass
-
+    """Fetch a secret from env or Streamlit secrets without hard-failing in Snowflake."""
     val = os.getenv(name)
-    return val if val else default
-
+    if val:
+        return val
+    try:
+        return st.secrets.get(name, default)  # type: ignore[attr-defined]
+    except Exception:
+        return default
 
 
 def get_base64_image(image_path):
@@ -224,31 +142,14 @@ def get_base64_image(image_path):
 
 
 def _restore_vector_db_if_needed() -> bool:
-    """Ensure a writable Chroma vector DB exists under WORK_DIR.
-
-    Strategy:
-      - If WORK_DIR/vector_db/chroma.sqlite3 exists -> done.
-      - If repo has data/vector_db folder -> copytree into WORK_DIR (fast + reliable).
-      - Else, if repo has vector_db.zip(.part*) -> reconstruct into WORK_DIR and extract.
+    """
+    Rebuilds vector_db into the WRITABLE WORK_DIR.
+    Reads zip parts from REPO_ROOT, Writes extracted DB to WORK_DIR.
     """
     writable_chroma_path = WORK_DIR / "vector_db" / "chroma.sqlite3"
     if writable_chroma_path.exists():
         return True
 
-    repo_vector_dir = REPO_ROOT / "data" / "vector_db"
-    work_vector_dir = WORK_DIR / "vector_db"
-
-    # Prefer copying the folder (your repo contains data/vector_db/)
-    if repo_vector_dir.exists() and repo_vector_dir.is_dir():
-        try:
-            if work_vector_dir.exists():
-                shutil.rmtree(work_vector_dir)
-            shutil.copytree(repo_vector_dir, work_vector_dir)
-            return writable_chroma_path.exists()
-        except Exception:
-            pass
-
-    # Fallback: zip parts
     parts = sorted((REPO_ROOT / "data").glob("vector_db.zip.part*"))
     if not parts:
         single_zip = REPO_ROOT / "data" / "vector_db.zip"
@@ -259,20 +160,19 @@ def _restore_vector_db_if_needed() -> bool:
     else:
         zip_source = WORK_DIR / "vector_db.zip"
         try:
-            with open(zip_source, "wb") as out:
+            with open(str(zip_source), "wb") as out:
                 for part in parts:
                     out.write(part.read_bytes())
         except Exception:
             return False
 
     try:
-        with zipfile.ZipFile(zip_source) as zf:
-            zf.extractall(WORK_DIR)
+        with zipfile.ZipFile(str(zip_source)) as zf:
+            zf.extractall(str(WORK_DIR))
     except Exception:
         return False
 
     return writable_chroma_path.exists()
-
 
 
 @st.cache_data(show_spinner=False)
@@ -679,6 +579,7 @@ def _render_profile_overlay(player_id: str):
     title = profile.get("name", "Player Profile")
 
     def body():
+        try:
         st.markdown(f"""
             <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <h2 style="margin:0; padding:0; color:white; font-size:2rem;">{title}</h2>
@@ -977,6 +878,10 @@ def _render_profile_overlay(player_id: str):
                 st.markdown(f"• [Video Evidence]({v})")
         else:
             st.caption("No video evidence linked yet — will populate when full-access API URLs are available.")
+        except Exception:
+            st.error("Player card failed to render (see traceback below).")
+            st.code(traceback.format_exc())
+            return
 
     dialog_fn = getattr(st, "dialog", None)
     if callable(dialog_fn):
@@ -1252,7 +1157,7 @@ with st.sidebar:
 if st.session_state.app_mode == "Admin":
     render_header()
     st.caption("⚙️ Ingestion Pipeline & Settings")
-    admin_path = REPO_ROOT / "src" / "dashboard" / "admin_content.py"
+    admin_path = REPO_ROOT / "src" / "admin" / "admin_content.py"
     if not admin_path.exists():
         admin_path = REPO_ROOT / "admin_content.py" # Fallback
     
@@ -1455,6 +1360,14 @@ elif st.session_state.app_mode == "Search":
         
         exclude_tags = set()
         role_hints = set()
+        # Explicit position intent (works even if semantic intent matcher misses it)
+        if any(k in q_lower for k in [\" guard\", \"pg\", \"sg\", \"point guard\", \"shooting guard\"]):
+            role_hints.add(\"guard\")
+        if any(k in q_lower for k in [\" wing\", \"forward\", \"sf\", \"small forward\", \"power forward\", \"pf\"]):
+            role_hints.add(\"wing\")
+        if any(k in q_lower for k in [\" center\", \"big man\", \"rim protector\", \"post\", \"5 \", \"five\"]):
+            role_hints.add(\"big\")
+
         matched_phrases = []
         apply_exclude = any(tok in q_lower for tok in [" no ", "avoid", "without", "dont", "don't", "not "])
         leadership_intent = "leadership" in intents
@@ -1853,6 +1766,8 @@ elif st.session_state.app_mode == "Search":
                     if not allow: continue
 
                 pos = (player_positions.get(player_id) or "").upper()
+                if ("guard" in role_hints or "wing" in role_hints or "big" in role_hints) and not pos:
+                    continue
                 if pos:
                     if "guard" in role_hints and not ("G" in pos or "PG" in pos or "SG" in pos): continue
                     if "wing" in role_hints and not ("F" in pos or "W" in pos or "G/F" in pos or "F/G" in pos or "SF" in pos): continue
