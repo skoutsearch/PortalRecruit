@@ -1038,15 +1038,33 @@ def _render_profile_overlay(player_id: str):
             elif vision is None:
                 st.warning("Vision analysis unavailable (missing API key, request failed, or image not suitable).")
             else:
+                vision_obj = None
+                raw_text = None
                 if isinstance(vision, dict) and "raw" in vision:
-                    raw = str(vision.get("raw") or "").strip()
-                    if raw:
-                        if "jersey" in raw.lower() or "unable" in raw.lower():
-                            st.warning(raw)
-                        else:
-                            st.code(raw)
+                    raw_text = str(vision.get("raw") or "").strip()
+                    if raw_text:
+                        try:
+                            vision_obj = json.loads(raw_text)
+                        except Exception:
+                            vision_obj = None
+                if isinstance(vision, dict) and not vision_obj:
+                    vision_obj = vision
+
+                if isinstance(vision_obj, dict) and (vision_obj.get("build") or vision_obj.get("conditioning")):
+                    build = vision_obj.get("build") or vision_obj.get("Build") or "—"
+                    conditioning = vision_obj.get("conditioning") or vision_obj.get("Conditioning") or "—"
+                    st.markdown(
+                        f"<div style='display:flex; gap:10px; flex-wrap:wrap;'>"
+                        f"<span style='padding:4px 10px; border-radius:999px; background:#14532d; color:white;'>Build: {build}</span>"
+                        f"<span style='padding:4px 10px; border-radius:999px; background:#1e3a8a; color:white;'>Conditioning: {conditioning}</span>"
+                        f"</div>",
+                        unsafe_allow_html=True,
+                    )
+                elif raw_text:
+                    if "jersey" in raw_text.lower() or "unable" in raw_text.lower():
+                        st.warning(raw_text)
                     else:
-                        st.json(vision)
+                        st.info(raw_text)
                 else:
                     st.json(vision)
 
@@ -1815,11 +1833,12 @@ elif st.session_state.app_mode == "Search":
                                 return "Medium"
                             return "Low"
 
-                        vector_label = _grade(vec)
+                        vec_disp = 1.0 / (1.0 + math.exp(-vec)) if vec is not None else 0.0
+                        vector_label = _grade(vec_disp)
                         size_label = "Elite" if bio_boost >= 0.25 else ("Solid" if bio_boost >= 0.15 else "Low")
                         st.caption(
                             f"Match Quality: {vector_label} (Vector) | Size Fit: {size_label} (Bio)"
-                            f" — Vec {vec:.2f} | Pos {pos_boost:.2f} | Bio {bio_boost:.2f} | Key {kw:.2f}"
+                            f" — Vec {vec_disp:.2f} | Pos {pos_boost:.2f} | Bio {bio_boost:.2f} | Key {kw:.2f}"
                         )
 
                     extra = []

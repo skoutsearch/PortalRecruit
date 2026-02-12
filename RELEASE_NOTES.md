@@ -1,3 +1,11 @@
+# Release Notes — v2.0 (The Century Update)
+
+## Highlights
+- Biometric search signals now surface alongside semantic ranking.
+- Learned calibration powers the AI Position Engine with real weights.
+- AI Vision analysis panel with parsed build/conditioning badges.
+- Real-time search sliders for semantic (alpha) and size (beta) tuning.
+
 # Release Notes — v1.0
 
 ## Highlights

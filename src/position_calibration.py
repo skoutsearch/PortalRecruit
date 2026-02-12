@@ -162,7 +162,7 @@ TERM_GROUPS: Dict[str, Dict[str, Any]] = {
 
     # Big guard modifier (delta evidence)
     "BIG_GUARD": {
-        "patterns": [_rx(r"\bbig\s+guard\b")],
+        "patterns": [_rx(r"\bbig[-\s]+guard\b")],
         "semantic_votes": [{"primary": "GUARD", "secondary": ["SHOOTING_GUARD", "POINT_GUARD"], "confidence": 0.85}],
         "size_evidence": {"mode": "delta", "h_delta_mu": 2.0, "h_delta_sigma": 1.4, "w_delta_mu": 18.0, "w_delta_sigma": 10.0},
     },

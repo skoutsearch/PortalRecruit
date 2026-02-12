@@ -4,6 +4,7 @@ import argparse
 import os
 import random
 import sqlite3
+import math
 from typing import Any, Dict, List, Optional
 
 import chromadb
@@ -291,11 +292,12 @@ def run_search(query: str, n_results: int = 5, debug: bool = False, media: bool 
         name_out = f"{ANSI_BLUE_BOLD}{r['player_name']}{ANSI_RESET}"
         snippet_out = _colorize_outcome(r['snippet'], r.get('tags', ""))
         breakdown = r.get("breakdown") or {}
-        vec = breakdown.get("vector") or 0.0
-        pos_boost = breakdown.get("position_boost") or 0.0
-        bio_boost = breakdown.get("biometric_boost") or 0.0
-        kw = breakdown.get("keyword") or 0.0
-        breakdown_str = f"(Vec: {vec:.2f} | Pos: {pos_boost:.2f} | Bio: {bio_boost:.2f} | Key: {kw:.2f})"
+        vec = float(breakdown.get("vector") or 0.0)
+        pos_boost = float(breakdown.get("position_boost") or 0.0)
+        bio_boost = float(breakdown.get("biometric_boost") or 0.0)
+        kw = float(breakdown.get("keyword") or 0.0)
+        vec_disp = 1.0 / (1.0 + math.exp(-vec)) if vec is not None else 0.0
+        breakdown_str = f"(Vec: {vec_disp:.2f} | Pos: {pos_boost:.2f} | Bio: {bio_boost:.2f} | Key: {kw:.2f})"
         print(f"[{i+1}] Score: {r['score']:.2f} {breakdown_str} | Player: {name_out}")
         print(f" Matchup: {_format_matchup(r['matchup'], r['clock'])}")
         print(f" Snippet: {snippet_out}")
@@ -376,6 +378,11 @@ def run_interactive() -> None:
 
 
 if __name__ == "__main__":
+    print("=" * 50)
+    print("🏀 PortalRecruit AI v2.0 (Century Release)")
+    print("=" * 50)
+    print("[System] Models Loaded. Calibration Active.")
+    print("[Ready] Waiting for query...")
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command")
 
