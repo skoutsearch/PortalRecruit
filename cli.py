@@ -272,6 +272,10 @@ def run_search(query: str, n_results: int = 5, debug: bool = False, media: bool 
 
     results.sort(key=lambda r: r["score"], reverse=True)
 
+    if results and any(t in query.lower() for t in ["center", "pg", "point guard", "sg", "guard", "forward", "wing", "pf", "sf", "5", "1"]):
+        top_pos = results[0].get("position") or ""
+        print(f"\n[Strict Filter] Query matched position; top result Position: {top_pos}")
+
     # normalize scores to a 0-1 range if all zeros
     if results and all((r.get("score") or 0) == 0 for r in results):
         n = len(results)
@@ -297,14 +301,16 @@ def run_search(query: str, n_results: int = 5, debug: bool = False, media: bool 
     if media or biometrics:
         from src.social_media import build_video_query, build_image_query, serper_search, select_best_video, select_best_image, generate_name_variations
         team_name = ""
+        player_name = ""
         if results:
             team_name = results[0].get("matchup", "").split(" vs ")[0]
-        v_query = build_video_query(query, team_name)
-        i_query = build_image_query(query, team_name)
+            player_name = results[0].get("player_name", "")
+        v_query = build_video_query(player_name, team_name)
+        i_query = build_image_query(player_name, team_name)
         v_results = serper_search(v_query, type="videos")
         i_results = serper_search(i_query, type="images")
-        vid = select_best_video(v_results, query)
-        media_img = select_best_image(i_results, query)
+        vid = select_best_video(v_results, player_name)
+        media_img = select_best_image(i_results, player_name)
         if media:
             print("\n📺 Media Lookup")
             print("-" * 50)

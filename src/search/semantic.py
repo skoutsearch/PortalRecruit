@@ -288,7 +288,11 @@ def semantic_search(
     query_terms = set(query_tokens)
     meta_filters = meta_filters or {}
 
+    strict_candidates: list[tuple[str, str | None, float | None, dict | None, float]] = []
     candidates: list[tuple[str, str | None, float | None, dict | None, float]] = []
+    strict_pos_terms = {"CENTER", "POINT", "PG", "SG", "GUARD", "FORWARD", "SF", "PF", "WING", "5", "1"}
+    has_strict = any(t in query_terms for t in strict_pos_terms)
+
     for pid, doc, dist, meta in zip(ids, docs, distances, metadatas):
         if meta_filters and isinstance(meta, dict):
             skip = False
@@ -306,16 +310,20 @@ def semantic_search(
                     lexical += 0.2
         if isinstance(meta, dict):
             pos = str(meta.get("position") or "").upper()
-            if "CENTER" in query_terms or "C" in query_terms:
-                if "C" in pos:
-                    lexical += 0.5
-            if "GUARD" in query_terms or "PG" in query_terms or "SG" in query_terms:
-                if "G" in pos:
-                    lexical += 0.5
-            if "FORWARD" in query_terms or "SF" in query_terms or "PF" in query_terms or "WING" in query_terms:
-                if "F" in pos:
-                    lexical += 0.5
+            is_center = "C" in pos or "F/C" in pos
+            is_guard = "PG" in pos or "SG" in pos or pos == "G"
+            is_forward = "SF" in pos or "PF" in pos or pos == "F"
+            if ("CENTER" in query_terms or "5" in query_terms or "C" in query_terms) and is_center:
+                strict_candidates.append((pid, doc, dist, meta, lexical))
+            if ("POINT" in query_terms or "PG" in query_terms or "1" in query_terms) and is_guard:
+                strict_candidates.append((pid, doc, dist, meta, lexical))
+            if ("FORWARD" in query_terms or "SF" in query_terms or "PF" in query_terms or "WING" in query_terms) and is_forward:
+                strict_candidates.append((pid, doc, dist, meta, lexical))
+
         candidates.append((pid, doc, dist, meta, lexical))
+
+    if has_strict and strict_candidates:
+        candidates = strict_candidates
 
     candidates, used_tag_fallback = _filter_candidates_by_tags(candidates, required_tag_set, requested_n)
 

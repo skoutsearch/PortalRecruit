@@ -66,6 +66,8 @@ def calculate_relative_size(height_in: Optional[float], weight_lb: Optional[floa
             tags += ["heavy"]
         elif weight_lb < avg_w - 15:
             tags += ["lanky", "skinny"]
+        if weight_lb >= 240:
+            tags += ["big", "post", "bruiser"]
 
     if not tags:
         tags.append("average")
