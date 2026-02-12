@@ -12,6 +12,7 @@ import sqlite3
 from pathlib import Path
 from difflib import SequenceMatcher
 import requests
+import mimetypes
 
 # --- 1. PAGE CONFIG (Must be the very first Streamlit command) ---
 st.set_page_config(
@@ -51,19 +52,33 @@ except Exception as e:
     st.stop()
 
 # --- 3. IMPORTS (After sys.path is fixed) ---
+import streamlit.components.v1 as components
+
+connect_db = None
+ensure_schema = None
+generate_scout_breakdown = None
+inject_background = None
+
 try:
-    import streamlit.components.v1 as components
-    from src.ingestion.db import connect_db, ensure_schema
-    from src.llm.scout import generate_scout_breakdown
-    from src.dashboard.theme import inject_background
-    # Note: config import assumes config folder is in sys.path or relative import works
-    # We will try to add config to path if needed
-    if (REPO_ROOT / "config").exists() and str(REPO_ROOT / "config") not in sys.path:
-        sys.path.append(str(REPO_ROOT / "config"))
+    from src.ingestion.db import connect_db as _connect_db, ensure_schema as _ensure_schema
+    connect_db, ensure_schema = _connect_db, _ensure_schema
 except ImportError as e:
-    # Fallback for when the folder structure is completely flattened
-    st.warning(f"Import Warning: {e}. Attempting flat import.")
-    pass
+    st.warning(f"Import Warning (DB): {e}")
+
+try:
+    from src.llm.scout import generate_scout_breakdown as _generate_scout_breakdown
+    generate_scout_breakdown = _generate_scout_breakdown
+except ImportError as e:
+    st.warning(f"Import Warning (Scout): {e}")
+
+try:
+    from src.dashboard.theme import inject_background as _inject_background
+    inject_background = _inject_background
+except ImportError as e:
+    st.warning(f"Import Warning (Theme): {e}")
+
+if (REPO_ROOT / "config").exists() and str(REPO_ROOT / "config") not in sys.path:
+    sys.path.append(str(REPO_ROOT / "config"))
 
 # --- 4. INITIALIZATION ---
 
@@ -76,7 +91,8 @@ try:
     
     # Connect using STRING path (not Path object)
     _conn = sqlite3.connect(DB_PATH_STR)
-    ensure_schema(_conn)
+    if ensure_schema:
+        ensure_schema(_conn)
     _conn.close()
 except Exception:
     # Fail silently on init, specific functions will handle errors later
@@ -89,18 +105,34 @@ if css_path.exists():
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
 try:
-    inject_background()
-except:
+    if inject_background:
+        inject_background()
+except Exception:
     pass
 
 
 
 # --- 4b. GLASS BACKGROUND VIDEO (Cloud + Snowflake) ---
+@st.cache_data(show_spinner=False)
+def _get_base64_video(video_path: str) -> str | None:
+    p = Path(video_path)
+    if not p.exists() or p.stat().st_size == 0:
+        return None
+    return base64.b64encode(p.read_bytes()).decode("utf-8")
+
+
 try:
-    bg_video_path = REPO_ROOT / "www" / "PORTALRECRUIT_ANIMATED_LOGO.mp4"
-    if bg_video_path.exists():
-        b64 = base64.b64encode(bg_video_path.read_bytes()).decode("utf-8")
-        components.html(
+    bg_candidates = [
+        REPO_ROOT / "www" / "PORTALRECRUIT_ANIMATED_LOGO.mp4",
+        REPO_ROOT / "www" / "PORTALRECRUIT_ANIMATED_LOGO.mov",
+        REPO_ROOT / "www" / "PORTALRECRUIT_ANIMATED_LOGO.webm",
+    ]
+    bg_video_path = next((p for p in bg_candidates if p.exists()), None)
+    if bg_video_path:
+        b64 = _get_base64_video(str(bg_video_path))
+        mime_type = mimetypes.guess_type(str(bg_video_path))[0] or "video/mp4"
+        if b64:
+            components.html(
             f"""
             <style>
               #pr-bg-video {{
@@ -171,7 +203,7 @@ try:
               }}
             </style>
             <video id="pr-bg-video" autoplay muted loop playsinline>
-              <source src="data:video/mp4;base64,{b64}" type="video/mp4" />
+              <source src="data:{mime_type};base64,{b64}" type="{mime_type}" />
             </video>
             <div class="pr-bg-overlay"></div>
             """,
@@ -338,6 +370,16 @@ def _restore_vector_db_if_needed() -> bool:
 
     return db_path.exists()
 
+
+def _is_lfs_pointer(path: Path) -> bool:
+    try:
+        if not path.exists() or path.stat().st_size < 32:
+            return False
+        head = path.read_bytes()[:96]
+        return head.startswith(b"version https://git-lfs.github.com/spec/v1")
+    except Exception:
+        return False
+
 @st.cache_data(show_spinner=False)
 def _load_players_index():
     try:
@@ -436,6 +478,9 @@ def _lookup_player_id_by_name(name: str):
 def _get_search_collection():
     import chromadb
     vector_db_path = REPO_ROOT / "data" / "vector_db"
+    sqlite_file = vector_db_path / "chroma.sqlite3"
+    if _is_lfs_pointer(sqlite_file):
+        raise RuntimeError("Vector DB is a Git LFS pointer. Pull LFS assets to enable semantic search.")
     # Ensure path is string
     client = chromadb.PersistentClient(path=str(vector_db_path))
     try:
@@ -443,7 +488,13 @@ def _get_search_collection():
     except Exception:
         _restore_vector_db_if_needed()
         client = chromadb.PersistentClient(path=str(vector_db_path))
-        return client.get_collection(name="skout_plays")
+        try:
+            return client.get_collection(name="skout_plays")
+        except Exception:
+            cols = client.list_collections()
+            if cols:
+                return client.get_collection(name=cols[0].name)
+            raise
 
 @st.cache_data(show_spinner=False, max_entries=50000)
 def _tag_play_cached(description: str) -> tuple[str, ...]:
@@ -457,6 +508,48 @@ def _required_tag_threshold(required_tags: list[str]) -> int:
     if n == 2:
         return 1
     return 2
+
+
+def _keyword_search_play_ids(query: str, extra_terms: list[str] | None = None, limit: int = 200) -> list[str]:
+    """Fallback search path when vector DB is unavailable.
+
+    Uses lightweight SQL filtering + token overlap scoring for reliability.
+    """
+    q = (query or "").strip()
+    terms = [q] if q else []
+    terms.extend([t.strip() for t in (extra_terms or []) if t and t.strip()])
+    terms = list(dict.fromkeys(terms))[:12]
+    if not terms:
+        return []
+
+    like_clauses = " OR ".join(["LOWER(description) LIKE ?" for _ in terms])
+    like_vals = [f"%{t.lower()}%" for t in terms]
+
+    try:
+        con = sqlite3.connect(DB_PATH_STR)
+        cur = con.cursor()
+        cur.execute(
+            f"""
+            SELECT play_id, description
+            FROM plays
+            WHERE {like_clauses}
+            LIMIT ?
+            """,
+            [*like_vals, max(limit * 3, 300)],
+        )
+        rows = cur.fetchall()
+        con.close()
+    except Exception:
+        return []
+
+    q_tokens = set(re.findall(r"[a-z0-9]+", " ".join(terms).lower()))
+    scored = []
+    for pid, desc in rows:
+        d_tokens = set(re.findall(r"[a-z0-9]+", (desc or "").lower()))
+        overlap = len(q_tokens.intersection(d_tokens))
+        scored.append((overlap, str(pid)))
+    scored.sort(reverse=True)
+    return [pid for _, pid in scored[:limit]]
 
 # SAFE QUERY PARAM HANDLING
 def _get_qp_safe():
@@ -725,6 +818,10 @@ def _render_profile_overlay(player_id: str):
 
     if not profile:
         st.warning("Player not found.")
+        if st.button("Back to search results", key=f"back_missing_{pid or 'unknown'}"):
+            _clear_qp_safe("player")
+            st.session_state["selected_player"] = None
+            st.rerun()
         return
     title = profile.get("name", "Player Profile")
 
@@ -1332,16 +1429,13 @@ elif st.session_state.app_mode == "Search":
 
     if target_pid:
         pid = _normalize_player_id(target_pid)
-        _set_qp_safe("player", pid)
-        meta_cache = st.session_state.get("player_meta_cache", {}) or {}
-        if _get_player_profile(pid) or meta_cache.get(pid):
+        if pid:
+            _set_qp_safe("player", pid)
             st.session_state["selected_player"] = pid
             _render_profile_overlay(pid)
             st.stop()
-        
         _clear_qp_safe("player")
         st.session_state["selected_player"] = None
-        st.warning("Player not found.")
     
     st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
     
@@ -1527,7 +1621,8 @@ elif st.session_state.app_mode == "Search":
             logic = "single"
         
         exclude_tags = set()
-        role_hints = set()
+        role_hints = _infer_role_hints(query)
+        size_intents = _infer_size_intents(query)
         matched_phrases = []
         apply_exclude = any(tok in q_lower for tok in [" no ", "avoid", "without", "dont", "don't", "not "])
         leadership_intent = "leadership" in intents
@@ -1576,6 +1671,8 @@ elif st.session_state.app_mode == "Search":
                 required_tags = list(set(required_tags + list(intent.tags)))
 
         st.session_state["last_matched_phrases"] = matched_phrases
+        st.session_state["last_role_hints"] = sorted(role_hints)
+        st.session_state["last_size_intents"] = size_intents
 
         if "guard" in role_hints: intent_tags = list(set(intent_tags + ["drive", "pnr"]))
         if "wing" in role_hints: intent_tags = list(set(intent_tags + ["3pt", "deflection"]))
@@ -1591,11 +1688,13 @@ elif st.session_state.app_mode == "Search":
         st.session_state["last_query"] = query
         st.session_state["last_query_tags"] = intent_tags
 
+        collection = None
+        vector_search_ready = True
         try:
             collection = _get_search_collection()
-        except:
-            st.error("Vector DB not found.")
-            st.stop()
+        except Exception as e:
+            vector_search_ready = False
+            st.info(f"Semantic index unavailable, using keyword fallback search. ({e})")
 
         from src.search.semantic import build_expanded_query, semantic_search, expand_query_terms
         expanded_terms = (expand_query_terms(query) or []) + (_expand_query_synonyms(query) or [])
@@ -1605,18 +1704,8 @@ elif st.session_state.app_mode == "Search":
         status.update(state="running")
         st.markdown("<script>document.body.classList.add('searching');</script>", unsafe_allow_html=True)
 
-        try:
-            play_ids = semantic_search(
-                collection,
-                query=query,
-                n_results=n_results,
-                extra_query_terms=(matched_phrases or []) + (expanded_terms or []),
-                required_tags=required_tags,
-                boost_tags=intent_tags,
-            )
-        except:
+        if vector_search_ready and collection is not None:
             try:
-                collection = _get_search_collection()
                 play_ids = semantic_search(
                     collection,
                     query=query,
@@ -1626,11 +1715,32 @@ elif st.session_state.app_mode == "Search":
                     boost_tags=intent_tags,
                 )
             except:
-                st.error("Search index error.")
-                st.stop()
+                try:
+                    collection = _get_search_collection()
+                    play_ids = semantic_search(
+                        collection,
+                        query=query,
+                        n_results=n_results,
+                        extra_query_terms=(matched_phrases or []) + (expanded_terms or []),
+                        required_tags=required_tags,
+                        boost_tags=intent_tags,
+                    )
+                except:
+                    vector_search_ready = False
+                    play_ids = _keyword_search_play_ids(
+                        query,
+                        extra_terms=(matched_phrases or []) + (expanded_terms or []),
+                        limit=max(n_results, 150),
+                    )
+        else:
+            play_ids = _keyword_search_play_ids(
+                query,
+                extra_terms=(matched_phrases or []) + (expanded_terms or []),
+                limit=max(n_results, 150),
+            )
         count_initial = len(play_ids)
 
-        if len(play_ids) < 8:
+        if vector_search_ready and collection is not None and len(play_ids) < 8:
             try:
                 play_ids = semantic_search(
                     collection,
