@@ -179,9 +179,13 @@ def generate_scout_breakdown(profile: Dict[str, Any]) -> str:
         "Keep the output under 120 words. Focus on: DOES HE TRANSLATE?"
     )
 
+    position = profile.get("position", "") or "Unknown"
+    class_year = profile.get("class_year", "") or ""
+
     user_prompt = f"""
 SCOUTING REPORT REQUEST:
 Prospect: {name} ({team})
+Position/Year: {position} {class_year}
 Frame: {ht_fmt}, {wt_fmt}
 Production: {ppg:.1f} Pts, {rpg:.1f} Reb, {apg:.1f} Ast ({gp} games)
 
@@ -194,7 +198,7 @@ AI METRICS (0-100):
 PLAY STYLE FINGERPRINT (Film Frequency):
 {style_fingerprint}
 
-RECENT FILM NOTES:
+RECENT FILM NOTES (use these actions explicitly):
 {recent_tape}
 
 TASK:
@@ -202,6 +206,7 @@ Write a 3-4 sentence scouting blurb.
 1. Identify his ARCHETYPE immediately based on the Fingerprint.
 2. Comment on how his frame matches that archetype.
 3. Use the 'Dog Index' to judge his motor.
+4. Cite at least one specific action from the Recent Film Notes (e.g., "Left P&R", "Pick and Pops").
 """
 
     # FALLBACK LOGIC

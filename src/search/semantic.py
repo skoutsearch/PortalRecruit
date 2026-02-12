@@ -212,8 +212,13 @@ def _adjective_boost(query: str) -> float:
 
 def blend_score(vector_distance: float | None, rerank_score: float | None, tag_overlap: int = 0) -> float:
     # Chroma returns cosine distance for hnsw cosine space (smaller is better).
-    # Convert to similarity-like component in [roughly 0,1+].
-    vector_similarity = 0.0 if vector_distance is None else max(0.0, 1.0 - float(vector_distance))
+    # Normalize distance into similarity in [0,1].
+    if vector_distance is None:
+        vector_similarity = 0.0
+    else:
+        dist = float(vector_distance)
+        dist = min(max(dist, 0.0), 2.0)
+        vector_similarity = 1.0 - (dist / 2.0)
     rerank = 0.0 if rerank_score is None else float(rerank_score)
     return (0.55 * rerank) + (0.35 * vector_similarity) + (0.10 * float(tag_overlap))
 

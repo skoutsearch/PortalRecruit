@@ -171,6 +171,15 @@ def run_search(query: str, n_results: int = 5) -> None:
     collection = client.get_collection(name="skout_plays")
     play_ids = semantic_search(collection, query=query, n_results=n_results)
 
+    meta_lookup = {}
+    try:
+        meta = collection.get(ids=play_ids, include=["metadatas"]) if play_ids else None
+        if meta and meta.get("ids"):
+            for pid, m in zip(meta.get("ids", []), meta.get("metadatas", [])):
+                meta_lookup[str(pid)] = m or {}
+    except Exception:
+        meta_lookup = {}
+
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
@@ -210,6 +219,9 @@ def run_search(query: str, n_results: int = 5) -> None:
             v_path = "Unknown"
             matchup = "Unknown"
 
+        meta = meta_lookup.get(str(play_id), {})
+        video_link = meta.get("video_url") or meta.get("url") or meta.get("s3_link") or ""
+
         score = _lexical_overlap_score(query_tokens, desc, {"tags": tags})
         snippet = _best_snippet(desc, query)
 
@@ -223,15 +235,23 @@ def run_search(query: str, n_results: int = 5) -> None:
             "matchup": matchup,
             "file": v_path,
             "snippet": snippet,
+            "video": video_link,
         })
 
     results.sort(key=lambda r: r["score"], reverse=True)
 
+    # normalize scores to a 0-1 range if all zeros
+    if results and all((r.get("score") or 0) == 0 for r in results):
+        n = len(results)
+        for idx, r in enumerate(results):
+            r["score"] = round((n - idx) / max(n, 1), 3)
+
     for i, r in enumerate(results):
+        video_out = r['video'] if r.get('video') else r['file']
         print(f"[{i+1}] Score: {r['score']:.2f} | Player: {r['player_name']}")
         print(f" Matchup: {r['matchup']} @ {r['clock']}")
         print(f" Snippet: {r['snippet']}")
-        print(f" Tags: [{r['tags']}]\n File: {r['file']}")
+        print(f" Tags: [{r['tags']}]\n Video: {video_out}")
         print("")
 
     top3 = results[:3] if len(results) >= 3 else results
@@ -247,6 +267,16 @@ def run_search(query: str, n_results: int = 5) -> None:
     print(breakdown)
 
 
+def run_interactive():
+    while True:
+        q = input("Enter search query (or 'q' to quit): ").strip()
+        if q.lower() in {"q", "quit", "exit"}:
+            break
+        if not q:
+            continue
+        run_search(q)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command")
@@ -255,8 +285,12 @@ if __name__ == "__main__":
     s.add_argument("query")
     s.add_argument("--n", type=int, default=5)
 
+    sub.add_parser("interactive")
+
     args = parser.parse_args()
     if args.command == "search":
         run_search(args.query, n_results=args.n)
+    elif args.command == "interactive":
+        run_interactive()
     else:
         parser.print_help()
