@@ -259,10 +259,26 @@ def semantic_search(
 
     Returns a list of play_ids ranked best-first.
     """
+    from src.position_normalizer import score_positions_from_terms, best_positions
+
     synonym_terms = _expand_synonyms_for_embedding(query)
     expanded_query = build_expanded_query(query, list(extra_query_terms or []) + synonym_terms)
     requested_n = max(int(n_results), 1)
     fetch_n = min(max(requested_n * 4, requested_n), 150)
+
+    where_filter = None
+    try:
+        scores = score_positions_from_terms(query)
+        top = best_positions(scores, top_k=1)
+        if top:
+            canon, score = top[0]
+            max_score = max(scores.values()) or 1.0
+            conf = float(score) / float(max_score)
+            if conf > 0.8 and canon == "CENTER":
+                where_filter = {"position": {"$in": ["C", "F/C"]}}
+                print("Detected Canonical Position: CENTER")
+    except Exception:
+        pass
 
     try:
         query_vec = encode_query(expanded_query)
@@ -270,6 +286,7 @@ def semantic_search(
             query_embeddings=[query_vec],
             n_results=fetch_n,
             include=["documents", "distances", "metadatas"],
+            where=where_filter,
         )
     except Exception:
         return []
@@ -285,7 +302,7 @@ def semantic_search(
     required_tag_set = {str(t).strip().lower() for t in (required_tags or []) if str(t).strip()}
     boost_tag_set = {str(t).strip().lower() for t in (boost_tags or []) if str(t).strip()}
     query_tokens = _tokenize(expanded_query)
-    query_terms = set(query_tokens)
+    query_terms = {t.lower() for t in query_tokens}
     meta_filters = meta_filters or {}
 
     strict_candidates: list[tuple[str, str | None, float | None, dict | None, float]] = []
