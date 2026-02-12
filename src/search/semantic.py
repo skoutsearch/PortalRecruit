@@ -260,8 +260,7 @@ def semantic_search(
 
     Returns a list of play_ids ranked best-first.
     """
-    from src.position_normalizer import score_positions_from_terms, best_positions
-
+    from src.position_calibration import score_positions, topk
     synonym_terms = _expand_synonyms_for_embedding(query)
     expanded_query = build_expanded_query(query, list(extra_query_terms or []) + synonym_terms)
     requested_n = max(int(n_results), 1)
@@ -269,8 +268,8 @@ def semantic_search(
 
     where_filter = None
     try:
-        scores = score_positions_from_terms(query)
-        top = best_positions(scores, top_k=1)
+        scores = score_positions(query, alpha_semantic=1.0, beta_size=1.0)
+        top = topk(scores, k=1)
         if top:
             canon, score = top[0]
             max_score = max(scores.values()) or 1.0
