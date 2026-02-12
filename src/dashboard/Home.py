@@ -326,6 +326,9 @@ def _infer_role_hints(q: str) -> set[str]:
     return hints
 
 
+from collections import OrderedDict
+
+
 def _expand_query_synonyms(q: str) -> list[str]:
     """Advanced synonym expansion to improve recall when semantic search under-fires."""
     ql = (q or "").lower()
@@ -345,6 +348,60 @@ def _expand_query_synonyms(q: str) -> list[str]:
         if k in ql:
             synonyms.extend(vs)
     return synonyms
+
+
+def _search_cache_key(query: str, intent_tags: list[str], required_tags: list[str], n_results: int) -> tuple:
+    return (
+        (query or "").strip().lower(),
+        tuple(sorted(set(intent_tags or []))),
+        tuple(sorted(set(required_tags or []))),
+        int(n_results),
+    )
+
+
+def _get_search_cache() -> OrderedDict:
+    cache = st.session_state.get("search_cache")
+    if cache is None:
+        cache = OrderedDict()
+        st.session_state["search_cache"] = cache
+    return cache
+
+
+def _cache_get(key):
+    cache = _get_search_cache()
+    if key in cache:
+        cache.move_to_end(key)
+        return cache[key]
+    return None
+
+
+def _cache_set(key, value, max_size: int = 50):
+    cache = _get_search_cache()
+    cache[key] = value
+    cache.move_to_end(key)
+    while len(cache) > max_size:
+        cache.popitem(last=False)
+
+
+def _best_play_snippet(desc: str, query: str, max_len: int = 180) -> str:
+    text = (desc or "").strip()
+    if not text:
+        return ""
+    q_tokens = [t for t in re.findall(r"[a-z0-9]+", (query or "").lower()) if len(t) > 2]
+    if not q_tokens:
+        return text if len(text) <= max_len else text[: max_len - 1] + "…"
+    lower = text.lower()
+    idxs = [lower.find(t) for t in q_tokens if lower.find(t) >= 0]
+    if not idxs:
+        return text if len(text) <= max_len else text[: max_len - 1] + "…"
+    start = max(min(idxs) - 40, 0)
+    end = min(start + max_len, len(text))
+    snippet = text[start:end]
+    if start > 0:
+        snippet = "…" + snippet
+    if end < len(text):
+        snippet = snippet + "…"
+    return snippet
 
 
 def _ensure_player_id_map(conn) -> None:
@@ -1758,22 +1815,13 @@ elif st.session_state.app_mode == "Search":
         status.update(state="running")
         st.markdown("<script>document.body.classList.add('searching');</script>", unsafe_allow_html=True)
 
-        if vector_search_ready and collection is not None:
-            try:
-                play_ids = semantic_search(
-                    collection,
-                    query=query,
-                    n_results=n_results,
-                    extra_query_terms=(matched_phrases or []) + (expanded_terms or []),
-                    required_tags=required_tags,
-                    boost_tags=intent_tags,
-                )
-            except:
-                play_ids = []
-
-            if not play_ids:
+        cache_key = _search_cache_key(query, intent_tags, required_tags, n_results)
+        cached_play_ids = _cache_get(cache_key)
+        if cached_play_ids is not None:
+            play_ids = cached_play_ids
+        else:
+            if vector_search_ready and collection is not None:
                 try:
-                    collection = _get_search_collection()
                     play_ids = semantic_search(
                         collection,
                         query=query,
@@ -1785,26 +1833,42 @@ elif st.session_state.app_mode == "Search":
                 except:
                     play_ids = []
 
-            if not play_ids:
-                vector_search_ready = False
+                if not play_ids:
+                    try:
+                        collection = _get_search_collection()
+                        play_ids = semantic_search(
+                            collection,
+                            query=query,
+                            n_results=n_results,
+                            extra_query_terms=(matched_phrases or []) + (expanded_terms or []),
+                            required_tags=required_tags,
+                            boost_tags=intent_tags,
+                        )
+                    except:
+                        play_ids = []
+
+                if not play_ids:
+                    vector_search_ready = False
+                    play_ids = _keyword_search_play_ids(
+                        query,
+                        extra_terms=(matched_phrases or []) + (expanded_terms or []),
+                        limit=max(n_results, 150),
+                    )
+            else:
                 play_ids = _keyword_search_play_ids(
                     query,
                     extra_terms=(matched_phrases or []) + (expanded_terms or []),
                     limit=max(n_results, 150),
                 )
-        else:
-            play_ids = _keyword_search_play_ids(
-                query,
-                extra_terms=(matched_phrases or []) + (expanded_terms or []),
-                limit=max(n_results, 150),
-            )
 
-        if not play_ids and expanded_query:
-            play_ids = _keyword_search_play_ids(
-                expanded_query,
-                extra_terms=(matched_phrases or []) + (expanded_terms or []),
-                limit=max(n_results, 150),
-            )
+            if not play_ids and expanded_query:
+                play_ids = _keyword_search_play_ids(
+                    expanded_query,
+                    extra_terms=(matched_phrases or []) + (expanded_terms or []),
+                    limit=max(n_results, 150),
+                )
+
+            _cache_set(cache_key, play_ids)
         count_initial = len(play_ids)
 
         if vector_search_ready and collection is not None and len(play_ids) < 8:
@@ -2327,7 +2391,7 @@ elif st.session_state.app_mode == "Search":
                     "Shot Making": shot_index,
                     "Gravity Well": gravity_index,
                     "Tags": ", ".join(play_tags),
-                    "Play": desc,
+                    "Play": _best_play_snippet(desc, query),
                     "Video": video or "-",
                     "Score": round(score, 2),
                 })

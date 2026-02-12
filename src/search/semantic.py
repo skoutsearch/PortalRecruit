@@ -114,6 +114,22 @@ def _tokenize(text: str) -> set[str]:
     return {t for t in re.findall(r"[a-z0-9]+", (text or "").lower()) if len(t) > 1}
 
 
+def _expand_synonyms_for_embedding(query: str) -> list[str]:
+    q = (query or "").lower()
+    synonyms = {
+        "attack": ["drive", "downhill"],
+        "rim": ["paint", "basket"],
+        "shoot": ["shot", "jumper"],
+        "rebound": ["glass", "boards"],
+        "defend": ["stop", "contain"],
+    }
+    expanded = []
+    for key, vals in synonyms.items():
+        if key in q:
+            expanded.extend(vals[:2])
+    return expanded
+
+
 def _parse_tags(meta: dict | None) -> set[str]:
     if not isinstance(meta, dict):
         return set()
@@ -193,12 +209,14 @@ def semantic_search(
     required_tags: Iterable[str] | None = None,
     boost_tags: Iterable[str] | None = None,
     diversify_by_player: bool = True,
+    meta_filters: dict[str, set[str]] | None = None,
 ) -> list[str]:
     """Run semantic search with normalized embeddings + optional rerank blend.
 
     Returns a list of play_ids ranked best-first.
     """
-    expanded_query = build_expanded_query(query, extra_query_terms)
+    synonym_terms = _expand_synonyms_for_embedding(query)
+    expanded_query = build_expanded_query(query, list(extra_query_terms or []) + synonym_terms)
     requested_n = max(int(n_results), 1)
     fetch_n = min(max(requested_n * 4, requested_n), 150)
 
@@ -223,9 +241,18 @@ def semantic_search(
     required_tag_set = {str(t).strip().lower() for t in (required_tags or []) if str(t).strip()}
     boost_tag_set = {str(t).strip().lower() for t in (boost_tags or []) if str(t).strip()}
     query_tokens = _tokenize(expanded_query)
+    meta_filters = meta_filters or {}
 
     candidates: list[tuple[str, str | None, float | None, dict | None, float]] = []
     for pid, doc, dist, meta in zip(ids, docs, distances, metadatas):
+        if meta_filters and isinstance(meta, dict):
+            skip = False
+            for key, allowed in meta_filters.items():
+                if allowed and str(meta.get(key, "")).lower() not in {a.lower() for a in allowed}:
+                    skip = True
+                    break
+            if skip:
+                continue
         lexical = _lexical_overlap_score(query_tokens, doc, meta)
         candidates.append((pid, doc, dist, meta, lexical))
 
@@ -265,11 +292,19 @@ def semantic_search(
             max_per_player = 2 if requested_n >= 12 else 1
             counts: dict[str, int] = {}
             selected: list[str] = []
+            seen_snippets: set[str] = set()
             by_id_meta = {pid: meta for pid, _doc, _dist, meta, _lex in rerank_pool}
+            by_id_doc = {pid: doc for pid, doc, _dist, _meta, _lex in rerank_pool}
             for pid in ranked_ids:
                 pkey = _meta_player_id(by_id_meta.get(pid)) or "__unknown__"
                 if counts.get(pkey, 0) >= max_per_player:
                     continue
+                doc = (by_id_doc.get(pid) or "").lower()
+                signature = " ".join(re.findall(r"[a-z0-9]+", doc)[:12])
+                if signature and signature in seen_snippets:
+                    continue
+                if signature:
+                    seen_snippets.add(signature)
                 selected.append(pid)
                 counts[pkey] = counts.get(pkey, 0) + 1
                 if len(selected) >= requested_n:
