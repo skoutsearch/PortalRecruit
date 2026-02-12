@@ -406,6 +406,9 @@ if __name__ == "__main__":
     sim = sub.add_parser("similar")
     sim.add_argument("name")
 
+    viz = sub.add_parser("visualize")
+    viz.add_argument("query")
+
     sub.add_parser("interactive")
 
     args = parser.parse_args()
@@ -482,6 +485,22 @@ if __name__ == "__main__":
             pos = m.get("position") or "—"
             height = m.get("height_in") or "—"
             print(f"{m.get('player_name')} | {m.get('similarity'):.2f} | {pos} | {height}")
+    elif args.command == "visualize":
+        from src.search.semantic import semantic_search
+        from src.visuals import generate_pca_coordinates
+        client = chromadb.PersistentClient(path=VECTOR_DB_PATH)
+        collection = client.get_collection(name="skout_plays")
+        play_ids = semantic_search(collection, query=args.query, n_results=10)
+        res = collection.get(ids=play_ids, include=["embeddings", "metadatas"])
+        embeddings = res.get("embeddings")
+        if embeddings is None or len(embeddings) == 0:
+            print("No embeddings found.")
+            sys.exit(1)
+        coords = generate_pca_coordinates(embeddings)
+        metas = res.get("metadatas") or []
+        for meta, (x, y) in zip(metas, coords):
+            name = (meta or {}).get("player_name") or "Unknown"
+            print(f"{name} -> (x: {x:.2f}, y: {y:.2f})")
     elif args.command == "interactive":
         run_interactive()
     else:

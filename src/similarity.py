@@ -18,20 +18,30 @@ def _similarity_from_distance(dist: float | None) -> float:
     return max(0.0, base) ** 0.5
 
 
-def _lookup_player_meta(name: str) -> Dict[str, Any]:
-    if not name:
+def _lookup_player_meta(name: str, player_id: str | None = None) -> Dict[str, Any]:
+    if not name and not player_id:
         return {}
     try:
         conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
-        cur.execute(
-            "SELECT position, height_in FROM players WHERE full_name = ? LIMIT 1",
-            (name,),
-        )
-        row = cur.fetchone()
-        conn.close()
-        if row:
-            return {"position": row[0], "height_in": row[1]}
+        if player_id:
+            cur.execute(
+                "SELECT position, height_in, weight_lb FROM players WHERE player_id = ? LIMIT 1",
+                (player_id,),
+            )
+            row = cur.fetchone()
+            if row:
+                conn.close()
+                return {"position": row[0], "height_in": row[1], "weight_lb": row[2]}
+        if name:
+            cur.execute(
+                "SELECT position, height_in, weight_lb FROM players WHERE full_name = ? LIMIT 1",
+                (name,),
+            )
+            row = cur.fetchone()
+            conn.close()
+            if row:
+                return {"position": row[0], "height_in": row[1], "weight_lb": row[2]}
     except Exception:
         return {}
     return {}
@@ -102,15 +112,18 @@ def find_similar_players(player_name: str, top_k: int = 5) -> List[Dict[str, Any
             seen.add(pname)
             pos = meta.get("position")
             height = meta.get("height_in") or meta.get("height")
-            if not pos or not height:
-                lookup = _lookup_player_meta(pname)
+            weight = meta.get("weight_lb") or meta.get("weight")
+            if not pos or not height or not weight:
+                lookup = _lookup_player_meta(pname, meta.get("player_id"))
                 pos = pos or lookup.get("position")
                 height = height or lookup.get("height_in")
+                weight = weight or lookup.get("weight_lb")
             matches.append({
                 "player_name": pname,
                 "similarity": _similarity_from_distance(dist),
                 "position": pos,
                 "height_in": height,
+                "weight_lb": weight,
             })
             if len(matches) >= top_k:
                 break
