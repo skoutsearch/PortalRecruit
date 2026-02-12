@@ -77,6 +77,10 @@ def expand_query_terms(query: str) -> list[str]:
         terms.extend(["stretch 5", "pick and pop", "trail 3", "shooting big"])
     if "athletic" in q and "big" in q:
         terms.extend(["rim run", "lob threat", "vertical spacer"])
+    if "wing" in q and ("defend" in q or "stopper" in q):
+        terms.extend(["point of attack", "chase over", "screen navigation"])
+    if "high iq" in q or "smart" in q:
+        terms.extend(["decision making", "reads", "processing speed"])
     return list(dict.fromkeys([t for t in terms if t]))
 
 
