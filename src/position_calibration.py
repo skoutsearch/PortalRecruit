@@ -246,6 +246,24 @@ def extract_base_terms(text: str) -> List[str]:
 
 
 # ----------------------------
+# DB Position Mapping
+# ----------------------------
+
+
+def map_db_to_canonical(db_pos_str: str) -> list[str]:
+    pos = (db_pos_str or "").upper().strip()
+    if not pos:
+        return []
+    if pos in {"G", "PG", "SG"}:
+        return ["GUARD", "POINT_GUARD", "SHOOTING_GUARD"] if pos == "G" else ["GUARD", "POINT_GUARD"] if pos == "PG" else ["GUARD", "SHOOTING_GUARD"]
+    if pos in {"F", "SF", "PF"}:
+        return ["FORWARD", "SMALL_FORWARD", "POWER_FORWARD"] if pos == "F" else ["FORWARD", "SMALL_FORWARD"] if pos == "SF" else ["FORWARD", "POWER_FORWARD"]
+    if pos in {"C", "F/C"}:
+        return ["CENTER"]
+    return []
+
+
+# ----------------------------
 # Scoring
 # ----------------------------
 

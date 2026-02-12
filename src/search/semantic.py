@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import re
+import sqlite3
 from functools import lru_cache
 from typing import Iterable
 
@@ -258,21 +259,91 @@ def blend_score(vector_distance: float | None, rerank_score: float | None, tag_o
     return (0.55 * rerank) + (0.35 * vector_similarity) + (0.10 * float(tag_overlap))
 
 
+@lru_cache(maxsize=1)
+def _load_position_lookup() -> dict[str, str]:
+    db_path = os.path.join(os.getcwd(), "data/skout.db")
+    if not os.path.exists(db_path):
+        return {}
+    try:
+        conn = sqlite3.connect(db_path)
+        cur = conn.cursor()
+        cur.execute("SELECT player_id, full_name, position FROM players")
+        rows = cur.fetchall()
+        lookup = {}
+        for pid, name, pos in rows:
+            if pid:
+                lookup[str(pid)] = str(pos or "")
+            if name:
+                lookup[str(name).lower()] = str(pos or "")
+        # add play_player_id mapping if table exists
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='player_id_map'")
+        if cur.fetchone():
+            cur.execute(
+                """
+                SELECT m.play_player_id, p.position
+                FROM player_id_map m
+                JOIN players p ON p.player_id = m.player_id
+                WHERE m.play_player_id IS NOT NULL
+                """
+            )
+            for play_pid, pos in cur.fetchall():
+                if play_pid:
+                    lookup[str(play_pid)] = str(pos or "")
+        conn.close()
+    except Exception:
+        return {}
+    return lookup
+
+
 def _position_match_boost(query_terms: set[str], meta: dict | None) -> float:
     if not meta or not query_terms:
         return 0.0
+    q_terms = {t.upper() for t in query_terms}
     pos = str(meta.get("position") or "").upper()
     if not pos:
+        lookup = _load_position_lookup()
+        pid = str(meta.get("player_id") or "")
+        pname = str(meta.get("player_name") or "").lower()
+        pos = lookup.get(pid) or lookup.get(pname) or ""
+        pos = pos.upper()
+    if not pos and meta.get("player_name"):
+        try:
+            db_path = os.path.join(os.getcwd(), "data/skout.db")
+            conn = sqlite3.connect(db_path)
+            cur = conn.cursor()
+            last = str(meta.get("player_name") or "").split(" ")[-1]
+            cur.execute("SELECT position FROM players WHERE full_name LIKE ? LIMIT 1", (f"%{last}%",))
+            row = cur.fetchone()
+            conn.close()
+            if row and row[0]:
+                pos = str(row[0]).upper()
+        except Exception:
+            pos = pos or ""
+    if not pos:
+        guard_terms = {"GUARD", "PG", "SG", "POINT", "1"}
+        forward_terms = {"FORWARD", "SF", "PF", "WING", "3", "4"}
+        center_terms = {"CENTER", "C", "5"}
+        if q_terms.intersection(guard_terms | forward_terms | center_terms):
+            return 0.05
         return 0.0
-    is_center = "C" in pos or "F/C" in pos
-    is_guard = "PG" in pos or "SG" in pos or pos == "G"
-    is_forward = "SF" in pos or "PF" in pos or pos == "F"
-    if ("CENTER" in query_terms or "5" in query_terms or "C" in query_terms) and is_center:
-        return 0.08
-    if ("POINT" in query_terms or "PG" in query_terms or "1" in query_terms) and is_guard:
-        return 0.08
-    if ("FORWARD" in query_terms or "SF" in query_terms or "PF" in query_terms or "WING" in query_terms) and is_forward:
-        return 0.08
+    try:
+        from src.position_calibration import map_db_to_canonical
+        canonical = set(map_db_to_canonical(pos))
+    except Exception:
+        canonical = set()
+    if not canonical:
+        return 0.0
+
+    guard_terms = {"GUARD", "PG", "SG", "POINT", "1"}
+    forward_terms = {"FORWARD", "SF", "PF", "WING", "3", "4"}
+    center_terms = {"CENTER", "C", "5"}
+
+    if q_terms.intersection(center_terms) and "CENTER" in canonical:
+        return 0.10
+    if q_terms.intersection(guard_terms) and canonical.intersection({"GUARD", "POINT_GUARD", "SHOOTING_GUARD"}):
+        return 0.10
+    if q_terms.intersection(forward_terms) and canonical.intersection({"FORWARD", "SMALL_FORWARD", "POWER_FORWARD"}):
+        return 0.10
     return 0.0
 
 

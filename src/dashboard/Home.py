@@ -1674,355 +1674,342 @@ if st.session_state.app_mode == "Admin":
 
 elif st.session_state.app_mode == "Search":
     render_header()
-    qp = _get_qp_safe()
-    target_pid = st.session_state.get("pending_selected_player") or st.session_state.get("selected_player")
-    
-    if not target_pid and "player" in qp:
-        raw_pid = qp["player"][0] if isinstance(qp["player"], list) else qp["player"]
-        target_pid = _normalize_player_id(raw_pid)
+    tabs = st.tabs(["Search", "⚔️ Comparator"])
+    search_tab = tabs[0]
+    compare_tab = tabs[1]
 
-    if target_pid:
-        pid = _normalize_player_id(target_pid)
-        st.session_state["pending_selected_player"] = None
-        if pid:
-            _set_qp_safe("player", pid)
-            st.session_state["selected_player"] = pid
-            _render_profile_overlay(pid)
-            st.stop()
-        _clear_qp_safe("player")
-        st.session_state["selected_player"] = None
-    
-    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
-    
-    def _mark_search_requested():
-        st.session_state["search_requested"] = True
-        st.session_state["search_started_at"] = time.time()
+    with search_tab:
+        qp = _get_qp_safe()
+        target_pid = st.session_state.get("pending_selected_player") or st.session_state.get("selected_player")
+        
+        if not target_pid and "player" in qp:
+            raw_pid = qp["player"][0] if isinstance(qp["player"], list) else qp["player"]
+            target_pid = _normalize_player_id(raw_pid)
 
-    last_q = st.session_state.get("last_query") or ""
-    search_status = "Search"
-
-    cols = st.columns([5, 1.2], gap="small")
-    with cols[0]:
-        query = st.text_input(
-            "Player Search",
-            last_q,
-            placeholder="e.g. 'Athletic wing who can finish at the rim'",
-            label_visibility="collapsed",
-            on_change=_mark_search_requested,
-            key="search_query_input",
-        )
-    with cols[1]:
-        if st.button(search_status, key="search_btn", use_container_width=True):
+        if target_pid:
+            pid = _normalize_player_id(target_pid)
+            st.session_state["pending_selected_player"] = None
+            if pid:
+                _set_qp_safe("player", pid)
+                st.session_state["selected_player"] = pid
+                _render_profile_overlay(pid)
+                st.stop()
+            _clear_qp_safe("player")
+            st.session_state["selected_player"] = None
+        
+        st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+        
+        def _mark_search_requested():
             st.session_state["search_requested"] = True
             st.session_state["search_started_at"] = time.time()
 
-    try:
-        mem_path = REPO_ROOT / "data" / "search_memory.json"
-        if mem_path.exists():
-            memory = json.loads(mem_path.read_text())
-            recent = list(reversed(memory.get("queries", [])))[:8]
-            if not query and recent:
-                cols = st.columns([1,2,1])
-                with cols[1]:
-                    st.caption(f"Try: \"{recent[0]}\"")
-    except:
-        pass
+        last_q = st.session_state.get("last_query") or ""
+        search_status = "Search"
 
-    try:
-        from src.search.autocomplete import suggest_rich
-        suggestions = suggest_rich(query, limit=25)
-    except:
-        suggestions = []
+        cols = st.columns([5, 1.2], gap="small")
+        with cols[0]:
+            query = st.text_input(
+                "Player Search",
+                last_q,
+                placeholder="e.g. 'Athletic wing who can finish at the rim'",
+                label_visibility="collapsed",
+                on_change=_mark_search_requested,
+                key="search_query_input",
+            )
+        with cols[1]:
+            if st.button(search_status, key="search_btn", use_container_width=True):
+                st.session_state["search_requested"] = True
+                st.session_state["search_started_at"] = time.time()
 
-    
-    def _render_debug_filters():
-        return
+        try:
+            mem_path = REPO_ROOT / "data" / "search_memory.json"
+            if mem_path.exists():
+                memory = json.loads(mem_path.read_text())
+                recent = list(reversed(memory.get("queries", [])))[:8]
+                if not query and recent:
+                    cols = st.columns([1,2,1])
+                    with cols[1]:
+                        st.caption(f"Try: \"{recent[0]}\"")
+        except:
+            pass
 
-    def _render_results(rows, query_text):
-        st.session_state.setdefault("search_results", [])
-        st.session_state["search_results"] = rows or []
-        if rows:
-            grouped = {}
-            for r in rows:
-                grouped.setdefault(r["Player"], []).append(r)
+        try:
+            from src.search.autocomplete import suggest_rich
+            suggestions = suggest_rich(query, limit=25)
+        except:
+            suggestions = []
 
-            progress_placeholder = st.session_state.get("progress_placeholder")
-            if progress_placeholder is not None:
-                count = len(grouped.keys())
+        
+        def _render_debug_filters():
+            return
+
+        def _render_results(rows, query_text):
+            st.session_state.setdefault("search_results", [])
+            st.session_state["search_results"] = rows or []
+            if rows:
+                grouped = {}
+                for r in rows:
+                    grouped.setdefault(r["Player"], []).append(r)
+
+                progress_placeholder = st.session_state.get("progress_placeholder")
+                if progress_placeholder is not None:
+                    count = len(grouped.keys())
+                    progress_placeholder.markdown(
+                        f"""
+                        <style>
+                          @keyframes pr-pulse-slow {{
+                            0% {{ opacity: 0.45; }}
+                            50% {{ opacity: 1.0; }}
+                            100% {{ opacity: 0.45; }}
+                          }}
+                          .pr-match-count {{
+                            color: #ffffff;
+                            font-weight: 700;
+                            animation: pr-pulse-slow 4s ease-in-out infinite;
+                            text-align: left;
+                            margin-bottom: 8px;
+                          }}
+                        </style>
+                        <div class='pr-match-count'>
+                          {count} Matching Players Identified:
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+
+                st.markdown("<h3 style='margin-top:40px;'>Top Prospects</h3>", unsafe_allow_html=True)
+
+                for player, clips in grouped.items():
+                    try:
+                        pid = _normalize_player_id(clips[0].get("Player ID")) if clips else None
+                        score = clips[0].get("Score", 0) if clips else 0
+                        st.session_state.setdefault("player_meta_cache", {})
+                        if pid:
+                            st.session_state["player_meta_cache"][pid] = {
+                                "name": player,
+                                "position": clips[0].get("Position", "") if clips else "",
+                                "team": clips[0].get("Team", "") if clips else "",
+                                "team_id": clips[0].get("Team", "") if clips else "",
+                                "height": clips[0].get("Height") if clips else None,
+                                "weight": clips[0].get("Weight") if clips else None,
+                                "class_year": clips[0].get("Class") if clips else None,
+                                "high_school": clips[0].get("High School") if clips else None,
+                                "ppg": clips[0].get("PPG") if clips else None,
+                                "rpg": clips[0].get("RPG") if clips else None,
+                                "apg": clips[0].get("APG") if clips else None,
+                                "score": score,
+                            }
+
+                        pos = clips[0].get("Position")
+                        team = clips[0].get("Team")
+                        ht = clips[0].get("Height")
+                        wt = clips[0].get("Weight")
+                        pos = pos if pos not in [None, "", "None"] else "—"
+                        team = team if team not in [None, "", "None"] else "—"
+                        
+                        detail_parts = [
+                            player,
+                            pos,
+                            _fmt_height(ht) if ht else "—",
+                            f"{int(wt)} lbs" if wt else "—",
+                            team,
+                            f"Recruit Score: {score:.1f}",
+                        ]
+                        label = " | ".join(detail_parts)
+
+                        st.markdown("<div class='pr-result-card'>", unsafe_allow_html=True)
+                        if pid and st.button(label, key=f"btn_{pid}", use_container_width=True):
+                            st.session_state["pending_selected_player"] = pid
+                            st.session_state["selected_player"] = pid
+                            _set_qp_safe("player", pid)
+                            st.rerun()
+
+                        breakdown = clips[0].get("Score Breakdown") if clips else {}
+                        if isinstance(breakdown, dict) and breakdown:
+                            vec = float(breakdown.get("vector") or 0.0)
+                            pos_boost = float(breakdown.get("position_boost") or 0.0)
+                            bio_boost = float(breakdown.get("biometric_boost") or 0.0)
+                            kw = float(breakdown.get("keyword") or 0.0)
+
+                            def _grade(val: float) -> str:
+                                if val >= 0.35:
+                                    return "High"
+                                if val >= 0.20:
+                                    return "Medium"
+                                return "Low"
+
+                            vec_disp = 1.0 / (1.0 + math.exp(-vec)) if vec is not None else 0.0
+                            vector_label = _grade(vec_disp)
+                            size_label = "Elite" if bio_boost >= 0.25 else ("Solid" if bio_boost >= 0.15 else "Low")
+                            st.caption(
+                                f"Match Quality: {vector_label} (Vector) | Size Fit: {size_label} (Bio)"
+                                f" — Vec {vec_disp:.2f} | Pos {pos_boost:.2f} | Bio {bio_boost:.2f} | Key {kw:.2f}"
+                            )
+
+                        extra = []
+                        if clips[0].get("Class") and clips[0].get("Class") != "—": extra.append(f"Class: {clips[0].get('Class')}")
+                        if clips[0].get("High School") and clips[0].get("High School") != "—": extra.append(f"HS: {clips[0].get('High School')}")
+                        if extra: st.caption(" • ".join(extra))
+                        vid = clips[0].get("Video") if clips else None
+                        if isinstance(vid, str) and vid.strip() and vid != "-":
+                            st.link_button("Video", vid)
+                        st.markdown("</div>", unsafe_allow_html=True)
+                    except Exception as e:
+                        print(f"DEBUG: render error for {player}: {e}")
+                        continue
+            else:
+                st.info("No results after filters.")
+                _render_debug_filters()
+
+        if not st.session_state.get("search_requested") and st.session_state.get("search_results"):
+            _render_results(st.session_state.get("search_results"), st.session_state.get("last_query") or "")
+
+        if query and st.session_state.get("search_requested"):
+            if not st.session_state.get("search_started_at"):
+                st.session_state["search_started_at"] = time.time()
+
+            progress_placeholder = st.empty()
+            st.session_state["progress_placeholder"] = progress_placeholder
+            def _stage(msg, color="#7aa2f7"):
                 progress_placeholder.markdown(
-                    f"""
-                    <style>
-                      @keyframes pr-pulse-slow {{
-                        0% {{ opacity: 0.45; }}
-                        50% {{ opacity: 1.0; }}
-                        100% {{ opacity: 0.45; }}
-                      }}
-                      .pr-match-count {{
-                        color: #ffffff;
-                        font-weight: 700;
-                        animation: pr-pulse-slow 4s ease-in-out infinite;
-                        text-align: left;
-                        margin-bottom: 8px;
-                      }}
-                    </style>
-                    <div class='pr-match-count'>
-                      {count} Matching Players Identified:
-                    </div>
-                    """,
+                    f"<div class='old-recuiter-stage' style='color:{color}'>" + msg + "</div>",
                     unsafe_allow_html=True,
                 )
+            _stage("Phoning the Old Recruiter...", "#7aa2f7")
+            time.sleep(10)
+            _stage("Dropping the Old Recruiter off at the airport...", "#9b7bff")
+            time.sleep(5)
+            explaining_start = time.time()
+            _stage("Explaining Uber to the Old Recruiter...", "#f6c177")
 
-            st.markdown("<h3 style='margin-top:40px;'>Top Prospects</h3>", unsafe_allow_html=True)
+            slider_dog = slider_menace = slider_unselfish = slider_tough = 0
+            slider_rim = slider_shot = slider_gravity = slider_size = 0
+            intent_dog = intent_menace = intent_unselfish = intent_tough = 0
+            intent_rim = intent_shot = intent_gravity = intent_size = 0
+            n_results = 150
+            intent_tags = []
+            required_tags = []
+            finishing_intent = False
 
-            for player, clips in grouped.items():
-                try:
-                    pid = _normalize_player_id(clips[0].get("Player ID")) if clips else None
-                    score = clips[0].get("Score", 0) if clips else 0
-                    st.session_state.setdefault("player_meta_cache", {})
-                    if pid:
-                        st.session_state["player_meta_cache"][pid] = {
-                            "name": player,
-                            "position": clips[0].get("Position", "") if clips else "",
-                            "team": clips[0].get("Team", "") if clips else "",
-                            "team_id": clips[0].get("Team", "") if clips else "",
-                            "height": clips[0].get("Height") if clips else None,
-                            "weight": clips[0].get("Weight") if clips else None,
-                            "class_year": clips[0].get("Class") if clips else None,
-                            "high_school": clips[0].get("High School") if clips else None,
-                            "ppg": clips[0].get("PPG") if clips else None,
-                            "rpg": clips[0].get("RPG") if clips else None,
-                            "apg": clips[0].get("APG") if clips else None,
-                            "score": score,
-                        }
+            try:
+                from src.search.coach_dictionary import infer_intents_verbose, INTENTS
+                q_lower = (query or "").lower()
+                if " or " in q_lower:
+                    logic = "or"
+                    parts = [p.strip() for p in q_lower.split(" or ") if p.strip()]
+                elif " and " in q_lower or " but " in q_lower:
+                    logic = "and"
+                    parts = [p.strip() for p in q_lower.replace(" but ", " and ").split(" and ") if p.strip()]
+                else:
+                    logic = "single"
+                    parts = [q_lower]
 
-                    pos = clips[0].get("Position")
-                    team = clips[0].get("Team")
-                    ht = clips[0].get("Height")
-                    wt = clips[0].get("Weight")
-                    pos = pos if pos not in [None, "", "None"] else "—"
-                    team = team if team not in [None, "", "None"] else "—"
-                    
-                    detail_parts = [
-                        player,
-                        pos,
-                        _fmt_height(ht) if ht else "—",
-                        f"{int(wt)} lbs" if wt else "—",
-                        team,
-                        f"Recruit Score: {score:.1f}",
-                    ]
-                    label = " | ".join(detail_parts)
+                numeric_filters = []
+                pattern = re.compile(r"\b(over|under|above|below|at least|atleast|at most|atmost|more than|less than)\s+(\d+(?:\.\d+)?)%?\s*(3pt|3pt%|3pt\s*%|three|three point|three-point|ft|free throw|free-throw|fg|field goal|field-goal|shot)\b")
+                for m in pattern.finditer(q_lower):
+                    numeric_filters.append((m.group(1), float(m.group(2)), m.group(3)))
 
-                    st.markdown("<div class='pr-result-card'>", unsafe_allow_html=True)
-                    if pid and st.button(label, key=f"btn_{pid}", use_container_width=True):
-                        st.session_state["pending_selected_player"] = pid
-                        st.session_state["selected_player"] = pid
-                        _set_qp_safe("player", pid)
-                        st.rerun()
-
-                    breakdown = clips[0].get("Score Breakdown") if clips else {}
-                    if isinstance(breakdown, dict) and breakdown:
-                        vec = float(breakdown.get("vector") or 0.0)
-                        pos_boost = float(breakdown.get("position_boost") or 0.0)
-                        bio_boost = float(breakdown.get("biometric_boost") or 0.0)
-                        kw = float(breakdown.get("keyword") or 0.0)
-
-                        def _grade(val: float) -> str:
-                            if val >= 0.35:
-                                return "High"
-                            if val >= 0.20:
-                                return "Medium"
-                            return "Low"
-
-                        vec_disp = 1.0 / (1.0 + math.exp(-vec)) if vec is not None else 0.0
-                        vector_label = _grade(vec_disp)
-                        size_label = "Elite" if bio_boost >= 0.25 else ("Solid" if bio_boost >= 0.15 else "Low")
-                        st.caption(
-                            f"Match Quality: {vector_label} (Vector) | Size Fit: {size_label} (Bio)"
-                            f" — Vec {vec_disp:.2f} | Pos {pos_boost:.2f} | Bio {bio_boost:.2f} | Key {kw:.2f}"
-                        )
-
-                    extra = []
-                    if clips[0].get("Class") and clips[0].get("Class") != "—": extra.append(f"Class: {clips[0].get('Class')}")
-                    if clips[0].get("High School") and clips[0].get("High School") != "—": extra.append(f"HS: {clips[0].get('High School')}")
-                    if extra: st.caption(" • ".join(extra))
-                    vid = clips[0].get("Video") if clips else None
-                    if isinstance(vid, str) and vid.strip() and vid != "-":
-                        st.link_button("Video", vid)
-                    st.markdown("</div>", unsafe_allow_html=True)
-                except Exception as e:
-                    print(f"DEBUG: render error for {player}: {e}")
-                    continue
-        else:
-            st.info("No results after filters.")
-            _render_debug_filters()
-
-    if not st.session_state.get("search_requested") and st.session_state.get("search_results"):
-        _render_results(st.session_state.get("search_results"), st.session_state.get("last_query") or "")
-
-    if query and st.session_state.get("search_requested"):
-        if not st.session_state.get("search_started_at"):
-            st.session_state["search_started_at"] = time.time()
-
-        progress_placeholder = st.empty()
-        st.session_state["progress_placeholder"] = progress_placeholder
-        def _stage(msg, color="#7aa2f7"):
-            progress_placeholder.markdown(
-                f"<div class='old-recuiter-stage' style='color:{color}'>" + msg + "</div>",
-                unsafe_allow_html=True,
-            )
-        _stage("Phoning the Old Recruiter...", "#7aa2f7")
-        time.sleep(10)
-        _stage("Dropping the Old Recruiter off at the airport...", "#9b7bff")
-        time.sleep(5)
-        explaining_start = time.time()
-        _stage("Explaining Uber to the Old Recruiter...", "#f6c177")
-
-        slider_dog = slider_menace = slider_unselfish = slider_tough = 0
-        slider_rim = slider_shot = slider_gravity = slider_size = 0
-        intent_dog = intent_menace = intent_unselfish = intent_tough = 0
-        intent_rim = intent_shot = intent_gravity = intent_size = 0
-        n_results = 150
-        intent_tags = []
-        required_tags = []
-        finishing_intent = False
-
-        try:
-            from src.search.coach_dictionary import infer_intents_verbose, INTENTS
-            q_lower = (query or "").lower()
-            if " or " in q_lower:
-                logic = "or"
-                parts = [p.strip() for p in q_lower.split(" or ") if p.strip()]
-            elif " and " in q_lower or " but " in q_lower:
-                logic = "and"
-                parts = [p.strip() for p in q_lower.replace(" but ", " and ").split(" and ") if p.strip()]
-            else:
+                intents = {}
+                for part in parts:
+                    intents.update(infer_intents_verbose(part))
+            except:
+                intents = {}
+                q_lower = (query or "").lower()
+                numeric_filters = []
                 logic = "single"
-                parts = [q_lower]
-
-            numeric_filters = []
-            pattern = re.compile(r"\b(over|under|above|below|at least|atleast|at most|atmost|more than|less than)\s+(\d+(?:\.\d+)?)%?\s*(3pt|3pt%|3pt\s*%|three|three point|three-point|ft|free throw|free-throw|fg|field goal|field-goal|shot)\b")
-            for m in pattern.finditer(q_lower):
-                numeric_filters.append((m.group(1), float(m.group(2)), m.group(3)))
-
-            intents = {}
-            for part in parts:
-                intents.update(infer_intents_verbose(part))
-        except:
-            intents = {}
-            q_lower = (query or "").lower()
-            numeric_filters = []
-            logic = "single"
-        
-        exclude_tags = set()
-        role_hints = _infer_role_hints(query)
-        size_intents = _infer_size_intents(query)
-        matched_phrases = []
-        apply_exclude = any(tok in q_lower for tok in [" no ", "avoid", "without", "dont", "don't", "not "])
-        leadership_intent = "leadership" in intents
-        resilience_intent = "resilience" in intents
-        defensive_big_intent = "defensive_big" in intents
-        clutch_intent = "clutch" in intents
-        undervalued_intent = "undervalued" in intents
-        finishing_intent = "finishing" in intents
-
-        heuristic_tags = []
-        if any(k in q_lower for k in ["big man", "big", "center", "rim protector", "paint"]):
-            role_hints.add("big")
-            heuristic_tags += ["rim_pressure", "block", "post_up", "paint_touch"]
-        if any(k in q_lower for k in ["stretch", "can shoot", "shooting big", "pick and pop", "spacing"]):
-            heuristic_tags += ["shot3", "catch_shoot", "spot_up", "pick_pop"]
-        if any(k in q_lower for k in ["athletic", "explosive", "vertical", "lob threat"]):
-            heuristic_tags += ["rim_run", "dunk", "putback", "transition"]
-        if any(k in q_lower for k in ["rebound", "boards", "glass"]):
-            heuristic_tags += ["off_reb", "def_reb"]
-        if any(k in q_lower for k in ["rim pressure", "downhill", "paint touch"]):
-            heuristic_tags += ["drive", "rim_finish", "layup"]
-        if any(k in q_lower for k in ["playmaker", "creator", "facilitator"]):
-            heuristic_tags += ["assist", "pnr", "drive_kick"]
-        if any(k in q_lower for k in ["defender", "stopper", "lockdown"]):
-            heuristic_tags += ["deflection", "steal", "on_ball"]
-
-        for hit, phrase in intents.values():
-            intent = hit.intent
-            w = hit.weight
-            role_hints |= hit.role_hints
-            matched_phrases.append(phrase)
             
-            intent_dog = max(intent_dog, int(intent.traits.get("dog", 0) * w))
-            intent_menace = max(intent_menace, int(intent.traits.get("menace", 0) * w))
-            intent_unselfish = max(intent_unselfish, int(intent.traits.get("unselfish", 0) * w))
-            intent_tough = max(intent_tough, int(intent.traits.get("tough", 0) * w))
-            intent_rim = max(intent_rim, int(intent.traits.get("rim", 0) * w))
-            intent_shot = max(intent_shot, int(intent.traits.get("shot", 0) * w))
-            intent_gravity = max(intent_gravity, int(intent.traits.get("gravity", 0) * w))
-            if intent is INTENTS.get("size_measurables"):
-                intent_size = max(intent_size, 70)
-            intent_tags = list(set(intent_tags + list(intent.tags)))
-            exclude_tags |= intent.exclude_tags
+            exclude_tags = set()
+            role_hints = _infer_role_hints(query)
+            size_intents = _infer_size_intents(query)
+            matched_phrases = []
+            apply_exclude = any(tok in q_lower for tok in [" no ", "avoid", "without", "dont", "don't", "not "])
+            leadership_intent = "leadership" in intents
+            resilience_intent = "resilience" in intents
+            defensive_big_intent = "defensive_big" in intents
+            clutch_intent = "clutch" in intents
+            undervalued_intent = "undervalued" in intents
+            finishing_intent = "finishing" in intents
 
-            if logic == "and":
-                required_tags = list(set(required_tags + list(intent.tags)))
+            heuristic_tags = []
+            if any(k in q_lower for k in ["big man", "big", "center", "rim protector", "paint"]):
+                role_hints.add("big")
+                heuristic_tags += ["rim_pressure", "block", "post_up", "paint_touch"]
+            if any(k in q_lower for k in ["stretch", "can shoot", "shooting big", "pick and pop", "spacing"]):
+                heuristic_tags += ["shot3", "catch_shoot", "spot_up", "pick_pop"]
+            if any(k in q_lower for k in ["athletic", "explosive", "vertical", "lob threat"]):
+                heuristic_tags += ["rim_run", "dunk", "putback", "transition"]
+            if any(k in q_lower for k in ["rebound", "boards", "glass"]):
+                heuristic_tags += ["off_reb", "def_reb"]
+            if any(k in q_lower for k in ["rim pressure", "downhill", "paint touch"]):
+                heuristic_tags += ["drive", "rim_finish", "layup"]
+            if any(k in q_lower for k in ["playmaker", "creator", "facilitator"]):
+                heuristic_tags += ["assist", "pnr", "drive_kick"]
+            if any(k in q_lower for k in ["defender", "stopper", "lockdown"]):
+                heuristic_tags += ["deflection", "steal", "on_ball"]
 
-        st.session_state["last_matched_phrases"] = matched_phrases
-        st.session_state["last_role_hints"] = sorted(role_hints)
-        st.session_state["last_size_intents"] = size_intents
+            for hit, phrase in intents.values():
+                intent = hit.intent
+                w = hit.weight
+                role_hints |= hit.role_hints
+                matched_phrases.append(phrase)
+                
+                intent_dog = max(intent_dog, int(intent.traits.get("dog", 0) * w))
+                intent_menace = max(intent_menace, int(intent.traits.get("menace", 0) * w))
+                intent_unselfish = max(intent_unselfish, int(intent.traits.get("unselfish", 0) * w))
+                intent_tough = max(intent_tough, int(intent.traits.get("tough", 0) * w))
+                intent_rim = max(intent_rim, int(intent.traits.get("rim", 0) * w))
+                intent_shot = max(intent_shot, int(intent.traits.get("shot", 0) * w))
+                intent_gravity = max(intent_gravity, int(intent.traits.get("gravity", 0) * w))
+                if intent is INTENTS.get("size_measurables"):
+                    intent_size = max(intent_size, 70)
+                intent_tags = list(set(intent_tags + list(intent.tags)))
+                exclude_tags |= intent.exclude_tags
 
-        if "guard" in role_hints: intent_tags = list(set(intent_tags + ["drive", "pnr"]))
-        if "wing" in role_hints: intent_tags = list(set(intent_tags + ["3pt", "deflection"]))
-        if "big" in role_hints: intent_tags = list(set(intent_tags + ["rim_pressure", "block", "post_up"]))
+                if logic == "and":
+                    required_tags = list(set(required_tags + list(intent.tags)))
 
-        if heuristic_tags:
-            intent_tags = list(set(intent_tags + heuristic_tags))
+            st.session_state["last_matched_phrases"] = matched_phrases
+            st.session_state["last_role_hints"] = sorted(role_hints)
+            st.session_state["last_size_intents"] = size_intents
 
-        if finishing_intent:
-            required_tags = list(set(required_tags + ["rim_finish", "layup", "dunk", "made"]))
+            if "guard" in role_hints: intent_tags = list(set(intent_tags + ["drive", "pnr"]))
+            if "wing" in role_hints: intent_tags = list(set(intent_tags + ["3pt", "deflection"]))
+            if "big" in role_hints: intent_tags = list(set(intent_tags + ["rim_pressure", "block", "post_up"]))
 
-        required_tags = [] # Default off
-        st.session_state["last_query"] = query
-        st.session_state["last_query_tags"] = intent_tags
+            if heuristic_tags:
+                intent_tags = list(set(intent_tags + heuristic_tags))
 
-        collection = None
-        vector_search_ready = True
-        try:
-            collection = _get_search_collection()
-        except Exception as e:
-            vector_search_ready = False
-            st.info(f"Semantic index unavailable, using keyword fallback search. ({e})")
+            if finishing_intent:
+                required_tags = list(set(required_tags + ["rim_finish", "layup", "dunk", "made"]))
 
-        from src.search.semantic import build_expanded_query, semantic_search, expand_query_terms
-        expanded_terms = (expand_query_terms(query) or []) + (_expand_query_synonyms(query) or [])
-        expanded_query = build_expanded_query(query, (matched_phrases or []) + (expanded_terms or []))
+            required_tags = [] # Default off
+            st.session_state["last_query"] = query
+            st.session_state["last_query_tags"] = intent_tags
 
-        st.markdown("<script>document.body.classList.add('searching');</script>", unsafe_allow_html=True)
+            collection = None
+            vector_search_ready = True
+            try:
+                collection = _get_search_collection()
+            except Exception as e:
+                vector_search_ready = False
+                st.info(f"Semantic index unavailable, using keyword fallback search. ({e})")
 
-        cache_key = _search_cache_key(query, intent_tags, required_tags, n_results)
-        cached_play_ids = _cache_get(cache_key)
-        search_alpha = float(st.session_state.get("search_alpha", 1.2))
-        search_beta = float(st.session_state.get("search_beta", 3.0))
-        breakdowns = {}
-        if cached_play_ids is not None:
-            play_ids = cached_play_ids
-        else:
-            if vector_search_ready and collection is not None:
-                try:
-                    play_ids, breakdowns = semantic_search(
-                        collection,
-                        query=query,
-                        n_results=n_results,
-                        extra_query_terms=(matched_phrases or []) + (expanded_terms or []),
-                        required_tags=required_tags,
-                        boost_tags=intent_tags,
-                        return_breakdowns=True,
-                        alpha_override=search_alpha,
-                        beta_override=search_beta,
-                    )
-                except:
-                    play_ids = []
-                    breakdowns = {}
+            from src.search.semantic import build_expanded_query, semantic_search, expand_query_terms
+            expanded_terms = (expand_query_terms(query) or []) + (_expand_query_synonyms(query) or [])
+            expanded_query = build_expanded_query(query, (matched_phrases or []) + (expanded_terms or []))
 
-                if not play_ids:
+            st.markdown("<script>document.body.classList.add('searching');</script>", unsafe_allow_html=True)
+
+            cache_key = _search_cache_key(query, intent_tags, required_tags, n_results)
+            cached_play_ids = _cache_get(cache_key)
+            search_alpha = float(st.session_state.get("search_alpha", 1.2))
+            search_beta = float(st.session_state.get("search_beta", 3.0))
+            breakdowns = {}
+            if cached_play_ids is not None:
+                play_ids = cached_play_ids
+            else:
+                if vector_search_ready and collection is not None:
                     try:
-                        collection = _get_search_collection()
                         play_ids, breakdowns = semantic_search(
                             collection,
                             query=query,
@@ -2038,572 +2025,634 @@ elif st.session_state.app_mode == "Search":
                         play_ids = []
                         breakdowns = {}
 
-                if not play_ids:
-                    vector_search_ready = False
+                    if not play_ids:
+                        try:
+                            collection = _get_search_collection()
+                            play_ids, breakdowns = semantic_search(
+                                collection,
+                                query=query,
+                                n_results=n_results,
+                                extra_query_terms=(matched_phrases or []) + (expanded_terms or []),
+                                required_tags=required_tags,
+                                boost_tags=intent_tags,
+                                return_breakdowns=True,
+                                alpha_override=search_alpha,
+                                beta_override=search_beta,
+                            )
+                        except:
+                            play_ids = []
+                            breakdowns = {}
+
+                    if not play_ids:
+                        vector_search_ready = False
+                        play_ids = _keyword_search_play_ids(
+                            query,
+                            extra_terms=(matched_phrases or []) + (expanded_terms or []),
+                            limit=max(n_results, 150),
+                        )
+                else:
                     play_ids = _keyword_search_play_ids(
                         query,
                         extra_terms=(matched_phrases or []) + (expanded_terms or []),
                         limit=max(n_results, 150),
                     )
+
+                if not play_ids and expanded_query:
+                    play_ids = _keyword_search_play_ids(
+                        expanded_query,
+                        extra_terms=(matched_phrases or []) + (expanded_terms or []),
+                        limit=max(n_results, 150),
+                    )
+
+                _cache_set(cache_key, play_ids)
+            count_initial = len(play_ids)
+            st.session_state["search_breakdowns"] = breakdowns or {}
+
+            if vector_search_ready and collection is not None and len(play_ids) < 8:
+                try:
+                    play_ids, breakdowns = semantic_search(
+                        collection,
+                        query=expanded_query,
+                        n_results=max(n_results, 200),
+                        extra_query_terms=(matched_phrases or []) + (expanded_terms or []),
+                        required_tags=[],
+                        boost_tags=intent_tags,
+                        diversify_by_player=False,
+                        return_breakdowns=True,
+                        alpha_override=search_alpha,
+                        beta_override=search_beta,
+                    )
+                except:
+                    st.error("Search index error.")
+                    st.stop()
+            count_after_fallback = len(play_ids)
+            
+            elapsed = time.time() - explaining_start
+            if elapsed < 5: time.sleep(5 - elapsed)
+
+            st.markdown("<script>document.body.classList.remove('searching');</script>", unsafe_allow_html=True)
+
+            if not play_ids:
+                st.warning("No results found.")
             else:
-                play_ids = _keyword_search_play_ids(
-                    query,
-                    extra_terms=(matched_phrases or []) + (expanded_terms or []),
-                    limit=max(n_results, 150),
-                )
+                conn = sqlite3.connect(DB_PATH_STR)
+                cur = conn.cursor()
 
-            if not play_ids and expanded_query:
-                play_ids = _keyword_search_play_ids(
-                    expanded_query,
-                    extra_terms=(matched_phrases or []) + (expanded_terms or []),
-                    limit=max(n_results, 150),
-                )
+                try:
+                    cur.execute("PRAGMA table_info(player_traits)")
+                    existing_cols = {r[1] for r in cur.fetchall()}
+                    needed = {"leadership_index", "resilience_index", "defensive_big_index", "clutch_index", "undervalued_index", "gravity_index"}
+                    for col in needed:
+                        if col not in existing_cols:
+                            cur.execute(f"ALTER TABLE player_traits ADD COLUMN {col} REAL")
+                    conn.commit()
+                except: pass
 
-            _cache_set(cache_key, play_ids)
-        count_initial = len(play_ids)
-        st.session_state["search_breakdowns"] = breakdowns or {}
+                _ensure_player_id_map(conn)
+                player_id_map = _load_player_id_map()
 
-        if vector_search_ready and collection is not None and len(play_ids) < 8:
-            try:
-                play_ids, breakdowns = semantic_search(
-                    collection,
-                    query=expanded_query,
-                    n_results=max(n_results, 200),
-                    extra_query_terms=(matched_phrases or []) + (expanded_terms or []),
-                    required_tags=[],
-                    boost_tags=intent_tags,
-                    diversify_by_player=False,
-                    return_breakdowns=True,
-                    alpha_override=search_alpha,
-                    beta_override=search_beta,
-                )
-            except:
-                st.error("Search index error.")
-                st.stop()
-        count_after_fallback = len(play_ids)
-        
-        elapsed = time.time() - explaining_start
-        if elapsed < 5: time.sleep(5 - elapsed)
-
-        st.markdown("<script>document.body.classList.remove('searching');</script>", unsafe_allow_html=True)
-
-        if not play_ids:
-            st.warning("No results found.")
-        else:
-            conn = sqlite3.connect(DB_PATH_STR)
-            cur = conn.cursor()
-
-            try:
-                cur.execute("PRAGMA table_info(player_traits)")
-                existing_cols = {r[1] for r in cur.fetchall()}
-                needed = {"leadership_index", "resilience_index", "defensive_big_index", "clutch_index", "undervalued_index", "gravity_index"}
-                for col in needed:
-                    if col not in existing_cols:
-                        cur.execute(f"ALTER TABLE player_traits ADD COLUMN {col} REAL")
-                conn.commit()
-            except: pass
-
-            _ensure_player_id_map(conn)
-            player_id_map = _load_player_id_map()
-
-            placeholders = ",".join(["?"] * len(play_ids))
-            cur.execute(
-                f"""
-                SELECT play_id, description, game_id, clock_display, player_id, player_name
-                FROM plays
-                WHERE play_id IN ({placeholders})
-                """,
-                play_ids,
-            )
-            play_rows = cur.fetchall()
-
-            debug_counts = {
-                'play_ids_initial': count_initial,
-                'play_ids_after_fallback': count_after_fallback,
-                'play_rows_fetched': len(play_rows),
-                'meta_found': 0,
-                'after_trait_sliders': 0,
-                'after_tag_filters': 0,
-                'after_numeric_filters': 0,
-                'after_position_filters': 0,
-                'after_size_filters': 0,
-                'final_rows': 0,
-            }
-
-            mapped_player_ids = []
-            for r in play_rows:
-                play_pid = _normalize_player_id(r[4])
-                mapped_pid = player_id_map.get(play_pid) or play_pid
-                if mapped_pid:
-                    mapped_player_ids.append(mapped_pid)
-            traits = {}
-            if mapped_player_ids:
-                ph2 = ",".join(["?"] * len(set(mapped_player_ids)))
+                placeholders = ",".join(["?"] * len(play_ids))
                 cur.execute(
                     f"""
-                    SELECT player_id, dog_index, menace_index, unselfish_index,
-                           toughness_index, rim_pressure_index, shot_making_index, gravity_index, size_index,
-                           leadership_index, resilience_index, defensive_big_index, clutch_index,
-                           undervalued_index
-                    FROM player_traits
-                    WHERE player_id IN ({ph2})
+                    SELECT play_id, description, game_id, clock_display, player_id, player_name
+                    FROM plays
+                    WHERE play_id IN ({placeholders})
                     """,
-                    list(set(mapped_player_ids)),
+                    play_ids,
                 )
-                traits = {
-                    _normalize_player_id(r[0]): {
-                        "dog": r[1],
-                        "menace": r[2],
-                        "unselfish": r[3],
-                        "tough": r[4],
-                        "rim": r[5],
-                        "shot": r[6],
-                        "gravity": r[7],
-                        "size": r[8],
-                        "leadership": r[9],
-                        "resilience": r[10],
-                        "defensive_big": r[11],
-                        "clutch": r[12],
-                        "undervalued": r[13],
-                    }
-                    for r in cur.fetchall() if _normalize_player_id(r[0])
+                play_rows = cur.fetchall()
+
+                debug_counts = {
+                    'play_ids_initial': count_initial,
+                    'play_ids_after_fallback': count_after_fallback,
+                    'play_rows_fetched': len(play_rows),
+                    'meta_found': 0,
+                    'after_trait_sliders': 0,
+                    'after_tag_filters': 0,
+                    'after_numeric_filters': 0,
+                    'after_position_filters': 0,
+                    'after_size_filters': 0,
+                    'final_rows': 0,
                 }
 
-            cur.execute("""
-                SELECT AVG(dog_index), AVG(menace_index), AVG(unselfish_index),
-                       AVG(toughness_index), AVG(rim_pressure_index), AVG(shot_making_index), AVG(gravity_index),
-                       AVG(size_index), AVG(leadership_index), AVG(resilience_index), AVG(defensive_big_index),
-                       AVG(clutch_index), AVG(undervalued_index)
-                FROM player_traits
-            """)
-            avg_row = cur.fetchone() or (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-            trait_avg = {
-                "dog": avg_row[0] or 0,
-                "menace": avg_row[1] or 0,
-                "unselfish": avg_row[2] or 0,
-                "tough": avg_row[3] or 0,
-                "rim": avg_row[4] or 0,
-                "shot": avg_row[5] or 0,
-                "gravity": avg_row[6] or 0,
-                "size": avg_row[7] or 0,
-                "leadership": avg_row[8] or 0,
-                "resilience": avg_row[9] or 0,
-                "defensive_big": avg_row[10] or 0,
-                "clutch": avg_row[11] or 0,
-                "undervalued": avg_row[12] or 0,
-            }
-
-            game_ids = list({r[2] for r in play_rows})
-            matchups = {}
-            if game_ids:
-                ph3 = ",".join(["?"] * len(game_ids))
-                cur.execute(
-                    f"""
-                    SELECT game_id, home_team, away_team, video_path
-                    FROM games
-                    WHERE game_id IN ({ph3})
-                    """,
-                    game_ids,
-                )
-                matchups = {r[0]: (r[1], r[2], r[3]) for r in cur.fetchall()}
-
-            conn.close()
-
-            from src.processing.play_tagger import tag_play
-            
-            player_positions = {}
-            try:
-                conn_pos = sqlite3.connect(DB_PATH_STR)
-                cur_pos = conn_pos.cursor()
-                cur_pos.execute("SELECT player_id, position FROM players")
-                player_positions = {_normalize_player_id(r[0]): (r[1] or "") for r in cur_pos.fetchall() if _normalize_player_id(r[0])}
-                conn_pos.close()
-            except: pass
-
-            player_meta = {}
-            player_meta_by_name = {}
-            team_name_by_id = {}
-            try:
-                conn_meta = sqlite3.connect(DB_PATH_STR)
-                cur_meta = conn_meta.cursor()
-                cur_meta.execute("SELECT player_id, full_name, position, team_id, height_in, weight_lb, class_year, high_school FROM players")
-                for r in cur_meta.fetchall():
-                    pid_norm = _normalize_player_id(r[0])
-                    meta_row = {
-                        "full_name": r[1] or "",
-                        "position": r[2] or "",
-                        "team_id": r[3] or "",
-                        "height_in": r[4],
-                        "weight_lb": r[5],
-                        "class_year": r[6] or "",
-                        "high_school": r[7] or "",
+                mapped_player_ids = []
+                for r in play_rows:
+                    play_pid = _normalize_player_id(r[4])
+                    mapped_pid = player_id_map.get(play_pid) or play_pid
+                    if mapped_pid:
+                        mapped_player_ids.append(mapped_pid)
+                traits = {}
+                if mapped_player_ids:
+                    ph2 = ",".join(["?"] * len(set(mapped_player_ids)))
+                    cur.execute(
+                        f"""
+                        SELECT player_id, dog_index, menace_index, unselfish_index,
+                               toughness_index, rim_pressure_index, shot_making_index, gravity_index, size_index,
+                               leadership_index, resilience_index, defensive_big_index, clutch_index,
+                               undervalued_index
+                        FROM player_traits
+                        WHERE player_id IN ({ph2})
+                        """,
+                        list(set(mapped_player_ids)),
+                    )
+                    traits = {
+                        _normalize_player_id(r[0]): {
+                            "dog": r[1],
+                            "menace": r[2],
+                            "unselfish": r[3],
+                            "tough": r[4],
+                            "rim": r[5],
+                            "shot": r[6],
+                            "gravity": r[7],
+                            "size": r[8],
+                            "leadership": r[9],
+                            "resilience": r[10],
+                            "defensive_big": r[11],
+                            "clutch": r[12],
+                            "undervalued": r[13],
+                        }
+                        for r in cur.fetchall() if _normalize_player_id(r[0])
                     }
-                    if pid_norm: player_meta[pid_norm] = meta_row
-                    name_key = _norm_person_name(r[1] or "")
-                    if name_key: player_meta_by_name[name_key] = meta_row
 
-                try:
-                    cur_meta.execute("SELECT team_id, offense_team, defense_team FROM plays WHERE team_id IS NOT NULL AND (offense_team IS NOT NULL OR defense_team IS NOT NULL)")
-                    counts = {}
-                    for tid, off_t, def_t in cur_meta.fetchall():
-                        for t in (off_t, def_t):
-                            if not t: continue
-                            key = (tid, t)
-                            counts[key] = counts.get(key, 0) + 1
-                    for (tid, name), cnt in sorted(counts.items(), key=lambda x: -x[1]):
-                        if tid not in team_name_by_id: team_name_by_id[tid] = name
-                except: pass
-                conn_meta.close()
-            except: pass
+                cur.execute("""
+                    SELECT AVG(dog_index), AVG(menace_index), AVG(unselfish_index),
+                           AVG(toughness_index), AVG(rim_pressure_index), AVG(shot_making_index), AVG(gravity_index),
+                           AVG(size_index), AVG(leadership_index), AVG(resilience_index), AVG(defensive_big_index),
+                           AVG(clutch_index), AVG(undervalued_index)
+                    FROM player_traits
+                """)
+                avg_row = cur.fetchone() or (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+                trait_avg = {
+                    "dog": avg_row[0] or 0,
+                    "menace": avg_row[1] or 0,
+                    "unselfish": avg_row[2] or 0,
+                    "tough": avg_row[3] or 0,
+                    "rim": avg_row[4] or 0,
+                    "shot": avg_row[5] or 0,
+                    "gravity": avg_row[6] or 0,
+                    "size": avg_row[7] or 0,
+                    "leadership": avg_row[8] or 0,
+                    "resilience": avg_row[9] or 0,
+                    "defensive_big": avg_row[10] or 0,
+                    "clutch": avg_row[11] or 0,
+                    "undervalued": avg_row[12] or 0,
+                }
 
-            player_stats = {}
-            player_names = {}
-            traits_all = {}
-            player_team_guess = {}
-            try:
-                conn2 = sqlite3.connect(DB_PATH_STR)
-                cur2 = conn2.cursor()
-                cur2.execute("SELECT player_id, season_id, team_id, gp, possessions, points, fg_percent, shot2_percent, shot3_percent, ft_percent, fg_attempt, shot2_attempt, shot3_attempt, turnover, ppg, rpg, apg FROM player_season_stats ORDER BY season_id DESC")
-                for r in cur2.fetchall():
-                    pid = _normalize_player_id(r[0])
-                    if not pid:
-                        continue
-                    if pid in player_stats: continue
-                    player_stats[pid] = {
-                        "season_id": r[1],
-                        "team_id": r[2],
-                        "gp": r[3],
-                        "possessions": r[4],
-                        "points": r[5],
-                        "fg_percent": r[6],
-                        "shot2_percent": r[7],
-                        "shot3_percent": r[8],
-                        "ft_percent": r[9],
-                        "fg_attempt": r[10],
-                        "shot2_attempt": r[11],
-                        "shot3_attempt": r[12],
-                        "turnover": r[13],
-                        "ppg": r[14],
-                        "rpg": r[15],
-                        "apg": r[16],
-                    }
+                game_ids = list({r[2] for r in play_rows})
+                matchups = {}
+                if game_ids:
+                    ph3 = ",".join(["?"] * len(game_ids))
+                    cur.execute(
+                        f"""
+                        SELECT game_id, home_team, away_team, video_path
+                        FROM games
+                        WHERE game_id IN ({ph3})
+                        """,
+                        game_ids,
+                    )
+                    matchups = {r[0]: (r[1], r[2], r[3]) for r in cur.fetchall()}
+
+                conn.close()
+
+                from src.processing.play_tagger import tag_play
                 
+                player_positions = {}
                 try:
-                    cur2.execute("SELECT p.player_id, p.offense_team, p.defense_team, p.is_home, p.game_id FROM plays p WHERE p.player_id IS NOT NULL")
-                    counts = {}
-                    for pid, off_t, def_t, is_home, gid in cur2.fetchall():
-                        pid_norm = _normalize_player_id(pid)
-                        pid_mapped = player_id_map.get(pid_norm) or pid_norm
-                        if not pid_mapped:
+                    conn_pos = sqlite3.connect(DB_PATH_STR)
+                    cur_pos = conn_pos.cursor()
+                    cur_pos.execute("SELECT player_id, position FROM players")
+                    player_positions = {_normalize_player_id(r[0]): (r[1] or "") for r in cur_pos.fetchall() if _normalize_player_id(r[0])}
+                    conn_pos.close()
+                except: pass
+
+                player_meta = {}
+                player_meta_by_name = {}
+                team_name_by_id = {}
+                try:
+                    conn_meta = sqlite3.connect(DB_PATH_STR)
+                    cur_meta = conn_meta.cursor()
+                    cur_meta.execute("SELECT player_id, full_name, position, team_id, height_in, weight_lb, class_year, high_school FROM players")
+                    for r in cur_meta.fetchall():
+                        pid_norm = _normalize_player_id(r[0])
+                        meta_row = {
+                            "full_name": r[1] or "",
+                            "position": r[2] or "",
+                            "team_id": r[3] or "",
+                            "height_in": r[4],
+                            "weight_lb": r[5],
+                            "class_year": r[6] or "",
+                            "high_school": r[7] or "",
+                        }
+                        if pid_norm: player_meta[pid_norm] = meta_row
+                        name_key = _norm_person_name(r[1] or "")
+                        if name_key: player_meta_by_name[name_key] = meta_row
+
+                    try:
+                        cur_meta.execute("SELECT team_id, offense_team, defense_team FROM plays WHERE team_id IS NOT NULL AND (offense_team IS NOT NULL OR defense_team IS NOT NULL)")
+                        counts = {}
+                        for tid, off_t, def_t in cur_meta.fetchall():
+                            for t in (off_t, def_t):
+                                if not t: continue
+                                key = (tid, t)
+                                counts[key] = counts.get(key, 0) + 1
+                        for (tid, name), cnt in sorted(counts.items(), key=lambda x: -x[1]):
+                            if tid not in team_name_by_id: team_name_by_id[tid] = name
+                    except: pass
+                    conn_meta.close()
+                except: pass
+
+                player_stats = {}
+                player_names = {}
+                traits_all = {}
+                player_team_guess = {}
+                try:
+                    conn2 = sqlite3.connect(DB_PATH_STR)
+                    cur2 = conn2.cursor()
+                    cur2.execute("SELECT player_id, season_id, team_id, gp, possessions, points, fg_percent, shot2_percent, shot3_percent, ft_percent, fg_attempt, shot2_attempt, shot3_attempt, turnover, ppg, rpg, apg FROM player_season_stats ORDER BY season_id DESC")
+                    for r in cur2.fetchall():
+                        pid = _normalize_player_id(r[0])
+                        if not pid:
                             continue
-                        if off_t: counts[(pid_mapped, off_t)] = counts.get((pid_mapped, off_t), 0) + 1
-                        if def_t: counts[(pid_mapped, def_t)] = counts.get((pid_mapped, def_t), 0) + 1
-                    if not counts:
-                        cur2.execute("SELECT p.player_id, p.is_home, g.home_team, g.away_team FROM plays p JOIN games g ON g.game_id = p.game_id WHERE p.player_id IS NOT NULL AND g.home_team IS NOT NULL AND g.away_team IS NOT NULL")
-                        for pid, is_home, home, away in cur2.fetchall():
+                        if pid in player_stats: continue
+                        player_stats[pid] = {
+                            "season_id": r[1],
+                            "team_id": r[2],
+                            "gp": r[3],
+                            "possessions": r[4],
+                            "points": r[5],
+                            "fg_percent": r[6],
+                            "shot2_percent": r[7],
+                            "shot3_percent": r[8],
+                            "ft_percent": r[9],
+                            "fg_attempt": r[10],
+                            "shot2_attempt": r[11],
+                            "shot3_attempt": r[12],
+                            "turnover": r[13],
+                            "ppg": r[14],
+                            "rpg": r[15],
+                            "apg": r[16],
+                        }
+                    
+                    try:
+                        cur2.execute("SELECT p.player_id, p.offense_team, p.defense_team, p.is_home, p.game_id FROM plays p WHERE p.player_id IS NOT NULL")
+                        counts = {}
+                        for pid, off_t, def_t, is_home, gid in cur2.fetchall():
                             pid_norm = _normalize_player_id(pid)
                             pid_mapped = player_id_map.get(pid_norm) or pid_norm
-                            team = home if is_home else away
-                            if pid_mapped and team:
-                                counts[(pid_mapped, team)] = counts.get((pid_mapped, team), 0) + 1
-                    for (pid, team), cnt in sorted(counts.items(), key=lambda x: -x[1]):
-                        if pid not in player_team_guess: player_team_guess[pid] = team
+                            if not pid_mapped:
+                                continue
+                            if off_t: counts[(pid_mapped, off_t)] = counts.get((pid_mapped, off_t), 0) + 1
+                            if def_t: counts[(pid_mapped, def_t)] = counts.get((pid_mapped, def_t), 0) + 1
+                        if not counts:
+                            cur2.execute("SELECT p.player_id, p.is_home, g.home_team, g.away_team FROM plays p JOIN games g ON g.game_id = p.game_id WHERE p.player_id IS NOT NULL AND g.home_team IS NOT NULL AND g.away_team IS NOT NULL")
+                            for pid, is_home, home, away in cur2.fetchall():
+                                pid_norm = _normalize_player_id(pid)
+                                pid_mapped = player_id_map.get(pid_norm) or pid_norm
+                                team = home if is_home else away
+                                if pid_mapped and team:
+                                    counts[(pid_mapped, team)] = counts.get((pid_mapped, team), 0) + 1
+                        for (pid, team), cnt in sorted(counts.items(), key=lambda x: -x[1]):
+                            if pid not in player_team_guess: player_team_guess[pid] = team
+                    except: pass
+
+                    cur2.execute("SELECT player_id, full_name FROM players")
+                    for r in cur2.fetchall(): player_names[r[0]] = r[1]
+                    
+                    cur2.execute("SELECT player_id, dog_index, menace_index, unselfish_index, toughness_index, rim_pressure_index, shot_making_index, gravity_index, size_index, leadership_index, resilience_index, defensive_big_index, clutch_index, undervalued_index FROM player_traits")
+                    for r in cur2.fetchall():
+                        traits_all[r[0]] = {
+                            "dog": r[1],
+                            "menace": r[2],
+                            "unselfish": r[3],
+                            "tough": r[4],
+                            "rim": r[5],
+                            "shot": r[6],
+                            "gravity": r[7],
+                            "size": r[8],
+                            "leadership": r[9],
+                            "resilience": r[10],
+                            "defensive_big": r[11],
+                            "clutch": r[12],
+                            "undervalued": r[13],
+                        }
+                    conn2.close()
                 except: pass
 
-                cur2.execute("SELECT player_id, full_name FROM players")
-                for r in cur2.fetchall(): player_names[r[0]] = r[1]
-                
-                cur2.execute("SELECT player_id, dog_index, menace_index, unselfish_index, toughness_index, rim_pressure_index, shot_making_index, gravity_index, size_index, leadership_index, resilience_index, defensive_big_index, clutch_index, undervalued_index FROM player_traits")
-                for r in cur2.fetchall():
-                    traits_all[r[0]] = {
-                        "dog": r[1],
-                        "menace": r[2],
-                        "unselfish": r[3],
-                        "tough": r[4],
-                        "rim": r[5],
-                        "shot": r[6],
-                        "gravity": r[7],
-                        "size": r[8],
-                        "leadership": r[9],
-                        "resilience": r[10],
-                        "defensive_big": r[11],
-                        "clutch": r[12],
-                        "undervalued": r[13],
-                    }
-                conn2.close()
-            except: pass
+                def _collect_vals(key):
+                    return [v.get(key) for v in player_stats.values() if v.get(key) is not None]
 
-            def _collect_vals(key):
-                return [v.get(key) for v in player_stats.values() if v.get(key) is not None]
+                stat_keys = ["points", "possessions", "fg_percent", "shot3_percent", "ft_percent", "fg_attempt", "shot2_attempt", "shot3_attempt", "turnover"]
+                stat_means = {k: (_safe_float(sum(_collect_vals(k))) / max(1, len(_collect_vals(k)))) for k in stat_keys}
+                stat_stds = {k: math.sqrt(sum(((_safe_float(v) - stat_means[k]) ** 2) for v in _collect_vals(k)) / max(1, len(_collect_vals(k)))) for k in stat_keys}
 
-            stat_keys = ["points", "possessions", "fg_percent", "shot3_percent", "ft_percent", "fg_attempt", "shot2_attempt", "shot3_attempt", "turnover"]
-            stat_means = {k: (_safe_float(sum(_collect_vals(k))) / max(1, len(_collect_vals(k)))) for k in stat_keys}
-            stat_stds = {k: math.sqrt(sum(((_safe_float(v) - stat_means[k]) ** 2) for v in _collect_vals(k)) / max(1, len(_collect_vals(k)))) for k in stat_keys}
+                _stage("Confirming arrival of the Old Recruiter at Prospect's local gym...", "#7bdcb5")
 
-            _stage("Confirming arrival of the Old Recruiter at Prospect's local gym...", "#7bdcb5")
-
-            rows = []
-            breakdown_lookup = st.session_state.get("search_breakdowns", {}) or {}
-            for pid, desc, gid, clock, player_id, player_name in play_rows:
-                pid_norm = _normalize_player_id(player_id)
-                mapped_pid = player_id_map.get(pid_norm) or pid_norm
-                meta = player_meta.get(mapped_pid) if mapped_pid else None
-                if meta is None and player_name:
-                    meta = player_meta_by_name.get(_norm_person_name(player_name))
-                if meta is None:
-                    continue
-                debug_counts['meta_found'] += 1
-                
-                t = traits.get(mapped_pid, {}) if mapped_pid else {}
-                dog_index = t.get("dog")
-                menace_index = t.get("menace")
-                unselfish_index = t.get("unselfish")
-                tough_index = t.get("tough")
-                rim_index = t.get("rim")
-                shot_index = t.get("shot")
-                gravity_index = t.get("gravity")
-
-                if dog_index is not None and dog_index < slider_dog: continue
-                if menace_index is not None and menace_index < slider_menace: continue
-                if unselfish_index is not None and unselfish_index < slider_unselfish: continue
-                if tough_index is not None and tough_index < slider_tough: continue
-                if rim_index is not None and rim_index < slider_rim: continue
-                if shot_index is not None and shot_index < slider_shot: continue
-                if gravity_index is not None and gravity_index < slider_gravity: continue
-                if t.get("size") is not None and t.get("size") < slider_size: continue
-
-                debug_counts['after_trait_sliders'] += 1
-
-                play_tags = list(_tag_play_cached(desc))
-                if "non_possession" in play_tags: continue
-                if apply_exclude and exclude_tags and set(play_tags).intersection(exclude_tags): continue
-                if required_tags:
-                    req_threshold = _required_tag_threshold(required_tags)
-                    req_hits = len(set(required_tags).intersection(set(play_tags)))
-                    if req_hits < req_threshold: continue
-
-                debug_counts['after_tag_filters'] += 1
-
-                if numeric_filters:
-                    pstats = player_stats.get(mapped_pid, {}) if mapped_pid else {}
-                    allow = True
-                    for comp, val, stat in numeric_filters:
-                        stat_val = None
-                        if "3" in stat or "three" in stat: stat_val = _safe_float(pstats.get("shot3_percent")) * 100
-                        elif stat in {"ft", "free throw", "free-throw"}: stat_val = _safe_float(pstats.get("ft_percent")) * 100
-                        elif stat in {"fg", "field goal", "field-goal", "shot"}: stat_val = _safe_float(pstats.get("fg_percent")) * 100
-                        if stat_val is None: continue
-                        if comp in {"over", "above", "more than", "at least", "atleast"} and not (stat_val >= val): allow = False
-                        if comp in {"under", "below", "less than", "at most", "atmost"} and not (stat_val <= val): allow = False
-                    if not allow: continue
-
-                debug_counts['after_numeric_filters'] += 1
-
-                pos = (player_positions.get(mapped_pid) or "").upper() if mapped_pid else ""
-                if pos:
-                    pos_tags = _position_tags(pos)
-                    if "guard" in role_hints and "guard" not in pos_tags:
+                rows = []
+                breakdown_lookup = st.session_state.get("search_breakdowns", {}) or {}
+                for pid, desc, gid, clock, player_id, player_name in play_rows:
+                    pid_norm = _normalize_player_id(player_id)
+                    mapped_pid = player_id_map.get(pid_norm) or pid_norm
+                    meta = player_meta.get(mapped_pid) if mapped_pid else None
+                    if meta is None and player_name:
+                        meta = player_meta_by_name.get(_norm_person_name(player_name))
+                    if meta is None:
                         continue
-                    if "wing" in role_hints and "wing" not in pos_tags:
-                        continue
-                    if "big" in role_hints and "big" not in pos_tags:
-                        continue
-                    q_lower = (query or "").lower()
-                    if "point guard" in q_lower or "pg" in q_lower:
-                        if not ("PG" in pos or "POINT" in pos):
+                    debug_counts['meta_found'] += 1
+                    
+                    t = traits.get(mapped_pid, {}) if mapped_pid else {}
+                    dog_index = t.get("dog")
+                    menace_index = t.get("menace")
+                    unselfish_index = t.get("unselfish")
+                    tough_index = t.get("tough")
+                    rim_index = t.get("rim")
+                    shot_index = t.get("shot")
+                    gravity_index = t.get("gravity")
+
+                    if dog_index is not None and dog_index < slider_dog: continue
+                    if menace_index is not None and menace_index < slider_menace: continue
+                    if unselfish_index is not None and unselfish_index < slider_unselfish: continue
+                    if tough_index is not None and tough_index < slider_tough: continue
+                    if rim_index is not None and rim_index < slider_rim: continue
+                    if shot_index is not None and shot_index < slider_shot: continue
+                    if gravity_index is not None and gravity_index < slider_gravity: continue
+                    if t.get("size") is not None and t.get("size") < slider_size: continue
+
+                    debug_counts['after_trait_sliders'] += 1
+
+                    play_tags = list(_tag_play_cached(desc))
+                    if "non_possession" in play_tags: continue
+                    if apply_exclude and exclude_tags and set(play_tags).intersection(exclude_tags): continue
+                    if required_tags:
+                        req_threshold = _required_tag_threshold(required_tags)
+                        req_hits = len(set(required_tags).intersection(set(play_tags)))
+                        if req_hits < req_threshold: continue
+
+                    debug_counts['after_tag_filters'] += 1
+
+                    if numeric_filters:
+                        pstats = player_stats.get(mapped_pid, {}) if mapped_pid else {}
+                        allow = True
+                        for comp, val, stat in numeric_filters:
+                            stat_val = None
+                            if "3" in stat or "three" in stat: stat_val = _safe_float(pstats.get("shot3_percent")) * 100
+                            elif stat in {"ft", "free throw", "free-throw"}: stat_val = _safe_float(pstats.get("ft_percent")) * 100
+                            elif stat in {"fg", "field goal", "field-goal", "shot"}: stat_val = _safe_float(pstats.get("fg_percent")) * 100
+                            if stat_val is None: continue
+                            if comp in {"over", "above", "more than", "at least", "atleast"} and not (stat_val >= val): allow = False
+                            if comp in {"under", "below", "less than", "at most", "atmost"} and not (stat_val <= val): allow = False
+                        if not allow: continue
+
+                    debug_counts['after_numeric_filters'] += 1
+
+                    pos = (player_positions.get(mapped_pid) or "").upper() if mapped_pid else ""
+                    if pos:
+                        pos_tags = _position_tags(pos)
+                        if "guard" in role_hints and "guard" not in pos_tags:
+                            continue
+                        if "wing" in role_hints and "wing" not in pos_tags:
+                            continue
+                        if "big" in role_hints and "big" not in pos_tags:
+                            continue
+                        q_lower = (query or "").lower()
+                        if "point guard" in q_lower or "pg" in q_lower:
+                            if not ("PG" in pos or "POINT" in pos):
+                                continue
+
+                    debug_counts['after_position_filters'] += 1
+
+                    # Size / development intents (soft but effective)
+                    if meta:
+                        h_in = meta.get("height_in")
+                        w_lb = meta.get("weight_lb")
+                        h_in = int(h_in) if isinstance(h_in, (int, float)) and h_in else None
+                        w_lb = float(w_lb) if isinstance(w_lb, (int, float)) and w_lb else None
+
+                        hmin = size_intents.get("height_min")
+                        hmax = size_intents.get("height_max")
+                        if hmin is not None and h_in is not None and h_in < hmin:
+                            continue
+                        if hmax is not None and h_in is not None and h_in > hmax:
                             continue
 
-                debug_counts['after_position_filters'] += 1
+                        # position-relative sanity: if query says "big" but player is clearly small, drop
+                        if "big" in role_hints and h_in is not None and h_in < 77:
+                            continue
+                        if "guard" in role_hints and "tall" in (query or "").lower() and h_in is not None and h_in < 74:
+                            continue
 
-                # Size / development intents (soft but effective)
-                if meta:
-                    h_in = meta.get("height_in")
-                    w_lb = meta.get("weight_lb")
-                    h_in = int(h_in) if isinstance(h_in, (int, float)) and h_in else None
-                    w_lb = float(w_lb) if isinstance(w_lb, (int, float)) and w_lb else None
-
-                    hmin = size_intents.get("height_min")
-                    hmax = size_intents.get("height_max")
-                    if hmin is not None and h_in is not None and h_in < hmin:
-                        continue
-                    if hmax is not None and h_in is not None and h_in > hmax:
-                        continue
-
-                    # position-relative sanity: if query says "big" but player is clearly small, drop
-                    if "big" in role_hints and h_in is not None and h_in < 77:
-                        continue
-                    if "guard" in role_hints and "tall" in (query or "").lower() and h_in is not None and h_in < 74:
-                        continue
-
-                    # "room to grow" prefers younger + leaner frames (approx heuristic)
-                    if size_intents.get("growth"):
-                        class_year = (meta.get("class_year") or "").lower()
-                        young = any(k in class_year for k in ["fr", "fresh", "so", "soph"])
-                        if not young:
-                            # don't exclude, but slight penalty
-                            pass
+                        # "room to grow" prefers younger + leaner frames (approx heuristic)
+                        if size_intents.get("growth"):
+                            class_year = (meta.get("class_year") or "").lower()
+                            young = any(k in class_year for k in ["fr", "fresh", "so", "soph"])
+                            if not young:
+                                # don't exclude, but slight penalty
+                                pass
 
 
-                debug_counts['after_size_filters'] += 1
+                    debug_counts['after_size_filters'] += 1
 
-                weights = {"dog": 0.5, "menace": 0.5, "unselfish": 0.5, "tough": 0.5, "rim": 0.5, "shot": 0.5, "gravity": 0.5, "size": 0.3}
-                if intent_dog > 0: weights["dog"] = 2.0
-                if intent_menace > 0: weights["menace"] = 2.5
-                if intent_unselfish > 0: weights["unselfish"] = 1.5
-                if intent_tough > 0: weights["tough"] = 1.5
-                if intent_rim > 0: weights["rim"] = 2.2
-                if intent_shot > 0: weights["shot"] = 2.5
-                if intent_gravity > 0: weights["gravity"] = 2.0
-                if "big" in role_hints: weights["size"] = 2.0
+                    weights = {"dog": 0.5, "menace": 0.5, "unselfish": 0.5, "tough": 0.5, "rim": 0.5, "shot": 0.5, "gravity": 0.5, "size": 0.3}
+                    if intent_dog > 0: weights["dog"] = 2.0
+                    if intent_menace > 0: weights["menace"] = 2.5
+                    if intent_unselfish > 0: weights["unselfish"] = 1.5
+                    if intent_tough > 0: weights["tough"] = 1.5
+                    if intent_rim > 0: weights["rim"] = 2.2
+                    if intent_shot > 0: weights["shot"] = 2.5
+                    if intent_gravity > 0: weights["gravity"] = 2.0
+                    if "big" in role_hints: weights["size"] = 2.0
 
-                score = 0
-                for key, w in weights.items():
-                    val = t.get(key) or 0
-                    score += val * w
+                    score = 0
+                    for key, w in weights.items():
+                        val = t.get(key) or 0
+                        score += val * w
 
-                score += max(0, (t.get("dog") or 0) - intent_dog) * 0.1
-                score += max(0, (t.get("menace") or 0) - intent_menace) * 0.1
-                score += max(0, (t.get("unselfish") or 0) - intent_unselfish) * 0.1
-                score += max(0, (t.get("tough") or 0) - intent_tough) * 0.1
-                score += max(0, (t.get("rim") or 0) - intent_rim) * 0.1
-                score += max(0, (t.get("shot") or 0) - intent_shot) * 0.1
-                score += max(0, (t.get("gravity") or 0) - intent_gravity) * 0.1
+                    score += max(0, (t.get("dog") or 0) - intent_dog) * 0.1
+                    score += max(0, (t.get("menace") or 0) - intent_menace) * 0.1
+                    score += max(0, (t.get("unselfish") or 0) - intent_unselfish) * 0.1
+                    score += max(0, (t.get("tough") or 0) - intent_tough) * 0.1
+                    score += max(0, (t.get("rim") or 0) - intent_rim) * 0.1
+                    score += max(0, (t.get("shot") or 0) - intent_shot) * 0.1
+                    score += max(0, (t.get("gravity") or 0) - intent_gravity) * 0.1
 
-                matching_tags = set(play_tags).intersection(set(intent_tags))
-                score += len(matching_tags) * 15
+                    matching_tags = set(play_tags).intersection(set(intent_tags))
+                    score += len(matching_tags) * 15
 
-                if leadership_intent and t.get("leadership"): score += t.get("leadership") * 15
-                if resilience_intent and t.get("resilience"): score += t.get("resilience") * 12
-                if defensive_big_intent and t.get("defensive_big"): score += t.get("defensive_big") * 18
-                if clutch_intent and t.get("clutch"): score += t.get("clutch") * 15
-                if undervalued_intent and t.get("undervalued"): score += t.get("undervalued") * 14
-                if "turnover" in play_tags: score -= 8
-                if "made" in play_tags: score += 12
-                if "missed" in play_tags: score -= 6
-                if player_name and player_name in (desc or ""): score += 6
+                    if leadership_intent and t.get("leadership"): score += t.get("leadership") * 15
+                    if resilience_intent and t.get("resilience"): score += t.get("resilience") * 12
+                    if defensive_big_intent and t.get("defensive_big"): score += t.get("defensive_big") * 18
+                    if clutch_intent and t.get("clutch"): score += t.get("clutch") * 15
+                    if undervalued_intent and t.get("undervalued"): score += t.get("undervalued") * 14
+                    if "turnover" in play_tags: score -= 8
+                    if "made" in play_tags: score += 12
+                    if "missed" in play_tags: score -= 6
+                    if player_name and player_name in (desc or ""): score += 6
 
-                home, away, video = matchups.get(gid, ("Unknown", "Unknown", None))
-                if not video:
-                    video = f"https://mock.synergy.com/video/{pid}.mp4"
+                    home, away, video = matchups.get(gid, ("Unknown", "Unknown", None))
+                    if not video:
+                        video = f"https://mock.synergy.com/video/{pid}.mp4"
 
-                trait_map = {
-                    "dog": ("Dog", dog_index),
-                    "menace": ("Menace", menace_index),
-                    "unselfish": ("Unselfish", unselfish_index),
-                    "tough": ("Toughness", tough_index),
-                    "rim": ("Rim Pressure", rim_index),
-                    "shot": ("Shot Making", shot_index),
-                    "gravity": ("Gravity Well", gravity_index),
-                    "size": ("Size", t.get("size")),
-                    "leadership": ("Leadership", t.get("leadership")),
-                    "resilience": ("Resilience", t.get("resilience")),
-                    "defensive_big": ("Defensive Big", t.get("defensive_big")),
-                    "clutch": ("Clutch", t.get("clutch")),
-                    "undervalued": ("Undervalued", t.get("undervalued")),
-                }
-                strengths = []
-                weaknesses = []
-                for key, (label, val) in trait_map.items():
-                    if val is None: continue
-                    avg = trait_avg.get(key, 0)
-                    if val >= avg + 10: strengths.append(label)
-                    elif val <= avg - 10: weaknesses.append(label)
-                strengths = strengths[:2]
-                weaknesses = weaknesses[:2]
+                    trait_map = {
+                        "dog": ("Dog", dog_index),
+                        "menace": ("Menace", menace_index),
+                        "unselfish": ("Unselfish", unselfish_index),
+                        "tough": ("Toughness", tough_index),
+                        "rim": ("Rim Pressure", rim_index),
+                        "shot": ("Shot Making", shot_index),
+                        "gravity": ("Gravity Well", gravity_index),
+                        "size": ("Size", t.get("size")),
+                        "leadership": ("Leadership", t.get("leadership")),
+                        "resilience": ("Resilience", t.get("resilience")),
+                        "defensive_big": ("Defensive Big", t.get("defensive_big")),
+                        "clutch": ("Clutch", t.get("clutch")),
+                        "undervalued": ("Undervalued", t.get("undervalued")),
+                    }
+                    strengths = []
+                    weaknesses = []
+                    for key, (label, val) in trait_map.items():
+                        if val is None: continue
+                        avg = trait_avg.get(key, 0)
+                        if val >= avg + 10: strengths.append(label)
+                        elif val <= avg - 10: weaknesses.append(label)
+                    strengths = strengths[:2]
+                    weaknesses = weaknesses[:2]
 
-                reason_parts = []
-                if intent_unselfish and (unselfish_index or 0) >= intent_unselfish: reason_parts.append("high unselfishness")
-                if intent_tough and (tough_index or 0) >= intent_tough: reason_parts.append("tough/competitive")
-                if intent_dog and (dog_index or 0) >= intent_dog: reason_parts.append("dog mentality")
-                if intent_menace and (menace_index or 0) >= intent_menace: reason_parts.append("defensive menace")
-                if intent_rim and (rim_index or 0) >= intent_rim: reason_parts.append("rim pressure")
-                if intent_shot and (shot_index or 0) >= intent_shot: reason_parts.append("shot making")
-                if intent_gravity and (gravity_index or 0) >= intent_gravity: reason_parts.append("gravity well")
-                if not reason_parts:
-                    if strengths: reason_parts.append(f"elite {strengths[0].lower()}")
-                    else: reason_parts.append("balanced skill set")
-                reason = " — ".join(reason_parts)
+                    reason_parts = []
+                    if intent_unselfish and (unselfish_index or 0) >= intent_unselfish: reason_parts.append("high unselfishness")
+                    if intent_tough and (tough_index or 0) >= intent_tough: reason_parts.append("tough/competitive")
+                    if intent_dog and (dog_index or 0) >= intent_dog: reason_parts.append("dog mentality")
+                    if intent_menace and (menace_index or 0) >= intent_menace: reason_parts.append("defensive menace")
+                    if intent_rim and (rim_index or 0) >= intent_rim: reason_parts.append("rim pressure")
+                    if intent_shot and (shot_index or 0) >= intent_shot: reason_parts.append("shot making")
+                    if intent_gravity and (gravity_index or 0) >= intent_gravity: reason_parts.append("gravity well")
+                    if not reason_parts:
+                        if strengths: reason_parts.append(f"elite {strengths[0].lower()}")
+                        else: reason_parts.append("balanced skill set")
+                    reason = " — ".join(reason_parts)
 
-                # Comps & Archetypes logic omitted for brevity as it was correct
-                # Just ensuring variables exist
-                sim_players = []
-                nba_floor = "—"
-                nba_ceiling = "—"
+                    # Comps & Archetypes logic omitted for brevity as it was correct
+                    # Just ensuring variables exist
+                    sim_players = []
+                    nba_floor = "—"
+                    nba_ceiling = "—"
 
-                meta = {}
-                pid_norm = _normalize_player_id(player_id)
-                mapped_pid = player_id_map.get(pid_norm) or pid_norm
-                if "player_meta" in locals() and mapped_pid: meta = player_meta.get(mapped_pid, {})
-                if not meta and "player_meta_by_name" in locals(): meta = player_meta_by_name.get(_norm_person_name(player_name or ""), {})
+                    meta = {}
+                    pid_norm = _normalize_player_id(player_id)
+                    mapped_pid = player_id_map.get(pid_norm) or pid_norm
+                    if "player_meta" in locals() and mapped_pid: meta = player_meta.get(mapped_pid, {})
+                    if not meta and "player_meta_by_name" in locals(): meta = player_meta_by_name.get(_norm_person_name(player_name or ""), {})
 
-                pos_val = meta.get("position", "")
-                team_val = meta.get("team_id", "")
-                ht_val = meta.get("height_in")
-                wt_val = meta.get("weight_lb")
-                class_val = meta.get("class_year", "")
-                hs_val = meta.get("high_school", "")
-                ppg_val = (player_stats.get(mapped_pid) or {}).get("ppg") if mapped_pid else None
-                rpg_val = (player_stats.get(mapped_pid) or {}).get("rpg") if mapped_pid else None
-                apg_val = (player_stats.get(mapped_pid) or {}).get("apg") if mapped_pid else None
-                pos_val = pos_val if pos_val not in [None, "", "None"] else "—"
-                team_val = team_val if team_val not in [None, "", "None"] else "—"
-                class_val = class_val if class_val not in [None, "", "None"] else "—"
-                hs_val = hs_val if hs_val not in [None, "", "None"] else "—"
-                if team_val != "—":
-                    team_clean = str(team_val).strip()
-                    if len(team_clean) > 16 and team_clean.replace("-", "").isalnum() and " " not in team_clean:
-                        team_val = team_name_by_id.get(team_val, "—")
-                if team_val == "—" and player_team_guess:
-                    team_val = player_team_guess.get(mapped_pid, "—")
-                if team_val == "—": team_val = "Unknown"
+                    pos_val = meta.get("position", "")
+                    team_val = meta.get("team_id", "")
+                    ht_val = meta.get("height_in")
+                    wt_val = meta.get("weight_lb")
+                    class_val = meta.get("class_year", "")
+                    hs_val = meta.get("high_school", "")
+                    ppg_val = (player_stats.get(mapped_pid) or {}).get("ppg") if mapped_pid else None
+                    rpg_val = (player_stats.get(mapped_pid) or {}).get("rpg") if mapped_pid else None
+                    apg_val = (player_stats.get(mapped_pid) or {}).get("apg") if mapped_pid else None
+                    pos_val = pos_val if pos_val not in [None, "", "None"] else "—"
+                    team_val = team_val if team_val not in [None, "", "None"] else "—"
+                    class_val = class_val if class_val not in [None, "", "None"] else "—"
+                    hs_val = hs_val if hs_val not in [None, "", "None"] else "—"
+                    if team_val != "—":
+                        team_clean = str(team_val).strip()
+                        if len(team_clean) > 16 and team_clean.replace("-", "").isalnum() and " " not in team_clean:
+                            team_val = team_name_by_id.get(team_val, "—")
+                    if team_val == "—" and player_team_guess:
+                        team_val = player_team_guess.get(mapped_pid, "—")
+                    if team_val == "—": team_val = "Unknown"
 
-                debug_counts['final_rows'] = debug_counts.get('final_rows',0)
-                debug_counts['final_rows'] += 1
+                    debug_counts['final_rows'] = debug_counts.get('final_rows',0)
+                    debug_counts['final_rows'] += 1
 
-                rows.append({
-                    # debug
-                
-                    "Match": f"{home} vs {away}",
-                    "Clock": clock,
-                    "Player": (player_name or "Unknown"),
-                    "Player ID": mapped_pid or player_id,
-                    "Position": pos_val,
-                    "Team": team_val,
-                    "Height": ht_val,
-                    "Weight": wt_val,
-                    "Class": class_val,
-                    "High School": hs_val,
-                    "PPG": ppg_val,
-                    "RPG": rpg_val,
-                    "APG": apg_val,
-                    "Why": reason,
-                    "Strengths": ", ".join(strengths) if strengths else "—",
-                    "Weaknesses": ", ".join(weaknesses) if weaknesses else "—",
-                    "Similar NCAA": ", ".join([s for s in sim_players if s]) if sim_players else "—",
-                    "NBA Floor": nba_floor or "—",
-                    "NBA Ceiling": nba_ceiling or "—",
-                    "Profile": "#", # Placeholder URL
-                    "Dog Index": dog_index,
-                    "Menace": menace_index,
-                    "Unselfish": unselfish_index,
-                    "Toughness": tough_index,
-                    "Rim Pressure": rim_index,
-                    "Shot Making": shot_index,
-                    "Gravity Well": gravity_index,
-                    "Tags": ", ".join(play_tags),
-                    "Play": _best_play_snippet(desc, query),
-                    "Video": video or "-",
-                    "Score": round(score, 2),
-                    "Score Breakdown": breakdown_lookup.get(pid) or {},
-                })
+                    rows.append({
+                        # debug
+                    
+                        "Match": f"{home} vs {away}",
+                        "Clock": clock,
+                        "Player": (player_name or "Unknown"),
+                        "Player ID": mapped_pid or player_id,
+                        "Position": pos_val,
+                        "Team": team_val,
+                        "Height": ht_val,
+                        "Weight": wt_val,
+                        "Class": class_val,
+                        "High School": hs_val,
+                        "PPG": ppg_val,
+                        "RPG": rpg_val,
+                        "APG": apg_val,
+                        "Why": reason,
+                        "Strengths": ", ".join(strengths) if strengths else "—",
+                        "Weaknesses": ", ".join(weaknesses) if weaknesses else "—",
+                        "Similar NCAA": ", ".join([s for s in sim_players if s]) if sim_players else "—",
+                        "NBA Floor": nba_floor or "—",
+                        "NBA Ceiling": nba_ceiling or "—",
+                        "Profile": "#", # Placeholder URL
+                        "Dog Index": dog_index,
+                        "Menace": menace_index,
+                        "Unselfish": unselfish_index,
+                        "Toughness": tough_index,
+                        "Rim Pressure": rim_index,
+                        "Shot Making": shot_index,
+                        "Gravity Well": gravity_index,
+                        "Tags": ", ".join(play_tags),
+                        "Play": _best_play_snippet(desc, query),
+                        "Video": video or "-",
+                        "Score": round(score, 2),
+                        "Score Breakdown": breakdown_lookup.get(pid) or {},
+                    })
 
-            st.session_state['debug_counts'] = debug_counts
-            st.session_state['last_role_hints'] = sorted(list(role_hints)) if 'role_hints' in locals() else []
-            st.session_state['last_size_intents'] = size_intents if 'size_intents' in locals() else {}
+                st.session_state['debug_counts'] = debug_counts
+                st.session_state['last_role_hints'] = sorted(list(role_hints)) if 'role_hints' in locals() else []
+                st.session_state['last_size_intents'] = size_intents if 'size_intents' in locals() else {}
 
-            _stage("Incoming email from <a href='mailto:theoldrecruiter@portalrecruit.com'>theoldrecruiter@portalrecruit.com</a>...", "#ff7eb6")
-            rows.sort(key=lambda r: r.get("Score", 0), reverse=True)
-            st.session_state["search_requested"] = False
-            st.session_state["last_rows"] = rows
-            st.session_state["search_results"] = rows
-            _render_results(rows, query)
+                _stage("Incoming email from <a href='mailto:theoldrecruiter@portalrecruit.com'>theoldrecruiter@portalrecruit.com</a>...", "#ff7eb6")
+                rows.sort(key=lambda r: r.get("Score", 0), reverse=True)
+                st.session_state["search_requested"] = False
+                st.session_state["last_rows"] = rows
+                st.session_state["search_results"] = rows
+                _render_results(rows, query)
+
+    with compare_tab:
+        st.markdown("### ⚔️ Comparator")
+        recent_rows = st.session_state.get("search_results", []) or []
+        recent_names = []
+        for row in recent_rows:
+            name = row.get("Player") if isinstance(row, dict) else None
+            if name and name not in recent_names:
+                recent_names.append(name)
+        col_a, col_b = st.columns(2)
+        with col_a:
+            player_a = st.selectbox("Player A", recent_names, index=0 if recent_names else None)
+            player_a = player_a or st.text_input("Player A (manual)", "")
+        with col_b:
+            player_b = st.selectbox("Player B", recent_names, index=1 if len(recent_names) > 1 else 0) if recent_names else ""
+            player_b = player_b or st.text_input("Player B (manual)", "")
+        query_fit = st.text_input("Fit Query", "Big Guard")
+        if st.button("Compare", use_container_width=True):
+            if not player_a or not player_b:
+                st.warning("Select two players to compare.")
+            else:
+                try:
+                    from src.analytics import compare_players
+                    conn = sqlite3.connect(DB_PATH_STR)
+                    a_profile = _get_player_profile(conn, None, player_a)
+                    b_profile = _get_player_profile(conn, None, player_b)
+                    conn.close()
+                    if not a_profile or not b_profile:
+                        st.error("One or both players not found in DB.")
+                    else:
+                        comp = compare_players(a_profile, b_profile, query=query_fit)
+                        left, right = st.columns(2)
+                        with left:
+                            st.markdown("#### " + str(a_profile.get("name")))
+                            st.markdown(comp.get("height_diff", ""))
+                            st.markdown(comp.get("weight_diff", ""))
+                            st.markdown(comp.get("ppg_diff", ""))
+                            st.markdown(comp.get("rpg_diff", ""))
+                            st.markdown(comp.get("apg_diff", ""))
+                        with right:
+                            st.markdown("#### " + str(b_profile.get("name")))
+                            st.markdown(comp.get("fit_diff", ""))
+                except Exception as e:
+                    st.error(f"Comparison failed: {e}")

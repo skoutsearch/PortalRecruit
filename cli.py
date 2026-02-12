@@ -393,11 +393,37 @@ if __name__ == "__main__":
     s.add_argument("--media", action="store_true")
     s.add_argument("--biometrics", action="store_true")
 
+    c = sub.add_parser("compare")
+    c.add_argument("player_a")
+    c.add_argument("player_b")
+    c.add_argument("--query", default="Big Guard")
+
     sub.add_parser("interactive")
 
     args = parser.parse_args()
     if args.command == "search":
         run_search(args.query, n_results=args.n, debug=args.debug, media=args.media, biometrics=args.biometrics)
+    elif args.command == "compare":
+        from src.analytics import compare_players
+        conn = sqlite3.connect(DB_PATH)
+        a_profile = _get_player_profile(conn, None, args.player_a)
+        b_profile = _get_player_profile(conn, None, args.player_b)
+        conn.close()
+        if not a_profile or not b_profile:
+            print("One or both players not found in DB.")
+            sys.exit(1)
+        comp = compare_players(a_profile, b_profile, query=args.query)
+        print("\n⚔️ Player Comparison")
+        print("-" * 50)
+        print(f"Player A: {a_profile.get('name')}")
+        print(f"Player B: {b_profile.get('name')}")
+        print("-")
+        print(comp.get("height_diff"))
+        print(comp.get("weight_diff"))
+        print(comp.get("ppg_diff"))
+        print(comp.get("rpg_diff"))
+        print(comp.get("apg_diff"))
+        print(comp.get("fit_diff"))
     elif args.command == "interactive":
         run_interactive()
     else:
