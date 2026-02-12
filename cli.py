@@ -190,7 +190,7 @@ def _format_matchup(matchup: str, clock: str) -> str:
     return f"VS {opp} ({clock})" if clock else f"VS {opp}"
 
 
-def run_search(query: str, n_results: int = 5, debug: bool = False, media: bool = False) -> None:
+def run_search(query: str, n_results: int = 5, debug: bool = False, media: bool = False, biometrics: bool = False) -> None:
     _load_env()
     # TODO: Replace local Chroma call with Synergy/SportRadar search endpoint
     client = chromadb.PersistentClient(path=VECTOR_DB_PATH)
@@ -293,7 +293,8 @@ def run_search(query: str, n_results: int = 5, debug: bool = False, media: bool 
         print("-" * 50)
         print(results[0].get("meta"))
 
-    if media:
+    media_img = None
+    if media or biometrics:
         from src.social_media import build_video_query, build_image_query, serper_search, select_best_video, select_best_image
         team_name = ""
         if results:
@@ -303,13 +304,26 @@ def run_search(query: str, n_results: int = 5, debug: bool = False, media: bool 
         v_results = serper_search(v_query, type="videos")
         i_results = serper_search(i_query, type="images")
         vid = select_best_video(v_results, query)
-        img = select_best_image(i_results, query)
-        print("\n📺 Media Lookup")
-        print("-" * 50)
-        print(f"Video Query: {v_query}")
-        print(f"Image Query: {i_query}")
-        print(f"YouTube ID: {vid}")
-        print(f"Image URL: {img}")
+        media_img = select_best_image(i_results, query)
+        if media:
+            print("\n📺 Media Lookup")
+            print("-" * 50)
+            print(f"Video Query: {v_query}")
+            print(f"Image Query: {i_query}")
+            print(f"YouTube ID: {vid}")
+            print(f"Image URL: {media_img}")
+
+    if biometrics:
+        from src.biometrics import generate_biometric_tags
+        profile = _get_player_profile(conn, results[0].get("player_id") if results else None, results[0].get("player_name") if results else None)
+        if profile is not None:
+            profile["image_url"] = media_img
+            bio = generate_biometric_tags(profile)
+            print("\n🧍 Biometric Tags")
+            print("-" * 50)
+            print(f"Math Tags: {bio.get('math_tags')}")
+            print(f"Vision: {bio.get('vision')}")
+            print(f"All Tags: {bio.get('tags')}")
 
     top3 = results[:3] if len(results) >= 3 else results
     if not top3:
@@ -349,12 +363,13 @@ if __name__ == "__main__":
     s.add_argument("--n", type=int, default=5)
     s.add_argument("--debug", action="store_true")
     s.add_argument("--media", action="store_true")
+    s.add_argument("--biometrics", action="store_true")
 
     sub.add_parser("interactive")
 
     args = parser.parse_args()
     if args.command == "search":
-        run_search(args.query, n_results=args.n, debug=args.debug, media=args.media)
+        run_search(args.query, n_results=args.n, debug=args.debug, media=args.media, biometrics=args.biometrics)
     elif args.command == "interactive":
         run_interactive()
     else:

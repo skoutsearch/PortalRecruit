@@ -959,10 +959,30 @@ def _render_profile_overlay(player_id: str):
         if not player_image_url:
             player_image_url = "https://portalrecruit.github.io/PortalRecruit/PRLOGO.png"
 
+        from src.biometrics import generate_biometric_tags
+        biometric = {
+            "tags": [],
+            "math_tags": [],
+            "vision": None,
+        }
+        try:
+            biometric = generate_biometric_tags({
+                "height_in": profile.get("height_in"),
+                "weight_lb": profile.get("weight_lb"),
+                "position": profile.get("position"),
+                "image_url": player_image_url,
+            })
+        except Exception:
+            pass
+
+        tag_line = " | ".join([t.title() for t in (biometric.get("tags") or [])])
         st.markdown(f"""
             <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <img src="{player_image_url}" style="width:72px; height:72px; border-radius:12px; object-fit:cover; border:1px solid rgba(255,255,255,0.2);" />
-                <h2 style="margin:0; padding:0; color:white; font-size:2rem;">{title}</h2>
+                <div>
+                  <h2 style="margin:0; padding:0; color:white; font-size:2rem;">{title}</h2>
+                  <div style="color:#e5e7eb; font-size:0.9rem; opacity:0.9;">AI Physical Profile: {tag_line or '—'}</div>
+                </div>
             </div>
         """, unsafe_allow_html=True)
 

@@ -68,6 +68,12 @@ def expand_query_terms(query: str) -> list[str]:
         "playmaker": ["creator", "facilitator", "unselfish"],
         "defend": ["stopper", "menace", "lockdown"],
         "switchable": ["versatile", "multi-positional"],
+        "huge": ["heavy", "strong"],
+        "massive": ["heavy", "strong"],
+        "tiny": ["undersized", "skinny"],
+        "small": ["undersized", "skinny"],
+        "lanky": ["lanky", "skinny"],
+        "athletic build": ["athletic", "vertical"],
     }
     for key, vals in synonym_map.items():
         if key in q:
