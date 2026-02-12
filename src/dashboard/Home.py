@@ -1620,7 +1620,8 @@ elif st.session_state.app_mode == "Search":
             logic = "single"
         
         exclude_tags = set()
-        role_hints = set()
+        role_hints = _infer_role_hints(query)
+        size_intents = _infer_size_intents(query)
         matched_phrases = []
         apply_exclude = any(tok in q_lower for tok in [" no ", "avoid", "without", "dont", "don't", "not "])
         leadership_intent = "leadership" in intents
@@ -1669,6 +1670,8 @@ elif st.session_state.app_mode == "Search":
                 required_tags = list(set(required_tags + list(intent.tags)))
 
         st.session_state["last_matched_phrases"] = matched_phrases
+        st.session_state["last_role_hints"] = sorted(role_hints)
+        st.session_state["last_size_intents"] = size_intents
 
         if "guard" in role_hints: intent_tags = list(set(intent_tags + ["drive", "pnr"]))
         if "wing" in role_hints: intent_tags = list(set(intent_tags + ["3pt", "deflection"]))
