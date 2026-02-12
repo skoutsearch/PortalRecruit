@@ -1607,6 +1607,10 @@ elif st.session_state.app_mode == "Search":
             st.caption("Tip: If 'meta_found' is low, your players table isn't matching play player_id types. If 'after_position_filters' drops to 0, it's position normalization.")
 
     def _render_results(rows, query_text):
+        st.session_state.setdefault("search_results", [])
+        st.session_state["search_results"] = rows or []
+        print(f"DEBUG: Found {len(rows or [])} results")
+        st.write(f"DEBUG: Found {len(rows or [])} results")
         if rows:
             grouped = {}
             for r in rows:
@@ -1628,59 +1632,66 @@ elif st.session_state.app_mode == "Search":
             st.markdown("<h3 style='margin-top:40px;'>Top Prospects</h3>", unsafe_allow_html=True)
 
             for player, clips in grouped.items():
-                pid = _normalize_player_id(clips[0].get("Player ID")) if clips else None
-                score = clips[0].get("Score", 0) if clips else 0
-                st.session_state.setdefault("player_meta_cache", {})
-                if pid:
-                    st.session_state["player_meta_cache"][pid] = {
-                        "name": player,
-                        "position": clips[0].get("Position", "") if clips else "",
-                        "team": clips[0].get("Team", "") if clips else "",
-                        "team_id": clips[0].get("Team", "") if clips else "",
-                        "height": clips[0].get("Height") if clips else None,
-                        "weight": clips[0].get("Weight") if clips else None,
-                        "class_year": clips[0].get("Class") if clips else None,
-                        "high_school": clips[0].get("High School") if clips else None,
-                        "ppg": clips[0].get("PPG") if clips else None,
-                        "rpg": clips[0].get("RPG") if clips else None,
-                        "apg": clips[0].get("APG") if clips else None,
-                        "score": score,
-                    }
+                try:
+                    pid = _normalize_player_id(clips[0].get("Player ID")) if clips else None
+                    score = clips[0].get("Score", 0) if clips else 0
+                    st.session_state.setdefault("player_meta_cache", {})
+                    if pid:
+                        st.session_state["player_meta_cache"][pid] = {
+                            "name": player,
+                            "position": clips[0].get("Position", "") if clips else "",
+                            "team": clips[0].get("Team", "") if clips else "",
+                            "team_id": clips[0].get("Team", "") if clips else "",
+                            "height": clips[0].get("Height") if clips else None,
+                            "weight": clips[0].get("Weight") if clips else None,
+                            "class_year": clips[0].get("Class") if clips else None,
+                            "high_school": clips[0].get("High School") if clips else None,
+                            "ppg": clips[0].get("PPG") if clips else None,
+                            "rpg": clips[0].get("RPG") if clips else None,
+                            "apg": clips[0].get("APG") if clips else None,
+                            "score": score,
+                        }
 
-                pos = clips[0].get("Position")
-                team = clips[0].get("Team")
-                ht = clips[0].get("Height")
-                wt = clips[0].get("Weight")
-                pos = pos if pos not in [None, "", "None"] else "—"
-                team = team if team not in [None, "", "None"] else "—"
-                
-                detail_parts = [
-                    player,
-                    pos,
-                    _fmt_height(ht) if ht else "—",
-                    f"{int(wt)} lbs" if wt else "—",
-                    team,
-                    f"Recruit Score: {score:.1f}",
-                ]
-                label = " | ".join(detail_parts)
+                    pos = clips[0].get("Position")
+                    team = clips[0].get("Team")
+                    ht = clips[0].get("Height")
+                    wt = clips[0].get("Weight")
+                    pos = pos if pos not in [None, "", "None"] else "—"
+                    team = team if team not in [None, "", "None"] else "—"
+                    
+                    detail_parts = [
+                        player,
+                        pos,
+                        _fmt_height(ht) if ht else "—",
+                        f"{int(wt)} lbs" if wt else "—",
+                        team,
+                        f"Recruit Score: {score:.1f}",
+                    ]
+                    label = " | ".join(detail_parts)
 
-                if pid and st.button(label, key=f"btn_{pid}", use_container_width=True):
-                    st.session_state["pending_selected_player"] = pid
-                    st.session_state["selected_player"] = pid
-                    _set_qp_safe("player", pid)
-                    st.rerun()
+                    if pid and st.button(label, key=f"btn_{pid}", use_container_width=True):
+                        st.session_state["pending_selected_player"] = pid
+                        st.session_state["selected_player"] = pid
+                        _set_qp_safe("player", pid)
+                        st.rerun()
 
-                extra = []
-                if clips[0].get("Class") and clips[0].get("Class") != "—": extra.append(f"Class: {clips[0].get('Class')}")
-                if clips[0].get("High School") and clips[0].get("High School") != "—": extra.append(f"HS: {clips[0].get('High School')}")
-                if extra: st.caption(" • ".join(extra))
-                vid = clips[0].get("Video") if clips else None
-                if vid and vid != "-":
-                    st.link_button("Video", vid)
-                st.markdown("</div>", unsafe_allow_html=True)
+                    extra = []
+                    if clips[0].get("Class") and clips[0].get("Class") != "—": extra.append(f"Class: {clips[0].get('Class')}")
+                    if clips[0].get("High School") and clips[0].get("High School") != "—": extra.append(f"HS: {clips[0].get('High School')}")
+                    if extra: st.caption(" • ".join(extra))
+                    vid = clips[0].get("Video") if clips else None
+                    if isinstance(vid, str) and vid.strip() and vid != "-":
+                        st.link_button("Video", vid)
+                    st.markdown("</div>", unsafe_allow_html=True)
+                except Exception as e:
+                    print(f"DEBUG: render error for {player}: {e}")
+                    continue
         else:
             st.info("No results after filters.")
             _render_debug_filters()
+
+    if not st.session_state.get("search_requested") and st.session_state.get("search_results"):
+        _render_results(st.session_state.get("search_results"), st.session_state.get("last_query") or "")
 
     if query and st.session_state.get("search_requested"):
         st.session_state["search_status"] = "Searching"
@@ -2417,4 +2428,5 @@ elif st.session_state.app_mode == "Search":
             st.session_state["search_status"] = "Search"
             st.session_state["search_requested"] = False
             st.session_state["last_rows"] = rows
+            st.session_state["search_results"] = rows
             _render_results(rows, query)
