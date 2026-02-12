@@ -285,6 +285,7 @@ def semantic_search(
     required_tag_set = {str(t).strip().lower() for t in (required_tags or []) if str(t).strip()}
     boost_tag_set = {str(t).strip().lower() for t in (boost_tags or []) if str(t).strip()}
     query_tokens = _tokenize(expanded_query)
+    query_terms = set(query_tokens)
     meta_filters = meta_filters or {}
 
     candidates: list[tuple[str, str | None, float | None, dict | None, float]] = []
@@ -303,6 +304,17 @@ def semantic_search(
             for tag, allowed in biometric_tags.items():
                 if allowed and any(a in bio for a in allowed):
                     lexical += 0.2
+        if isinstance(meta, dict):
+            pos = str(meta.get("position") or "").upper()
+            if "CENTER" in query_terms or "C" in query_terms:
+                if "C" in pos:
+                    lexical += 0.5
+            if "GUARD" in query_terms or "PG" in query_terms or "SG" in query_terms:
+                if "G" in pos:
+                    lexical += 0.5
+            if "FORWARD" in query_terms or "SF" in query_terms or "PF" in query_terms or "WING" in query_terms:
+                if "F" in pos:
+                    lexical += 0.5
         candidates.append((pid, doc, dist, meta, lexical))
 
     candidates, used_tag_fallback = _filter_candidates_by_tags(candidates, required_tag_set, requested_n)

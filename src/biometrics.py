@@ -139,8 +139,11 @@ def generate_biometric_tags(player_data: Dict[str, Any]) -> Dict[str, Any]:
     if not tags:
         tags = list(math_tags)
 
+    tags = list(dict.fromkeys([t for t in tags if t]))
+    player_data["bio_tags"] = tags
+
     return {
         "math_tags": math_tags,
         "vision": vision,
-        "tags": list(dict.fromkeys([t for t in tags if t])),
+        "tags": tags,
     }

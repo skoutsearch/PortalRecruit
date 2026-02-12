@@ -295,7 +295,7 @@ def run_search(query: str, n_results: int = 5, debug: bool = False, media: bool 
 
     media_img = None
     if media or biometrics:
-        from src.social_media import build_video_query, build_image_query, serper_search, select_best_video, select_best_image
+        from src.social_media import build_video_query, build_image_query, serper_search, select_best_video, select_best_image, generate_name_variations
         team_name = ""
         if results:
             team_name = results[0].get("matchup", "").split(" vs ")[0]

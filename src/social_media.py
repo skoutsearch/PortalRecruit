@@ -99,9 +99,49 @@ def select_best_image(image_results: list[dict], player_name: str) -> str | None
     return urls[0]
 
 
-def build_video_query(player_name: str, team_name: str) -> str:
-    return f'site:youtube.com "{player_name}" "{team_name}" basketball -intitle:shorts'
+def generate_name_variations(name: str) -> list[str]:
+    base = (name or "").strip()
+    if not base:
+        return []
+    variations = {base}
+    # punctuation removal
+    if "'" in base:
+        variations.add(base.replace("'", ""))
+    if "-" in base:
+        variations.add(base.replace("-", " "))
+        variations.add(base.replace("-", ""))
+    # suffix stripping
+    suffixes = [" jr.", " sr.", " ii", " iii", " iv"]
+    lower = base.lower()
+    for s in suffixes:
+        if lower.endswith(s):
+            variations.add(base[: -len(s)].strip())
+    # nicknames
+    if "christopher" in lower:
+        variations.add(base.replace("Christopher", "Chris"))
+    if "cameron" in lower or "camron" in lower:
+        variations.add(base.replace("Cameron", "Cam").replace("Camron", "Cam"))
+    return list(dict.fromkeys([v for v in variations if v]))
 
 
-def build_image_query(player_name: str, team_name: str) -> str:
-    return f'"{player_name}" "{team_name}" basketball game photo -card -ebay -jersey'
+def _build_name_group(name: str) -> str:
+    variations = generate_name_variations(name)
+    if not variations:
+        return ""
+    joined = " OR ".join([f'"{n}"' for n in variations])
+    return f"({joined})"
+
+
+def build_video_query(player_name: str, team_name: str, school_abbr: str = "") -> str:
+    name_group = _build_name_group(player_name)
+    school_group = " OR ".join([f'"{s}"' for s in [team_name, school_abbr] if s])
+    school_group = f"({school_group})" if school_group else ""
+    ctx = "(basketball OR \"mens basketball\")"
+    return f"{name_group} {school_group} {ctx} site:youtube.com -intitle:shorts".strip()
+
+
+def build_image_query(player_name: str, team_name: str, school_abbr: str = "") -> str:
+    name_group = _build_name_group(player_name)
+    school_group = " OR ".join([f'"{s}"' for s in [team_name, school_abbr] if s])
+    school_group = f"({school_group})" if school_group else ""
+    return f"{name_group} {school_group} basketball game photo -card -ebay -jersey".strip()
