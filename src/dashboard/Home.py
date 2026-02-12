@@ -1553,11 +1553,10 @@ elif st.session_state.app_mode == "Search":
     
     def _mark_search_requested():
         st.session_state["search_requested"] = True
-        st.session_state["search_status"] = "Searching"
         st.session_state["search_started_at"] = time.time()
 
     last_q = st.session_state.get("last_query") or ""
-    search_status = st.session_state.get("search_status") or "Search"
+    search_status = "Search"
 
     cols = st.columns([5, 1.2], gap="small")
     with cols[0]:
@@ -1572,7 +1571,6 @@ elif st.session_state.app_mode == "Search":
     with cols[1]:
         if st.button(search_status, key="search_btn", use_container_width=True):
             st.session_state["search_requested"] = True
-            st.session_state["search_status"] = "Searching"
             st.session_state["search_started_at"] = time.time()
 
     try:
@@ -1595,21 +1593,11 @@ elif st.session_state.app_mode == "Search":
 
     
     def _render_debug_filters():
-        dbg = st.session_state.get("debug_counts") or {}
-        if not dbg:
-            return
-        with st.expander("🔎 Debug: why no results / filter stages", expanded=False):
-            st.write(dbg)
-            hints = st.session_state.get("last_role_hints") or []
-            sz = st.session_state.get("last_size_intents") or {}
-            st.write({"role_hints": hints, "size_intents": sz})
-            st.caption("Tip: If 'meta_found' is low, your players table isn't matching play player_id types. If 'after_position_filters' drops to 0, it's position normalization.")
+        return
 
     def _render_results(rows, query_text):
         st.session_state.setdefault("search_results", [])
         st.session_state["search_results"] = rows or []
-        print(f"DEBUG: Found {len(rows or [])} results")
-        st.write(f"DEBUG: Found {len(rows or [])} results")
         if rows:
             grouped = {}
             for r in rows:
@@ -1617,12 +1605,25 @@ elif st.session_state.app_mode == "Search":
 
             progress_placeholder = st.session_state.get("progress_placeholder")
             if progress_placeholder is not None:
-                subject_line = _build_old_recruiter_subject(query_text, st.session_state.get("last_matched_phrases") or [])
+                count = len(grouped.keys())
                 progress_placeholder.markdown(
                     f"""
-                    <div class='old-recuiter-final'>
-                      <div><strong>From:</strong> &lt;The Old Recruiter&gt; <a href='mailto:theoldrecruiter@portalrecruit.com'>theoldrecruiter@portalrecruit.com</a></div>
-                      <div><strong>Subject:</strong> {subject_line}</div>
+                    <style>
+                      @keyframes pr-pulse-slow {{
+                        0% {{ opacity: 0.45; }}
+                        50% {{ opacity: 1.0; }}
+                        100% {{ opacity: 0.45; }}
+                      }}
+                      .pr-match-count {{
+                        color: #ffffff;
+                        font-weight: 700;
+                        animation: pr-pulse-slow 4s ease-in-out infinite;
+                        text-align: left;
+                        margin-bottom: 8px;
+                      }}
+                    </style>
+                    <div class='pr-match-count'>
+                      {count} Matching Players Identified:
                     </div>
                     """,
                     unsafe_allow_html=True,
@@ -1668,6 +1669,7 @@ elif st.session_state.app_mode == "Search":
                     ]
                     label = " | ".join(detail_parts)
 
+                    st.markdown("<div class='pr-result-card'>", unsafe_allow_html=True)
                     if pid and st.button(label, key=f"btn_{pid}", use_container_width=True):
                         st.session_state["pending_selected_player"] = pid
                         st.session_state["selected_player"] = pid
@@ -1693,7 +1695,6 @@ elif st.session_state.app_mode == "Search":
         _render_results(st.session_state.get("search_results"), st.session_state.get("last_query") or "")
 
     if query and st.session_state.get("search_requested"):
-        st.session_state["search_status"] = "Searching"
         if not st.session_state.get("search_started_at"):
             st.session_state["search_started_at"] = time.time()
 
@@ -1827,8 +1828,6 @@ elif st.session_state.app_mode == "Search":
         expanded_terms = (expand_query_terms(query) or []) + (_expand_query_synonyms(query) or [])
         expanded_query = build_expanded_query(query, (matched_phrases or []) + (expanded_terms or []))
 
-        status = st.status("Searching…", expanded=False)
-        status.update(state="running")
         st.markdown("<script>document.body.classList.add('searching');</script>", unsafe_allow_html=True)
 
         cache_key = _search_cache_key(query, intent_tags, required_tags, n_results)
@@ -1909,10 +1908,8 @@ elif st.session_state.app_mode == "Search":
         st.markdown("<script>document.body.classList.remove('searching');</script>", unsafe_allow_html=True)
 
         if not play_ids:
-            status.update(state="complete", label="Search complete")
             st.warning("No results found.")
         else:
-            status.update(state="complete", label="Search complete")
             conn = sqlite3.connect(DB_PATH_STR)
             cur = conn.cursor()
 
@@ -2424,7 +2421,6 @@ elif st.session_state.app_mode == "Search":
 
             _stage("Incoming email from <a href='mailto:theoldrecruiter@portalrecruit.com'>theoldrecruiter@portalrecruit.com</a>...", "#ff7eb6")
             rows.sort(key=lambda r: r.get("Score", 0), reverse=True)
-            st.session_state["search_status"] = "Search"
             st.session_state["search_requested"] = False
             st.session_state["last_rows"] = rows
             st.session_state["search_results"] = rows
