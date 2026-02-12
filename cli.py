@@ -43,7 +43,7 @@ def _load_env() -> None:
         pass
 
 
-def _get_player_profile(conn, player_id: Optional[str], player_name: Optional[str]) -> Dict[str, Any]:
+def _get_player_profile(conn, player_id: Optional[str], player_name: Optional[str], original_desc: Optional[str] = None) -> Dict[str, Any]:
     cur = conn.cursor()
     mapped_pid = None
     if player_id:
@@ -66,6 +66,7 @@ def _get_player_profile(conn, player_id: Optional[str], player_name: Optional[st
         "traits": {},
         "stats": {},
         "plays": [],
+        "original_desc": original_desc,
     }
 
     if pid:
@@ -183,6 +184,12 @@ def _colorize_outcome(text: str, tags: str) -> str:
     return text
 
 
+def _format_matchup(matchup: str, clock: str) -> str:
+    parts = matchup.split(" vs ") if matchup else []
+    opp = parts[1] if len(parts) == 2 else matchup
+    return f"VS {opp} ({clock})" if clock else f"VS {opp}"
+
+
 def run_search(query: str, n_results: int = 5, debug: bool = False) -> None:
     _load_env()
     # TODO: Replace local Chroma call with Synergy/SportRadar search endpoint
@@ -259,6 +266,7 @@ def run_search(query: str, n_results: int = 5, debug: bool = False) -> None:
             "snippet": snippet,
             "video": video_link,
             "meta": meta,
+            "original_desc": meta.get("original_desc") if meta else None,
         })
 
     results.sort(key=lambda r: r["score"], reverse=True)
@@ -274,7 +282,7 @@ def run_search(query: str, n_results: int = 5, debug: bool = False) -> None:
         name_out = f"{ANSI_BLUE_BOLD}{r['player_name']}{ANSI_RESET}"
         snippet_out = _colorize_outcome(r['snippet'], r.get('tags', ""))
         print(f"[{i+1}] Score: {r['score']:.2f} | Player: {name_out}")
-        print(f" Matchup: {r['matchup']} @ {r['clock']}")
+        print(f" Matchup: {_format_matchup(r['matchup'], r['clock'])}")
         print(f" Snippet: {snippet_out}")
         print(f" Tags: [{r['tags']}]\n Video: {video_out}")
         print("")
@@ -288,7 +296,12 @@ def run_search(query: str, n_results: int = 5, debug: bool = False) -> None:
     if not top3:
         return
     pick = random.choice(top3)
-    profile = _get_player_profile(conn, pick.get("player_id"), pick.get("player_name"))
+    profile = _get_player_profile(
+        conn,
+        pick.get("player_id"),
+        pick.get("player_name"),
+        original_desc=pick.get("original_desc") or pick.get("desc"),
+    )
     breakdown = generate_scout_breakdown(profile)
 
     print("\n🏀 Scout Breakdown")
@@ -299,6 +312,7 @@ def run_search(query: str, n_results: int = 5, debug: bool = False) -> None:
 
 def run_interactive() -> None:
     while True:
+        os.system("clear")
         q = input("Enter search query (or 'q' to quit): ").strip()
         if q.lower() in {"q", "quit", "exit"}:
             break

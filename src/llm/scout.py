@@ -143,12 +143,15 @@ def generate_scout_breakdown(profile: Dict[str, Any]) -> str:
 
     # Film Room (The "Meat")
     plays = profile.get("plays", [])
+    original_desc = profile.get("original_desc")
 
     # HACK 2: GENERATE FINGERPRINT
     style_fingerprint = _generate_style_fingerprint(plays)
 
     # Get specific recent clips (Limit to 5 for the prompt text)
     recent_tape_lines = []
+    if original_desc:
+        recent_tape_lines.append(f"FILM NOTES: {original_desc}")
     for i, p in enumerate(plays[:5]):
         desc = p[1] if isinstance(p, (list, tuple)) else str(p)
         clock = p[3] if isinstance(p, (list, tuple)) and len(p) > 3 else ""
@@ -176,7 +179,8 @@ def generate_scout_breakdown(profile: Dict[str, Any]) -> str:
         "You use scout jargon correctly (motor, length, spacing, gravity, downhill, heavy feet, twitchy). "
         "You are NOT a generic AI assistant. Do not use phrases like 'The player showcases' or 'In conclusion.' "
         "Be direct. Highlight the specific elite skill if it exists, otherwise call out the flaws. "
-        "If you cannot cite a specific action from the film notes, say you need more tape. "
+        "If film notes contain text, you must quote at least one action (e.g., 'Hand Off', 'No Dribble Jumper'). "
+        "You are strictly forbidden from saying 'No film data' when film notes are present. "
         "Do not mention Dog Index or other generic ratings unless tied to stats given. "
         "Keep the output under 120 words. Focus on: DOES HE TRANSLATE?"
     )
