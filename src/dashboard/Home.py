@@ -1068,6 +1068,23 @@ def _render_profile_overlay(player_id: str):
                 else:
                     st.json(vision)
 
+        with st.expander("🧬 Similar Players"):
+            from src.similarity import find_similar_players
+            sims = []
+            try:
+                sims = find_similar_players(title, top_k=3)
+            except Exception:
+                sims = []
+            if not sims:
+                st.info("No similar players found.")
+            else:
+                for s in sims:
+                    label = f"{s.get('player_name')} | {s.get('position') or '—'} | {s.get('similarity'):.2f}"
+                    if st.button(label, key=f"sim_{s.get('player_name')}"):
+                        _set_qp_safe("player", s.get("player_name"))
+                        st.session_state["selected_player"] = s.get("player_name")
+                        st.rerun()
+
         cache = st.session_state.get("player_meta_cache", {}) or {}
         meta_cache = cache.get(pid, {}) if pid else {}
         score = meta_cache.get("score")
@@ -2695,6 +2712,16 @@ elif st.session_state.app_mode == "Search":
             st.markdown(f"**Average Height:** {avg_height:.1f} in | **Average Weight:** {avg_weight:.1f} lb")
             st.markdown("**Positional Breakdown:** " + ", ".join([f"{k}: {v}" for k, v in pos_counts.items()]))
             st.dataframe(roster, use_container_width=True)
+            replacement_name = st.selectbox("Find Replacement For", [r.get("name") for r in roster], key="replacement_select")
+            if st.button("Find Replacement", key="replacement_btn"):
+                from src.similarity import find_similar_players
+                replacements = find_similar_players(replacement_name, top_k=5)
+                st.session_state["replacement_results"] = replacements
+            replacements = st.session_state.get("replacement_results", [])
+            if replacements:
+                st.markdown("#### Replacement Candidates")
+                for cand in replacements:
+                    st.caption("{} | {} | {:.2f}".format(cand.get("player_name"), cand.get("position") or "-", cand.get("similarity") or 0.0))
             import pandas as pd
             df = pd.DataFrame(roster)
             if not df.empty:

@@ -5,6 +5,7 @@ import os
 import random
 import sqlite3
 import math
+import sys
 from typing import Any, Dict, List, Optional
 
 import chromadb
@@ -402,6 +403,9 @@ if __name__ == "__main__":
     s_list.add_argument("action", choices=["add", "view", "export", "clear"])
     s_list.add_argument("name", nargs="?")
 
+    sim = sub.add_parser("similar")
+    sim.add_argument("name")
+
     sub.add_parser("interactive")
 
     args = parser.parse_args()
@@ -464,6 +468,20 @@ if __name__ == "__main__":
         elif args.action == "clear":
             clear_roster()
             print("Shortlist cleared.")
+    elif args.command == "similar":
+        from src.similarity import find_similar_players
+        matches = find_similar_players(args.name, top_k=5)
+        if not matches:
+            print("No similar players found.")
+            sys.exit(1)
+        print("\n🧬 Similar Players")
+        print("-" * 50)
+        print(f"Target: {args.name}")
+        print("-")
+        for m in matches:
+            pos = m.get("position") or "—"
+            height = m.get("height_in") or "—"
+            print(f"{m.get('player_name')} | {m.get('similarity'):.2f} | {pos} | {height}")
     elif args.command == "interactive":
         run_interactive()
     else:
