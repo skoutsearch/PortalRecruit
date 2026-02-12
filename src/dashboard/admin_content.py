@@ -7,6 +7,22 @@ import requests
 from dotenv import load_dotenv
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_result
 
+
+def get_secret(secret_name: str):
+    """
+    Tries to get secret from Snowflake secure storage first.
+    Falls back to local st.secrets (for when you run locally).
+    """
+    try:
+        from snowflake.snowpark.context import get_active_session  # noqa: F401
+        import _snowflake
+        return _snowflake.get_generic_secret_string(secret_name.upper())
+    except Exception:
+        try:
+            return st.secrets.get(secret_name.lower())
+        except Exception:
+            return None
+
 # --- 1. PROACTIVE RATE LIMITING (Monkey Patch) ---
 # We overwrite requests.get globally so that src.ingestion.pipeline 
 # automatically uses this robust version without needing code changes there.
@@ -58,7 +74,7 @@ def save_local_api_key(key):
 
 # --- LOAD SECRETS ---
 try:
-    cloud_key = st.secrets.get("SYNERGY_API_KEY", None)
+    cloud_key = get_secret("synergy_api_key")
 except Exception:
     cloud_key = None
 

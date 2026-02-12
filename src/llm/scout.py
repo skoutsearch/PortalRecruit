@@ -1,14 +1,32 @@
 import os
 import random
+from collections import Counter
 from typing import Optional, Dict, Any
 
-# The user has confirmed OpenAI is installed and works well.
+
+def get_secret(secret_name: str):
+    """
+    Tries to get secret from Snowflake secure storage first.
+    Falls back to local st.secrets (for when you run locally).
+    """
+    try:
+        from snowflake.snowpark.context import get_active_session  # noqa: F401
+        import _snowflake
+        return _snowflake.get_generic_secret_string(secret_name.upper())
+    except Exception:
+        try:
+            import streamlit as st
+            return st.secrets.get(secret_name.lower())
+        except Exception:
+            return None
+
+# 1. SETUP & CLIENT
 try:
     from openai import OpenAI
 except ImportError:
     OpenAI = None
 
-# Fallback templates if LLM fails
+# Fallback templates if LLM fails or is missing
 FALLBACK_TEMPLATES = [
     "Kid's got some tools, but I need to see more consistency. The numbers suggest {strength}, but the film needs to back it up.",
     "Solid rotational piece. Brings {strength} to the table. If he can clean up the mistakes, he plays.",
@@ -17,138 +35,203 @@ FALLBACK_TEMPLATES = [
 ]
 
 def _get_client():
-    # 1. Safety check: Is the library installed?
     if OpenAI is None:
         return None
-
-    # 2. Try Environment Variable
-    api_key = os.getenv("OPENAI_API_KEY")
-    
-    # 3. Try Streamlit Secrets (if env var is missing)
+    api_key = os.getenv("OPENAI_API_KEY") or get_secret("openai_api_key")
     if not api_key:
         try:
             import streamlit as st
-            # Safely check secrets without crashing if they don't exist
             if hasattr(st, "secrets"):
-                api_key = st.secrets.get("OPENAI_API_KEY")
-        except ImportError:
+                api_key = get_secret("openai_api_key")
+        except:
             pass
-        except Exception:
-            pass
-            
     if not api_key:
         return None
-        
     return OpenAI(api_key=api_key)
+
+# 2. HELPER: FINGERPRINTING
+
+def _generate_style_fingerprint(plays: list) -> str:
+    """
+    Analyzes ALL available plays to create a statistical profile of playstyle.
+    Returns a string like: "Heavy reliance on spot-up (40%), active cutter (20%)."
+    """
+    if not plays:
+        return "No film data available."
+
+    # Simple keyword mapping if tags aren't pre-computed
+    keywords = {
+        "dunk": "Rim Finisher",
+        "layup": "Rim Finisher",
+        "3pt": "Shooter",
+        "three": "Shooter",
+        "jump shot": "Shooter",
+        "assist": "Playmaker",
+        "pass": "Playmaker",
+        "rebound": "Glass Eater",
+        "steal": "Disruptor",
+        "block": "Rim Protector",
+        "screen": "Screener",
+        "post": "Post Threat",
+        "drive": "Driver",
+        "transition": "Transition"
+    }
+
+    counts = Counter()
+    total_actions = 0
+
+    for p in plays:
+        # Handle tuple from DB or dict from JSON
+        desc = p[1] if isinstance(p, (list, tuple)) and len(p) > 1 else str(p)
+        desc_lower = desc.lower()
+        matched = False
+        for key, label in keywords.items():
+            if key in desc_lower:
+                counts[label] += 1
+                matched = True
+        if matched:
+            total_actions += 1
+
+    if total_actions == 0:
+        return "Limited film sample."
+
+    # Format the top 3 tendencies
+    fingerprint = []
+    for label, count in counts.most_common(3):
+        pct = int((count / total_actions) * 100)
+        fingerprint.append(f"{label} ({pct}%)")
+    return ", ".join(fingerprint)
+
+# 3. MAIN SCOUTING FUNCTION
 
 def generate_scout_breakdown(profile: Dict[str, Any]) -> str:
     """
-    Generates a "Old Recruiter" persona breakdown using the OpenAI API.
+    Generates a 'cynical veteran scout' report based on stats, traits, and play-by-play data.
     """
     client = _get_client()
-    
-    # Extract Data Points
-    name = profile.get("name", "Unknown Player")
-    team = profile.get("team_id", "Unknown Team")
-    
-    # Stats formatting
-    stats = profile.get("stats", {}) or {}
-    
-    # Explicitly fetching per-game stats (User Requested)
-    # Using safe float conversion in case of None/String
-    def safe_float(v):
-        try:
-            return float(v)
-        except (TypeError, ValueError):
-            return 0.0
 
-    ppg = safe_float(stats.get("ppg"))
-    rpg = safe_float(stats.get("rpg"))
-    apg = safe_float(stats.get("apg"))
-    gp = int(safe_float(stats.get("gp")))
-    
-    season = stats.get("season_label", "Current Season")
-    
-    # Physicals
-    height = safe_float(profile.get("height_in"))
-    weight = safe_float(profile.get("weight_lb"))
-    
-    ht_fmt = f"{int(height // 12)}'{int(height % 12)}\"" if height > 0 else "Unknown Ht"
-    wt_fmt = f"{int(weight)} lbs" if weight > 0 else ""
+    # Extract Data
+    name = profile.get("name", "Unknown")
+    team = str(profile.get("team_id", "Unknown Team"))
 
-    # Proprietary Indices (The "Secret Sauce")
-    traits = profile.get("traits", {}) or {}
-    dog_index = traits.get("dog_index", 50)
-    menace_index = traits.get("menace_index", 50)
-    rim_pressure = traits.get("rim_pressure_index", 50)
-    shot_making = traits.get("shot_making_index", 50)
-    
-    # Identify standout traits for context
-    standouts = []
-    if dog_index > 75: standouts.append("elite motor")
-    if menace_index > 75: standouts.append("defensive disruptor")
-    if rim_pressure > 75: standouts.append("downhill force")
-    if shot_making > 75: standouts.append("bucket getter")
-    if dog_index < 30: standouts.append("needs to play harder")
-    
-    context_str = ", ".join(standouts) if standouts else "balanced skill set"
+    # Format Height/Weight
+    ht = profile.get("height_in")
+    wt = profile.get("weight_lb")
+    if ht:
+        ft = int(ht // 12)
+        in_ = int(ht % 12)
+        ht_fmt = f"{ft}'{in_}\""
+    else:
+        ht_fmt = "Height Unknown"
 
-    # Play Tags (Evidence)
+    wt_fmt = f"{int(wt)} lbs" if wt else "Weight Unknown"
+
+    # Stats
+    stats = profile.get("stats", {})
+    ppg = stats.get("ppg", 0.0)
+    rpg = stats.get("rpg", 0.0)
+    apg = stats.get("apg", 0.0)
+    gp = stats.get("gp", 0)
+    season = stats.get("season_label", "Recent Season")
+
+    # Traits (AI Indices)
+    traits = profile.get("traits", {})
+    dog_index = int(traits.get("dog_index", 50) or 50)
+    menace_index = int(traits.get("menace_index", 50) or 50)
+    shot_making = int(traits.get("shot_making_index", 50) or 50)
+    rim_pressure = int(traits.get("rim_pressure_index", 50) or 50)
+
+    # Film Room (The "Meat")
     plays = profile.get("plays", [])
-    recent_actions = []
-    for _, desc, _, _ in plays[:5]:
-        recent_actions.append(f"- {desc}")
-    recent_tape = "\n".join(recent_actions)
 
+    # HACK 2: GENERATE FINGERPRINT
+    style_fingerprint = _generate_style_fingerprint(plays)
+
+    # Get specific recent clips (Limit to 5 for the prompt text)
+    recent_tape_lines = []
+    for i, p in enumerate(plays[:5]):
+        desc = p[1] if isinstance(p, (list, tuple)) else str(p)
+        clock = p[3] if isinstance(p, (list, tuple)) and len(p) > 3 else ""
+        recent_tape_lines.append(f"- {clock} {desc}")
+    recent_tape = " ".join(recent_tape_lines)
+
+    # Determine "Standout" for fallbacks
+    standouts = []
+    if ppg > 15:
+        standouts.append("scoring punch")
+    if rpg > 8:
+        standouts.append("rebounding")
+    if apg > 5:
+        standouts.append("vision")
+    if dog_index > 75:
+        standouts.append("high motor")
+    if menace_index > 75:
+        standouts.append("defensive upside")
+    strength = standouts[0] if standouts else "versatility"
+
+    # SYSTEM PROMPT: THE "OLD RECRUITER" PERSONA
     system_prompt = (
-        "You are 'The Old Recruiter', a 30-year veteran college basketball scout. "
-        "You are grumpy, skeptical, but incredibly insightful. You value toughness, 'high motor', and efficiency over flashiness. "
-        "You speak in short, punchy sentences. You use scouting jargon like 'glue guy', 'traffic cop', 'lunch pail', 'dog', 'spacing', 'gravity', 'length'. "
-        "Never use enthusiastic marketing speak. Be realistic. "
-        "Structure your response in Markdown with these headers: 'The Read', 'The Good', 'The Bad', 'Verdict'. "
-        "Keep it under 200 words."
+        "You are 'The Old Recruiter,' a cynical, 30-year veteran basketball scout. "
+        "You don't trust stats, you trust what you see. You speak in short, punchy sentences. "
+        "You use scout jargon correctly (motor, length, spacing, gravity, downhill, heavy feet, twitchy). "
+        "You are NOT a generic AI assistant. Do not use phrases like 'The player showcases' or 'In conclusion.' "
+        "Be direct. Highlight the specific elite skill if it exists, otherwise call out the flaws. "
+        "Keep the output under 120 words. Focus on: DOES HE TRANSLATE?"
     )
 
     user_prompt = f"""
-    Evaluate this prospect:
-    Name: {name}
-    School: {team}
-    Size: {ht_fmt}, {wt_fmt}
-    Season: {season} over {gp} games
-    Stats: {ppg:.1f} PPG, {rpg:.1f} RPG, {apg:.1f} APG
-    
-    Proprietary Metrics (0-100 scale):
-    - Dog Index (Hustle/Grit): {dog_index}
-    - Menace Index (Defense): {menace_index}
-    - Rim Pressure: {rim_pressure}
-    - Shot Making: {shot_making}
-    
-    Context: Plays like a {context_str}.
-    
-    Recent Tape Notes:
-    {recent_tape}
-    """
+SCOUTING REPORT REQUEST:
+Prospect: {name} ({team})
+Frame: {ht_fmt}, {wt_fmt}
+Production: {ppg:.1f} Pts, {rpg:.1f} Reb, {apg:.1f} Ast ({gp} games)
 
-    # Fallback if no client
+AI METRICS (0-100):
+- Dog/Motor: {dog_index}
+- Defense: {menace_index}
+- Shooting: {shot_making}
+- Rim Pressure: {rim_pressure}
+
+PLAY STYLE FINGERPRINT (Film Frequency):
+{style_fingerprint}
+
+RECENT FILM NOTES:
+{recent_tape}
+
+TASK:
+Write a 3-4 sentence scouting blurb.
+1. Identify his ARCHETYPE immediately based on the Fingerprint.
+2. Comment on how his frame matches that archetype.
+3. Use the 'Dog Index' to judge his motor.
+"""
+
+    # FALLBACK LOGIC
     if not client:
-        strength = standouts[0] if standouts else "general versatility"
         template = random.choice(FALLBACK_TEMPLATES)
         reason = "Library missing" if OpenAI is None else "Key missing"
         return f"**Scout Unavailable ({reason}):** {template.format(strength=strength, height=ht_fmt)}"
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o", 
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            temperature=0.7,
-            max_tokens=350
+            temperature=0.6,  # Lower temp for more grounded/cynical take
+            max_tokens=250
         )
-        return response.choices[0].message.content
+        content = response.choices[0].message.content.strip()
+
+        # Format bolding for key phrases if not present
+        if "**" not in content:
+            # Heuristic: Bold the first 3 words
+            parts = content.split(" ", 3)
+            if len(parts) > 3:
+                content = f"**{parts[0]} {parts[1]} {parts[2]}** {parts[3]}"
+
+        return content
+
     except Exception as e:
-        print(f"LLM Error: {e}")
-        strength = standouts[0] if standouts else "skill set"
+        # Fallback on crash
         template = random.choice(FALLBACK_TEMPLATES)
-        return f"**Scout Unavailable:** {template.format(strength=strength, height=ht_fmt)}"
+        return f"**Scout Offline:** {template.format(strength=strength, height=ht_fmt)}"
