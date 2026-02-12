@@ -868,7 +868,7 @@ with st.sidebar:
                 <img src="data:image/jpeg;base64,{sb_logo}" style="width:120px; border-radius:50%; border:2px solid rgba(255,255,255,0.1);">
             </div>
         """, unsafe_allow_html=True)
-    
+
     st.markdown("<h3 style='text-align:center; font-family:var(--font-heading);'>PORTAL RECRUIT</h3>", unsafe_allow_html=True)
     st.divider()
 
@@ -897,7 +897,7 @@ elif st.session_state.app_mode == "Search":
     render_header()
     qp = _get_qp_safe()
     target_pid = st.session_state.get("selected_player")
-    
+
     if not target_pid and "player" in qp:
         raw_pid = qp["player"][0] if isinstance(qp["player"], list) else qp["player"]
         target_pid = _normalize_player_id(raw_pid)
@@ -910,13 +910,13 @@ elif st.session_state.app_mode == "Search":
             st.session_state["selected_player"] = pid
             _render_profile_overlay(pid)
             st.stop()
-        
+
         _clear_qp_safe("player")
         st.session_state["selected_player"] = None
         st.warning("Player not found.")
-    
+
     st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
-    
+
     def _mark_search_requested():
         st.session_state["search_requested"] = True
         st.session_state["search_status"] = "Searching"
@@ -926,7 +926,10 @@ elif st.session_state.app_mode == "Search":
     search_status = st.session_state.get("search_status") or "Search"
 
     form_cols = st.columns([7, 2], gap="small")
+# FIX: Define columns INSIDE the form
     with st.form("search_form", clear_on_submit=False):
+        form_cols = st.columns([7, 2], gap="small")  # <--- Moved here
+
         with form_cols[0]:
             query = st.text_input(
                 "Player Search",
@@ -937,6 +940,10 @@ elif st.session_state.app_mode == "Search":
             )
         with form_cols[1]:
             submitted = st.form_submit_button(search_status, use_container_width=True)
+
+        # Logic handling remains indented outside the column blocks but inside or after the form as needed
+        if submitted or (query and query != last_q and st.session_state.get("search_requested") is not True):
+            _mark_search_requested()
         if submitted or (query and query != last_q and st.session_state.get("search_requested") is not True):
             _mark_search_requested()
     try:
