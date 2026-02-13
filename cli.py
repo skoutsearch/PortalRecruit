@@ -417,6 +417,10 @@ if __name__ == "__main__":
     pitch = sub.add_parser("pitch")
     pitch.add_argument("name")
 
+    watch_add = sub.add_parser("watchlist_add")
+    watch_add.add_argument("name")
+    watch_add.add_argument("--query", required=True)
+
     s_film = sub.add_parser("film_check")
     s_film.add_argument("name")
 
@@ -644,6 +648,10 @@ if __name__ == "__main__":
             "badges": badges,
         }, team_needs, tone="dm", coach="Jesse")
         print(pitch_text)
+    elif args.command == "watchlist_add":
+        from src.watchlist import save_search
+        saved = save_search(args.name, {"query": args.query})
+        print("Saved watchlist search." if saved else "Failed to save watchlist search.")
     elif args.command == "film_check":
         from src.film import clean_clip_text, analyze_tendencies
         import sqlite3

@@ -1598,6 +1598,29 @@ def check_ingestion_status():
     return db_path.exists()
 
 def render_header():
+    try:
+        from src.watchlist import get_saved_searches, check_for_alerts
+        saved = get_saved_searches()
+        if saved:
+            with st.expander("🔔 Alerts", expanded=True):
+                for item in saved:
+                    name = item.get("name")
+                    params = item.get("params") or {}
+                    count = check_for_alerts(name)
+                    label = f"{count} New Matches for '{name}'" if count else f"No new matches for '{name}'"
+                    cols = st.columns([3, 1])
+                    cols[0].write(label)
+                    if cols[1].button("▶️ Run", key=f"alert_run_{name}"):
+                        st.session_state["search_query_input"] = params.get("query") or ""
+                        st.session_state["dna_constraints"] = params.get("dna_constraints")
+                        st.session_state["emphasis_traits"] = params.get("emphasis") or []
+                        st.session_state["dna_target"] = params.get("dna_target") or ""
+                        st.session_state["use_hyde"] = params.get("use_hyde") or False
+                        st.session_state["search_requested"] = True
+                        st.session_state["search_started_at"] = time.time()
+    except Exception:
+        pass
+
     header_logo = get_base64_image("www/PRLOGO.png")
     if header_logo:
         banner_html = f"""
@@ -1972,6 +1995,40 @@ elif st.session_state.app_mode == "Search":
             )
         with cols[1]:
             if st.button(search_status, key="search_btn", use_container_width=True):
+                st.session_state["search_requested"] = True
+                st.session_state["search_started_at"] = time.time()
+
+        from src.watchlist import save_search, get_saved_searches
+        st.sidebar.markdown("### 💾 Save Search")
+        watch_name = st.sidebar.text_input("Search Name", key="watch_name")
+        if st.sidebar.button("Save Current Search"):
+            params = {
+                "query": st.session_state.get("search_query_input") or "",
+                "dna_constraints": st.session_state.get("dna_constraints"),
+                "emphasis": st.session_state.get("emphasis_traits") or [],
+                "dna_target": st.session_state.get("dna_target") or "",
+                "use_hyde": st.session_state.get("use_hyde") or False,
+            }
+            saved = save_search(watch_name, params)
+            if saved:
+                st.sidebar.success("Saved search.")
+            else:
+                st.sidebar.error("Enter a search name.")
+
+        st.sidebar.markdown("### 👀 My Watches")
+        for item in get_saved_searches():
+            name = item.get("name")
+            if not name:
+                continue
+            cols_watch = st.sidebar.columns([3, 1])
+            cols_watch[0].write(name)
+            if cols_watch[1].button("▶️ Run", key=f"watch_run_{name}"):
+                params = item.get("params") or {}
+                st.session_state["search_query_input"] = params.get("query") or ""
+                st.session_state["dna_constraints"] = params.get("dna_constraints")
+                st.session_state["emphasis_traits"] = params.get("emphasis") or []
+                st.session_state["dna_target"] = params.get("dna_target") or ""
+                st.session_state["use_hyde"] = params.get("use_hyde") or False
                 st.session_state["search_requested"] = True
                 st.session_state["search_started_at"] = time.time()
 
