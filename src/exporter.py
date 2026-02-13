@@ -27,7 +27,7 @@ def _height_inches(val: Any) -> str:
 def generate_synergy_csv(roster_list: List[Dict[str, Any]]) -> str:
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["First Name", "Last Name", "Team", "Jersey", "Position", "Height", "Weight", "Class", "Notes"])
+    writer.writerow(["First Name", "Last Name", "Team", "Jersey", "Position", "Height", "Weight", "Class", "Tier", "GM Notes", "AI Notes"])
     for p in roster_list:
         name = p.get("name") or p.get("Player") or p.get("player_name") or ""
         first, last = _split_name(str(name))
@@ -37,6 +37,8 @@ def generate_synergy_csv(roster_list: List[Dict[str, Any]]) -> str:
         height = _height_inches(p.get("height_in") or p.get("Height") or "")
         weight = p.get("weight_lb") or p.get("Weight") or ""
         clazz = p.get("class_year") or p.get("Class") or ""
+        tier = p.get("tier") or "Unranked"
+        gm_notes = p.get("gm_notes") or ""
         canonical = p.get("canonical_position") or ""
         tags = p.get("biometric_tags") or []
         tag_str = " | ".join([str(t).title() for t in tags][:3])
@@ -44,8 +46,8 @@ def generate_synergy_csv(roster_list: List[Dict[str, Any]]) -> str:
         stats = {"ppg": p.get("ppg"), "rpg": p.get("rpg"), "apg": p.get("apg"), "weight_lb": p.get("weight_lb")}
         badges = assign_archetypes(stats, " ".join(tags), pos)
         badge_str = " ".join([f"[{b}]" for b in badges])
-        notes = p.get("notes") or f"[AI: {canonical}] {badge_str} {tag_str}".strip()
-        writer.writerow([first, last, team, jersey, pos, height, weight, clazz, notes])
+        ai_notes = p.get("notes") or f"[AI: {canonical}] {badge_str} {tag_str}".strip()
+        writer.writerow([first, last, team, jersey, pos, height, weight, clazz, tier, gm_notes, ai_notes])
     return output.getvalue()
 
 

@@ -38,6 +38,11 @@ def add_player(player: Dict[str, Any]) -> bool:
     if key and any(_dedupe_key(p) == key for p in roster):
         return False
 
+    if "tier" not in player:
+        player["tier"] = "Unranked"
+    if "gm_notes" not in player:
+        player["gm_notes"] = ""
+
     # enrich with biometrics + canonical position if missing
     if not player.get("biometric_tags") or not player.get("canonical_position"):
         from src.biometrics import generate_biometric_tags
@@ -65,6 +70,35 @@ def add_player(player: Dict[str, Any]) -> bool:
     roster.append(player)
     _save_roster(roster)
     return True
+
+
+def update_player_tier(player_name: str, tier: str) -> bool:
+    valid = ["S (Starter)", "A (Rotation)", "B (Deep Bench)", "C (Develop)", "F (Cut)", "Unranked"]
+    if tier not in valid:
+        return False
+    roster = _load_roster()
+    updated = False
+    for p in roster:
+        name = p.get("name") or p.get("Player") or p.get("player_name")
+        if name == player_name:
+            p["tier"] = tier
+            updated = True
+    if updated:
+        _save_roster(roster)
+    return updated
+
+
+def update_player_notes(player_name: str, note: str) -> bool:
+    roster = _load_roster()
+    updated = False
+    for p in roster:
+        name = p.get("name") or p.get("Player") or p.get("player_name")
+        if name == player_name:
+            p["gm_notes"] = note
+            updated = True
+    if updated:
+        _save_roster(roster)
+    return updated
 
 
 def remove_player(player_id: str) -> bool:

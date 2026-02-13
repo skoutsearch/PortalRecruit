@@ -1,3 +1,9 @@
+# Release Notes — v2.1 (GM Edition)
+
+## Highlights
+- Big Board tiers with GM notes and shortlist management tools.
+- Export now includes Tier + GM Notes + AI Notes.
+
 # Release Notes — v2.0 (The Century Update)
 
 ## Highlights

@@ -380,7 +380,7 @@ def run_interactive() -> None:
 
 if __name__ == "__main__":
     print("=" * 50)
-    print("🏀 PortalRecruit AI v2.0 (Century Release)")
+    print("🏀 PortalRecruit AI v2.1 (GM Edition)")
     print("=" * 50)
     print("[System] Models Loaded. Calibration Active.")
     print("[Ready] Waiting for query...")

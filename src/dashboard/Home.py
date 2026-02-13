@@ -1748,10 +1748,11 @@ if st.session_state.app_mode == "Admin":
 
 elif st.session_state.app_mode == "Search":
     render_header()
-    tabs = st.tabs(["Search", "⚔️ Comparator", "🏢 War Room"])
+    tabs = st.tabs(["Search", "⚔️ Comparator", "🏢 War Room", "🏆 Big Board"])
     search_tab = tabs[0]
     compare_tab = tabs[1]
     war_room_tab = tabs[2]
+    big_board_tab = tabs[3]
 
     with search_tab:
         qp = _get_qp_safe()
@@ -2765,6 +2766,20 @@ elif st.session_state.app_mode == "Search":
             st.markdown(f"**Average Height:** {avg_height:.1f} in | **Average Weight:** {avg_weight:.1f} lb")
             st.markdown("**Positional Breakdown:** " + ", ".join([f"{k}: {v}" for k, v in pos_counts.items()]))
             st.dataframe(roster, use_container_width=True)
+            st.markdown("#### ✍️ GM Actions")
+            from src.roster import update_player_tier, update_player_notes
+            tiers = ["S (Starter)", "A (Rotation)", "B (Deep Bench)", "C (Develop)", "F (Cut)", "Unranked"]
+            for p in roster:
+                pname = p.get("name")
+                if not pname:
+                    continue
+                col1, col2 = st.columns([1, 2])
+                with col1:
+                    tier = st.selectbox(f"Tier — {pname}", tiers, index=tiers.index(p.get("tier") or "Unranked"), key=f"tier_{pname}")
+                    update_player_tier(pname, tier)
+                with col2:
+                    note = st.text_area(f"GM Notes — {pname}", value=p.get("gm_notes") or "", key=f"note_{pname}")
+                    update_player_notes(pname, note)
             replacement_name = st.selectbox("Find Replacement For", [r.get("name") for r in roster], key="replacement_select")
             if st.button("Find Replacement", key="replacement_btn"):
                 from src.similarity import find_similar_players
@@ -2874,3 +2889,21 @@ elif st.session_state.app_mode == "Search":
             st.download_button("📄 Download Team Packet (MD)", packet, file_name="team_packet.md")
         else:
             st.info("Shortlist is empty.")
+
+    with big_board_tab:
+        st.markdown("### 🏆 The Big Board")
+        from src.roster import get_roster
+        roster = get_roster()
+        tiers = ["S (Starter)", "A (Rotation)", "B (Deep Bench)", "C (Develop)", "F (Cut)", "Unranked"]
+        from src.archetypes import assign_archetypes
+        for tier in tiers:
+            group = [p for p in roster if (p.get("tier") or "Unranked") == tier]
+            st.markdown(f"#### {tier} — {len(group)}")
+            if not group:
+                st.caption("No players")
+                continue
+            for p in group:
+                stats = {"ppg": p.get("ppg"), "rpg": p.get("rpg"), "apg": p.get("apg"), "weight_lb": p.get("weight_lb")}
+                badges = assign_archetypes(stats, " ".join(p.get("biometric_tags") or []), p.get("position"))
+                badge_str = " ".join(badges) if badges else ""
+                st.markdown("- **{}** {}".format(p.get("name"), badge_str))
