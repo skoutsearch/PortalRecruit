@@ -1728,6 +1728,7 @@ with st.sidebar:
     search_alpha = st.slider("Alpha (Semantic)", 0.0, 5.0, 1.2, 0.1)
     search_beta = st.slider("Beta (Size)", 0.0, 10.0, 3.0, 0.1)
     use_hyde = st.toggle("🧠 Deep Search (HyDE)", value=False, help="Generates a 'Phantom Profile' to find players matching the concept of your search.")
+    dna_target = st.text_input("🧬 Find 'The Next'...", value="")
     emphasis = st.multiselect(
         "💎 Emphasis Traits",
         ["🏀 Shooting", "🧠 Playmaking", "🛡️ Defense", "🚜 Rebounding", "⚡ Athleticism"],
@@ -1737,6 +1738,7 @@ with st.sidebar:
     st.session_state["search_beta"] = search_beta
     st.session_state["use_hyde"] = use_hyde
     st.session_state["emphasis_traits"] = emphasis
+    st.session_state["dna_target"] = dna_target
 
     from src.roster import get_roster
     roster = get_roster()
@@ -1875,7 +1877,7 @@ elif st.session_state.app_mode == "Search":
                     )
 
                 if st.session_state.get("hyde_profile"):
-                with st.expander("🎯 Target Profile (AI Generated)"):
+                with st.expander("🎯 Target Profile (AI Generated)", expanded=bool(st.session_state.get("dna_mode"))):
                     st.markdown(st.session_state.get("hyde_profile"))
 
             if emphasis:
@@ -1926,7 +1928,18 @@ elif st.session_state.app_mode == "Search":
                         breakdown = clips[0].get("Score Breakdown") if clips else {}
                         if isinstance(breakdown, dict):
                             driver = breakdown.get("primary_driver") or ""
-                        badge = f"<span class='pr-pill pr-pill--sniper'>🔥 Driver: {driver}</span>" if driver else ""
+                        concept_map = {
+                            "SHOOTING": "🏀 Shooting",
+                            "DEFENSE": "🛡️ Defense",
+                            "PLAYMAKING": "🧠 Playmaking",
+                            "REBOUNDING": "🚜 Rebounding",
+                            "ATHLETICISM": "⚡ Athleticism",
+                        }
+                        driver_label = concept_map.get(driver, driver)
+                        if st.session_state.get("dna_mode") and st.session_state.get("dna_target"):
+                            badge = f"<span class='pr-pill pr-pill--pg'>🧬 DNA: {st.session_state.get('dna_target')}</span>"
+                        else:
+                            badge = f"<span class='pr-pill pr-pill--sniper'>🔥 Driver: {driver_label}</span>" if driver_label else ""
                         card_html = f"""
                         <div class="pr-card">
                           <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -2247,13 +2260,24 @@ elif st.session_state.app_mode == "Search":
                     selected.append(key)
                 active_concepts = get_active_concepts(selected)
 
-            if use_hyde:
+            if st.session_state.get("dna_target"):
+                try:
+                    from src.hyde import generate_player_comp_bio
+                    dna_profile = generate_player_comp_bio(st.session_state.get("dna_target"))
+                    st.session_state["hyde_profile"] = dna_profile
+                    st.session_state["dna_mode"] = True
+                except Exception:
+                    st.session_state["hyde_profile"] = ""
+                    st.session_state["dna_mode"] = False
+            elif use_hyde:
                 try:
                     from src.hyde import generate_hypothetical_bio
                     hyde_profile = generate_hypothetical_bio(query)
                     st.session_state["hyde_profile"] = hyde_profile
+                    st.session_state["dna_mode"] = False
                 except Exception:
                     st.session_state["hyde_profile"] = ""
+                    st.session_state["dna_mode"] = False
 
             if not play_ids:
                 st.warning("No results found.")

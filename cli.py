@@ -397,6 +397,7 @@ if __name__ == "__main__":
     s.add_argument("--biometrics", action="store_true")
     s.add_argument("--hyde", action="store_true")
     s.add_argument("--concepts", type=str, default="")
+    s.add_argument("--comp", action="store_true")
 
     c = sub.add_parser("compare")
     c.add_argument("player_a")
@@ -418,7 +419,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if args.command == "search":
         concepts = [c.strip().upper() for c in args.concepts.split(",") if c.strip()]
-        run_search(args.query, n_results=args.n, debug=args.debug, media=args.media, biometrics=args.biometrics, use_hyde=args.hyde, active_concepts=concepts)
+        if args.comp:
+            from src.hyde import generate_player_comp_bio
+            comp_profile = generate_player_comp_bio(args.query)
+            print(f"[DNA] {comp_profile}")
+        run_search(args.query, n_results=args.n, debug=args.debug, media=args.media, biometrics=args.biometrics, use_hyde=args.hyde or args.comp, active_concepts=concepts)
     elif args.command == "compare":
         from src.analytics import compare_players
         conn = sqlite3.connect(DB_PATH)

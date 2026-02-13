@@ -59,3 +59,25 @@ def generate_hypothetical_bio(query_text: str) -> str:
         max_tokens=220,
     )
     return resp.choices[0].message.content.strip()
+
+
+def generate_player_comp_bio(target_player_name: str) -> str:
+    name = (target_player_name or "").strip()
+    if not name:
+        return ""
+    client = _get_client()
+    if client is None:
+        return FALLBACK
+
+    system = (
+        "You are an expert scout. Describe the playing style, physical profile, and skill set of "
+        "{name} as if they were an anonymous prospect. Focus on specific strengths and roles. "
+        "Do not mention their name."
+    )
+    resp = client.chat.completions.create(
+        model=os.getenv("OPENAI_MODEL") or "gpt-4o",
+        messages=[{"role": "system", "content": system.format(name=name)}],
+        temperature=0.4,
+        max_tokens=220,
+    )
+    return resp.choices[0].message.content.strip()
