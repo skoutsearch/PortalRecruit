@@ -3,9 +3,10 @@ from __future__ import annotations
 from typing import Dict, Any, List
 
 
-def assign_archetypes(stats_dict: Dict[str, Any] | None, text_desc: str | None) -> List[str]:
+def assign_archetypes(stats_dict: Dict[str, Any] | None, text_desc: str | None, position: str | None = None) -> List[str]:
     stats = stats_dict or {}
     text = (text_desc or "").lower()
+    pos = (position or "").upper()
     badges: List[str] = []
 
     three_pct = stats.get("shot3_percent") or stats.get("3p%") or stats.get("three_pct")
@@ -16,7 +17,7 @@ def assign_archetypes(stats_dict: Dict[str, Any] | None, text_desc: str | None) 
 
     apg = stats.get("apg")
     rpg = stats.get("rpg")
-    height = stats.get("height_in") or stats.get("height")
+    weight = stats.get("weight_lb") or stats.get("weight")
     try:
         apg = float(apg) if apg is not None else None
     except Exception:
@@ -26,27 +27,22 @@ def assign_archetypes(stats_dict: Dict[str, Any] | None, text_desc: str | None) 
     except Exception:
         rpg = None
     try:
-        height = float(height) if height is not None else None
+        weight = float(weight) if weight is not None else None
     except Exception:
-        height = None
+        weight = None
 
-    if any(k in text for k in ["shooter", "3pt", "range"]) or (three_pct is not None and three_pct > 0.35):
-        badges.append("🔫 Sniper")
-    if (apg is not None and apg > 3.5) or any(k in text for k in ["point guard", "vision"]):
-        badges.append("🧠 Floor General")
-    if (rpg is not None and rpg > 8.0) or "rebound" in text:
+    is_guard = "G" in pos and "F" not in pos and "C" not in pos
+    is_big = any(k in pos for k in ["F", "C"])
+
+    if (rpg is not None and rpg > 8.0) or (is_guard and rpg is not None and rpg > 5.0) or "rebound" in text:
         badges.append("🚜 Glass Cleaner")
+    if (apg is not None and apg > 4.5) or ((not is_guard) and apg is not None and apg > 3.0) or any(k in text for k in ["point guard", "vision"]):
+        badges.append("🧠 Floor General")
+    if is_big and ("3pt" in text or (three_pct is not None and three_pct > 0.33)):
+        badges.append("🔫 Stretch Big")
+    if is_big and weight is not None and weight > 245:
+        badges.append("🧱 Enforcer")
     if any(k in text for k in ["defender", "defense", "steal"]):
         badges.append("🛡️ Lockdown")
-    if height is not None and height > 82 and ("🔫 Sniper" in badges or "🧠 Floor General" in badges):
-        badges.append("🦄 Unicorn")
-
-    if not badges:
-        if rpg is not None and rpg > 6.0:
-            badges.append("🚜 Glass Cleaner")
-        elif apg is not None and apg > 2.5:
-            badges.append("🧠 Floor General")
-        elif three_pct is not None and three_pct > 0.32:
-            badges.append("🔫 Sniper")
 
     return badges

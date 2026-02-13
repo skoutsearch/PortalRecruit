@@ -40,7 +40,11 @@ def generate_synergy_csv(roster_list: List[Dict[str, Any]]) -> str:
         canonical = p.get("canonical_position") or ""
         tags = p.get("biometric_tags") or []
         tag_str = " | ".join([str(t).title() for t in tags][:3])
-        notes = p.get("notes") or f"[AI: {canonical}] {tag_str}".strip()
+        from src.archetypes import assign_archetypes
+        stats = {"ppg": p.get("ppg"), "rpg": p.get("rpg"), "apg": p.get("apg"), "weight_lb": p.get("weight_lb")}
+        badges = assign_archetypes(stats, " ".join(tags), pos)
+        badge_str = " ".join([f"[{b}]" for b in badges])
+        notes = p.get("notes") or f"[AI: {canonical}] {badge_str} {tag_str}".strip()
         writer.writerow([first, last, team, jersey, pos, height, weight, clazz, notes])
     return output.getvalue()
 

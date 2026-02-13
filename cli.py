@@ -455,16 +455,18 @@ if __name__ == "__main__":
             print(f"Weight B: {int(b_profile.get('weight_lb'))} lb ({w_pct_b}th %ile)")
         from src.narrative import generate_physical_profile
         from src.archetypes import assign_archetypes
-        stats_a = a_profile.get("stats") or {"ppg": a_profile.get("ppg"), "rpg": a_profile.get("rpg"), "apg": a_profile.get("apg"), "height_in": a_profile.get("height_in")}
-        stats_b = b_profile.get("stats") or {"ppg": b_profile.get("ppg"), "rpg": b_profile.get("rpg"), "apg": b_profile.get("apg"), "height_in": b_profile.get("height_in")}
+        stats_a = a_profile.get("stats") or {"ppg": a_profile.get("ppg"), "rpg": a_profile.get("rpg"), "apg": a_profile.get("apg"), "height_in": a_profile.get("height_in"), "weight_lb": a_profile.get("weight_lb")}
+        stats_b = b_profile.get("stats") or {"ppg": b_profile.get("ppg"), "rpg": b_profile.get("rpg"), "apg": b_profile.get("apg"), "height_in": b_profile.get("height_in"), "weight_lb": b_profile.get("weight_lb")}
+        stats_a["weight_lb"] = stats_a.get("weight_lb") or a_profile.get("weight_lb")
+        stats_b["weight_lb"] = stats_b.get("weight_lb") or b_profile.get("weight_lb")
         stats_a["shot3_percent"] = stats_a.get("shot3_percent") or a_profile.get("shot3_percent")
         stats_b["shot3_percent"] = stats_b.get("shot3_percent") or b_profile.get("shot3_percent")
         stats_a["rpg"] = stats_a.get("rpg") or a_profile.get("rpg")
         stats_b["rpg"] = stats_b.get("rpg") or b_profile.get("rpg")
         stats_a["apg"] = stats_a.get("apg") or a_profile.get("apg")
         stats_b["apg"] = stats_b.get("apg") or b_profile.get("apg")
-        badges_a = assign_archetypes(stats_a, "")
-        badges_b = assign_archetypes(stats_b, "")
+        badges_a = assign_archetypes(stats_a, "", a_profile.get("position"))
+        badges_b = assign_archetypes(stats_b, "", b_profile.get("position"))
         print(comp.get("height_diff"))
         print(comp.get("weight_diff"))
         print(comp.get("ppg_diff"))

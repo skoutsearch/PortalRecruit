@@ -1133,12 +1133,26 @@ def _render_profile_overlay(player_id: str):
 
         auto_scout = ""
         badges = []
+        badge_html = ""
         try:
             from src.narrative import generate_physical_profile
             from src.archetypes import assign_archetypes
-            stats_dict = profile.get("stats") or {"ppg": ppg, "rpg": rpg, "apg": apg, "height_in": profile.get("height_in")}
-            badges = assign_archetypes(stats_dict, " ".join(biometric.get("tags") or []))
+            stats_dict = profile.get("stats") or {"ppg": ppg, "rpg": rpg, "apg": apg, "height_in": profile.get("height_in"), "weight_lb": profile.get("weight_lb")}
+            badges = assign_archetypes(stats_dict, " ".join(biometric.get("tags") or []), position)
             auto_scout = generate_physical_profile(title, pos_for_pct, h_pct, w_pct, biometric.get("tags"), stats_dict, badges)
+            color_map = {
+                "🔫 Stretch Big": "#16a34a",
+                "🔫 Sniper": "#16a34a",
+                "🧠 Floor General": "#2563eb",
+                "🚜 Glass Cleaner": "#f59e0b",
+                "🧱 Enforcer": "#ef4444",
+                "🛡️ Lockdown": "#dc2626",
+                "🦄 Unicorn": "#a855f7",
+            }
+            badge_html = "".join([
+                f"<span style='display:inline-block;margin-right:6px;padding:2px 8px;border-radius:999px;background:{color_map.get(b, '#374151')};color:white;font-size:0.8rem;'>\n{b}</span>"
+                for b in badges
+            ])
         except Exception:
             auto_scout = ""
 
@@ -1153,7 +1167,7 @@ def _render_profile_overlay(player_id: str):
                   <div style="margin-top:6px; opacity:0.85;">{position} • {class_year} • {height_disp} • {weight_disp}</div>
                   <div style="margin-top:6px; opacity:0.7; font-size:0.95rem;">HS: {hs}</div>
                   <div style="margin-top:6px; opacity:0.85; font-size:0.95rem;">{auto_scout}</div>
-                  <div style="margin-top:6px; opacity:0.9; font-size:0.9rem;">{' '.join(badges) if badges else ''}</div>
+                  <div style="margin-top:6px; opacity:0.9; font-size:0.9rem;">{badge_html}</div>
                 </div>
                 <div style="text-align:right; min-width:180px;">
                   <div style="font-size:0.9rem; opacity:0.7;">{season_label} Production</div>
