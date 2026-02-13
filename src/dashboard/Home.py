@@ -1088,7 +1088,7 @@ def _render_profile_overlay(player_id: str):
                 else:
                     st.json(vision)
 
-        overview_tab, film_tab = st.tabs(["Overview", "🎥 Film Room"])
+        overview_tab, film_tab, pitch_tab = st.tabs(["Overview", "🎥 Film Room", "📝 Recruiting Pitch"])
         with overview_tab:
             with st.expander("🧬 Similar Players"):
                 from src.similarity import find_similar_players
@@ -1138,6 +1138,44 @@ def _render_profile_overlay(player_id: str):
                 st.caption(f"Based on text analysis of {len(cleaned)} logs.")
                 fig = generate_zone_chart(zones)
                 st.plotly_chart(fig, use_container_width=True)
+
+        with pitch_tab:
+            from src.team import get_team, audit_roster_balance, get_team_averages
+            from src.recruiting import generate_pitch, get_pitch_reason
+            team = get_team()
+            team_needs: list[str] = []
+            alerts = audit_roster_balance(team)
+            for a in alerts:
+                if "centers" in a.lower() or "size" in a.lower():
+                    team_needs.append("Need Size")
+            avgs = get_team_averages()
+            if avgs.get("three_pt_pct") is not None and avgs.get("three_pt_pct") < 0.33:
+                team_needs.append("Need Shooting")
+            tone = st.selectbox("Tone", ["Casual Text", "Professional Email"], key=f"pitch_tone_{pid}")
+            pitch = generate_pitch({
+                "name": title,
+                "position": profile.get("position"),
+                "ppg": ppg,
+                "rpg": rpg,
+                "apg": apg,
+                "height_in": profile.get("height_in"),
+                "weight_lb": profile.get("weight_lb"),
+                "three_pt_pct": stats.get("shot3_percent"),
+                "badges": badges,
+            }, team_needs, tone="official" if tone == "Professional Email" else "dm", coach="Jesse")
+            reason = get_pitch_reason({
+                "name": title,
+                "position": profile.get("position"),
+                "ppg": ppg,
+                "rpg": rpg,
+                "apg": apg,
+                "height_in": profile.get("height_in"),
+                "weight_lb": profile.get("weight_lb"),
+                "three_pt_pct": stats.get("shot3_percent"),
+                "badges": badges,
+            }, team_needs)
+            st.caption(f"Why this pitch? {reason}")
+            st.code(pitch, language="text")
 
         cache = st.session_state.get("player_meta_cache", {}) or {}
         meta_cache = cache.get(pid, {}) if pid else {}

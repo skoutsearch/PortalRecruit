@@ -414,6 +414,9 @@ if __name__ == "__main__":
     valuation = sub.add_parser("valuation")
     valuation.add_argument("name")
 
+    pitch = sub.add_parser("pitch")
+    pitch.add_argument("name")
+
     s_film = sub.add_parser("film_check")
     s_film.add_argument("name")
 
@@ -560,7 +563,7 @@ if __name__ == "__main__":
             sys.exit(1)
         player_id, full_name = row
         cur.execute("""
-            SELECT ppg, rpg, apg
+            SELECT ppg, rpg, apg, shot3_percent
             FROM player_season_stats
             WHERE player_id = ?
             ORDER BY season_id DESC
@@ -571,8 +574,76 @@ if __name__ == "__main__":
         if not stats:
             print("No stats found.")
             sys.exit(1)
-        val = estimate_nil_value({"ppg": stats[0], "rpg": stats[1], "apg": stats[2]})
+        val = estimate_nil_value({"ppg": stats[0], "rpg": stats[1], "apg": stats[2], "three_pt_pct": stats[3]})
         print(f"Est. NIL Value for {full_name}: {val}")
+    elif args.command == "pitch":
+        from src.recruiting import generate_pitch
+        from src.team import get_team, audit_roster_balance, get_team_averages
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        cur.execute("SELECT player_id, full_name, position, height_in, weight_lb FROM players WHERE LOWER(full_name)=LOWER(?) LIMIT 1", (args.name,))
+        row = cur.fetchone()
+        if not row:
+            cur.execute("SELECT player_id, full_name, position, height_in, weight_lb FROM players WHERE full_name LIKE ? LIMIT 1", (f"%{args.name.split()[-1]}%",))
+            row = cur.fetchone()
+        if not row:
+            cur.execute("SELECT player_id, player_name FROM plays WHERE player_name LIKE ? LIMIT 1", (f"%{args.name.split()[-1]}%",))
+            row = cur.fetchone()
+        if not row:
+            conn.close()
+            print("Player not found in DB.")
+            sys.exit(1)
+
+        if len(row) == 5:
+            player_id, full_name, position, height_in, weight_lb = row
+        else:
+            player_id, full_name = row
+            position = None
+            height_in = None
+            weight_lb = None
+
+        cur.execute("""
+            SELECT ppg, rpg, apg, shot3_percent
+            FROM player_season_stats
+            WHERE player_id = ?
+            ORDER BY season_id DESC
+            LIMIT 1
+        """, (player_id,))
+        stats = cur.fetchone()
+        conn.close()
+
+        team = get_team()
+        team_needs: list[str] = []
+        alerts = audit_roster_balance(team)
+        for a in alerts:
+            if "centers" in a.lower() or "size" in a.lower():
+                team_needs.append("Need Size")
+        avgs = get_team_averages()
+        if avgs.get("three_pt_pct") is not None and avgs.get("three_pt_pct") < 0.33:
+            team_needs.append("Need Shooting")
+
+        if stats:
+            ppg, rpg, apg, shot3 = stats
+            badges = []
+        else:
+            ppg = rpg = apg = 0
+            shot3 = None
+            badges = ["Sniper"]
+            if "Need Shooting" not in team_needs:
+                team_needs.append("Need Shooting")
+
+        pitch_text = generate_pitch({
+            "name": full_name,
+            "position": position,
+            "height_in": height_in,
+            "weight_lb": weight_lb,
+            "ppg": ppg,
+            "rpg": rpg,
+            "apg": apg,
+            "three_pt_pct": shot3,
+            "badges": badges,
+        }, team_needs, tone="dm", coach="Jesse")
+        print(pitch_text)
     elif args.command == "film_check":
         from src.film import clean_clip_text, analyze_tendencies
         import sqlite3
