@@ -1728,9 +1728,15 @@ with st.sidebar:
     search_alpha = st.slider("Alpha (Semantic)", 0.0, 5.0, 1.2, 0.1)
     search_beta = st.slider("Beta (Size)", 0.0, 10.0, 3.0, 0.1)
     use_hyde = st.toggle("🧠 Deep Search (HyDE)", value=False, help="Generates a 'Phantom Profile' to find players matching the concept of your search.")
+    emphasis = st.multiselect(
+        "💎 Emphasis Traits",
+        ["🏀 Shooting", "🧠 Playmaking", "🛡️ Defense", "🚜 Rebounding", "⚡ Athleticism"],
+        help="Select traits to prioritize in the search results.",
+    )
     st.session_state["search_alpha"] = search_alpha
     st.session_state["search_beta"] = search_beta
     st.session_state["use_hyde"] = use_hyde
+    st.session_state["emphasis_traits"] = emphasis
 
     from src.roster import get_roster
     roster = get_roster()
@@ -1871,6 +1877,10 @@ elif st.session_state.app_mode == "Search":
                 if st.session_state.get("hyde_profile"):
                 with st.expander("🎯 Target Profile (AI Generated)"):
                     st.markdown(st.session_state.get("hyde_profile"))
+
+            if emphasis:
+                pills = " ".join([f"<span class='pr-pill pr-pill--sniper'>{t}</span>" for t in emphasis])
+                st.markdown(f"<div>Active Boosts: {pills}</div>", unsafe_allow_html=True)
 
             st.markdown("<h3 style='margin-top:40px;'>Top Prospects</h3>", unsafe_allow_html=True)
 
@@ -2125,6 +2135,7 @@ elif st.session_state.app_mode == "Search":
             search_alpha = float(st.session_state.get("search_alpha", 1.2))
             search_beta = float(st.session_state.get("search_beta", 3.0))
             use_hyde = bool(st.session_state.get("use_hyde", False))
+            emphasis = st.session_state.get("emphasis_traits") or []
             breakdowns = {}
             if cached_play_ids is not None:
                 play_ids = cached_play_ids
@@ -2142,6 +2153,7 @@ elif st.session_state.app_mode == "Search":
                             alpha_override=search_alpha,
                             beta_override=search_beta,
                             use_hyde=use_hyde,
+                            active_concepts=active_concepts,
                         )
                     except:
                         play_ids = []
@@ -2161,6 +2173,7 @@ elif st.session_state.app_mode == "Search":
                                 alpha_override=search_alpha,
                                 beta_override=search_beta,
                                 use_hyde=use_hyde,
+                                active_concepts=active_concepts,
                             )
                         except:
                             play_ids = []
@@ -2205,6 +2218,7 @@ elif st.session_state.app_mode == "Search":
                         alpha_override=search_alpha,
                         beta_override=search_beta,
                         use_hyde=use_hyde,
+                        active_concepts=active_concepts,
                     )
                 except:
                     st.error("Search index error.")
@@ -2215,6 +2229,15 @@ elif st.session_state.app_mode == "Search":
             if elapsed < 5: time.sleep(5 - elapsed)
 
             st.markdown("<script>document.body.classList.remove('searching');</script>", unsafe_allow_html=True)
+
+            active_concepts = []
+            if emphasis:
+                from src.concepts import CONCEPT_DEFINITIONS, get_active_concepts
+                selected = []
+                for label in emphasis:
+                    key = label.split(" ", 1)[-1].upper()
+                    selected.append(key)
+                active_concepts = get_active_concepts(selected)
 
             if use_hyde:
                 try:

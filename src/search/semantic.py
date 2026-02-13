@@ -387,6 +387,7 @@ def semantic_search(
     alpha_override: float | None = None,
     beta_override: float | None = None,
     use_hyde: bool = False,
+    active_concepts: list[str] | None = None,
 ) -> list[str] | tuple[list[str], dict[str, dict]]:
     """Run semantic search with normalized embeddings + optional rerank blend.
 
@@ -442,6 +443,11 @@ def semantic_search(
                 query_vec = [(a + b) / 2.0 for a, b in zip(query_vec, hyde_vec)]
             except Exception:
                 pass
+        if active_concepts:
+            for concept_text in active_concepts:
+                concept_vec = encode_query(concept_text)
+                query_vec = [q + (0.2 * c) for q, c in zip(query_vec, concept_vec)]
+                print("Applied Boost:", concept_text[:24], "(Weight 0.2)")
         results = collection.query(
             query_embeddings=[query_vec],
             n_results=fetch_n,

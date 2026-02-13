@@ -192,12 +192,14 @@ def _format_matchup(matchup: str, clock: str) -> str:
     return f"VS {opp} ({clock})" if clock else f"VS {opp}"
 
 
-def run_search(query: str, n_results: int = 5, debug: bool = False, media: bool = False, biometrics: bool = False, use_hyde: bool = False) -> None:
+def run_search(query: str, n_results: int = 5, debug: bool = False, media: bool = False, biometrics: bool = False, use_hyde: bool = False, active_concepts: list[str] | None = None) -> None:
     _load_env()
     # TODO: Replace local Chroma call with Synergy/SportRadar search endpoint
     client = chromadb.PersistentClient(path=VECTOR_DB_PATH)
     collection = client.get_collection(name="skout_plays")
-    play_ids, breakdowns = semantic_search(collection, query=query, n_results=n_results, return_breakdowns=True, use_hyde=use_hyde)
+    from src.concepts import get_active_concepts
+    active = get_active_concepts(active_concepts or [])
+    play_ids, breakdowns = semantic_search(collection, query=query, n_results=n_results, return_breakdowns=True, use_hyde=use_hyde, active_concepts=active)
 
     meta_lookup: Dict[str, Dict[str, Any]] = {}
     try:
@@ -394,6 +396,7 @@ if __name__ == "__main__":
     s.add_argument("--media", action="store_true")
     s.add_argument("--biometrics", action="store_true")
     s.add_argument("--hyde", action="store_true")
+    s.add_argument("--concepts", type=str, default="")
 
     c = sub.add_parser("compare")
     c.add_argument("player_a")
@@ -414,7 +417,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     if args.command == "search":
-        run_search(args.query, n_results=args.n, debug=args.debug, media=args.media, biometrics=args.biometrics, use_hyde=args.hyde)
+        concepts = [c.strip().upper() for c in args.concepts.split(",") if c.strip()]
+        run_search(args.query, n_results=args.n, debug=args.debug, media=args.media, biometrics=args.biometrics, use_hyde=args.hyde, active_concepts=concepts)
     elif args.command == "compare":
         from src.analytics import compare_players
         conn = sqlite3.connect(DB_PATH)
