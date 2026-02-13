@@ -256,7 +256,9 @@ def map_db_to_canonical(db_pos_str: str) -> list[str]:
         return []
     if pos in {"G", "PG", "SG"}:
         return ["GUARD", "POINT_GUARD", "SHOOTING_GUARD"] if pos == "G" else ["GUARD", "POINT_GUARD"] if pos == "PG" else ["GUARD", "SHOOTING_GUARD"]
-    if pos in {"F", "SF", "PF"}:
+    if pos in {"F", "SF", "PF", "G/F", "F/G"}:
+        if pos in {"G/F", "F/G"}:
+            return ["SMALL_FORWARD"]
         return ["FORWARD", "SMALL_FORWARD", "POWER_FORWARD"] if pos == "F" else ["FORWARD", "SMALL_FORWARD"] if pos == "SF" else ["FORWARD", "POWER_FORWARD"]
     if pos in {"C", "F/C"}:
         return ["CENTER"]
@@ -353,10 +355,11 @@ def topk(scores: Dict[str, float], k: int = 3) -> List[Tuple[str, float]]:
     return sorted(scores.items(), key=lambda kv: kv[1], reverse=True)[:max(1, k)]
 
 
-def calculate_percentile(value: Optional[float], position: str, metric: str = "h") -> int:
+def calculate_percentile(value: Optional[float], raw_pos: str, metric: str = "h") -> int:
     if value is None:
         return 0
-    pos = (position or "").upper()
+    mapped = map_db_to_canonical(raw_pos)
+    pos = (mapped[0] if mapped else (raw_pos or "")).upper()
     if pos not in POSITION_SIZE_PRIORS:
         return 0
     cfg = POSITION_SIZE_PRIORS.get(pos, {})

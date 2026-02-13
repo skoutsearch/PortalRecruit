@@ -1132,10 +1132,13 @@ def _render_profile_overlay(player_id: str):
             pass
 
         auto_scout = ""
+        badges = []
         try:
             from src.narrative import generate_physical_profile
-            stats_dict = profile.get("stats") or {"ppg": ppg, "rpg": rpg, "apg": apg}
-            auto_scout = generate_physical_profile(title, pos_for_pct, h_pct, w_pct, biometric.get("tags"), stats_dict)
+            from src.archetypes import assign_archetypes
+            stats_dict = profile.get("stats") or {"ppg": ppg, "rpg": rpg, "apg": apg, "height_in": profile.get("height_in")}
+            badges = assign_archetypes(stats_dict, " ".join(biometric.get("tags") or []))
+            auto_scout = generate_physical_profile(title, pos_for_pct, h_pct, w_pct, biometric.get("tags"), stats_dict, badges)
         except Exception:
             auto_scout = ""
 
@@ -1150,6 +1153,7 @@ def _render_profile_overlay(player_id: str):
                   <div style="margin-top:6px; opacity:0.85;">{position} • {class_year} • {height_disp} • {weight_disp}</div>
                   <div style="margin-top:6px; opacity:0.7; font-size:0.95rem;">HS: {hs}</div>
                   <div style="margin-top:6px; opacity:0.85; font-size:0.95rem;">{auto_scout}</div>
+                  <div style="margin-top:6px; opacity:0.9; font-size:0.9rem;">{' '.join(badges) if badges else ''}</div>
                 </div>
                 <div style="text-align:right; min-width:180px;">
                   <div style="font-size:0.9rem; opacity:0.7;">{season_label} Production</div>

@@ -433,10 +433,12 @@ if __name__ == "__main__":
 
         pos_a = _pos_for(a_profile)
         pos_b = _pos_for(b_profile)
-        h_pct_a = calculate_percentile(a_profile.get("height_in"), pos_a, metric="h")
-        w_pct_a = calculate_percentile(a_profile.get("weight_lb"), pos_a, metric="w")
-        h_pct_b = calculate_percentile(b_profile.get("height_in"), pos_b, metric="h")
-        w_pct_b = calculate_percentile(b_profile.get("weight_lb"), pos_b, metric="w")
+        raw_a = a_profile.get("position") or pos_a
+        raw_b = b_profile.get("position") or pos_b
+        h_pct_a = calculate_percentile(a_profile.get("height_in"), raw_a, metric="h")
+        w_pct_a = calculate_percentile(a_profile.get("weight_lb"), raw_a, metric="w")
+        h_pct_b = calculate_percentile(b_profile.get("height_in"), raw_b, metric="h")
+        w_pct_b = calculate_percentile(b_profile.get("weight_lb"), raw_b, metric="w")
 
         print("\n⚔️ Player Comparison")
         print("-" * 50)
@@ -452,8 +454,17 @@ if __name__ == "__main__":
         if b_profile.get("weight_lb"):
             print(f"Weight B: {int(b_profile.get('weight_lb'))} lb ({w_pct_b}th %ile)")
         from src.narrative import generate_physical_profile
-        stats_a = a_profile.get("stats") or {"ppg": a_profile.get("ppg"), "rpg": a_profile.get("rpg"), "apg": a_profile.get("apg")}
-        stats_b = b_profile.get("stats") or {"ppg": b_profile.get("ppg"), "rpg": b_profile.get("rpg"), "apg": b_profile.get("apg")}
+        from src.archetypes import assign_archetypes
+        stats_a = a_profile.get("stats") or {"ppg": a_profile.get("ppg"), "rpg": a_profile.get("rpg"), "apg": a_profile.get("apg"), "height_in": a_profile.get("height_in")}
+        stats_b = b_profile.get("stats") or {"ppg": b_profile.get("ppg"), "rpg": b_profile.get("rpg"), "apg": b_profile.get("apg"), "height_in": b_profile.get("height_in")}
+        stats_a["shot3_percent"] = stats_a.get("shot3_percent") or a_profile.get("shot3_percent")
+        stats_b["shot3_percent"] = stats_b.get("shot3_percent") or b_profile.get("shot3_percent")
+        stats_a["rpg"] = stats_a.get("rpg") or a_profile.get("rpg")
+        stats_b["rpg"] = stats_b.get("rpg") or b_profile.get("rpg")
+        stats_a["apg"] = stats_a.get("apg") or a_profile.get("apg")
+        stats_b["apg"] = stats_b.get("apg") or b_profile.get("apg")
+        badges_a = assign_archetypes(stats_a, "")
+        badges_b = assign_archetypes(stats_b, "")
         print(comp.get("height_diff"))
         print(comp.get("weight_diff"))
         print(comp.get("ppg_diff"))
@@ -461,8 +472,10 @@ if __name__ == "__main__":
         print(comp.get("apg_diff"))
         print(comp.get("fit_diff"))
         print("-")
-        print("Auto-Scout A:", generate_physical_profile(a_profile.get("name"), pos_a, h_pct_a, w_pct_a, a_profile.get("bio_tags") or [], stats_a))
-        print("Auto-Scout B:", generate_physical_profile(b_profile.get("name"), pos_b, h_pct_b, w_pct_b, b_profile.get("bio_tags") or [], stats_b))
+        print("Auto-Scout A:", generate_physical_profile(a_profile.get("name"), pos_a, h_pct_a, w_pct_a, a_profile.get("bio_tags") or [], stats_a, badges_a))
+        print("Auto-Scout B:", generate_physical_profile(b_profile.get("name"), pos_b, h_pct_b, w_pct_b, b_profile.get("bio_tags") or [], stats_b, badges_b))
+        print("Archetypes A:", ", ".join(badges_a) if badges_a else "—")
+        print("Archetypes B:", ", ".join(badges_b) if badges_b else "—")
     elif args.command == "shortlist":
         from src.roster import add_player, get_roster, clear_roster
         from src.exporter import generate_synergy_csv
