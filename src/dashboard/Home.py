@@ -1618,6 +1618,7 @@ def render_header():
                         st.session_state["use_hyde"] = params.get("use_hyde") or False
                         st.session_state["search_requested"] = True
                         st.session_state["search_started_at"] = time.time()
+                        st.session_state["view_mode"] = "search"
     except Exception:
         pass
 
@@ -1839,6 +1840,10 @@ def _load_nba_archetypes():
 
 # --- 6. MAIN APP LOGIC ---
 
+st.session_state.setdefault("search_results", [])
+st.session_state.setdefault("selected_player", None)
+st.session_state.setdefault("view_mode", "search")
+
 if "app_mode" not in st.session_state:
     if check_ingestion_status():
         st.session_state.app_mode = "Search"
@@ -1957,28 +1962,32 @@ elif st.session_state.app_mode == "Search":
 
     with search_tab:
         qp = _get_qp_safe()
-        target_pid = st.session_state.get("pending_selected_player") or st.session_state.get("selected_player")
-        
-        if not target_pid and "player" in qp:
-            raw_pid = qp["player"][0] if isinstance(qp["player"], list) else qp["player"]
-            target_pid = _normalize_player_id(raw_pid)
 
-        if target_pid:
-            pid = _normalize_player_id(target_pid)
-            st.session_state["pending_selected_player"] = None
+        if st.session_state.get("view_mode") == "profile" and st.session_state.get("selected_player"):
+            if st.button("⬅️ Back to Results", key="back_to_results"):
+                st.session_state["view_mode"] = "search"
+                st.session_state["selected_player"] = None
+                _clear_qp_safe("player")
+                st.rerun()
+            _render_profile_overlay(st.session_state.get("selected_player"))
+            st.stop()
+
+        if "player" in qp and not st.session_state.get("selected_player"):
+            raw_pid = qp["player"][0] if isinstance(qp["player"], list) else qp["player"]
+            pid = _normalize_player_id(raw_pid)
             if pid:
-                _set_qp_safe("player", pid)
                 st.session_state["selected_player"] = pid
+                st.session_state["view_mode"] = "profile"
                 _render_profile_overlay(pid)
                 st.stop()
             _clear_qp_safe("player")
-            st.session_state["selected_player"] = None
-        
+
         st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
-        
+
         def _mark_search_requested():
             st.session_state["search_requested"] = True
             st.session_state["search_started_at"] = time.time()
+            st.session_state["view_mode"] = "search"
 
         last_q = st.session_state.get("last_query") or ""
         search_status = "Search"
@@ -2031,6 +2040,7 @@ elif st.session_state.app_mode == "Search":
                 st.session_state["use_hyde"] = params.get("use_hyde") or False
                 st.session_state["search_requested"] = True
                 st.session_state["search_started_at"] = time.time()
+                st.session_state["view_mode"] = "search"
 
         try:
             mem_path = REPO_ROOT / "data" / "search_memory.json"
@@ -2057,6 +2067,7 @@ elif st.session_state.app_mode == "Search":
         def _render_results(rows, query_text):
             st.session_state.setdefault("search_results", [])
             st.session_state["search_results"] = rows or []
+            st.session_state["view_mode"] = "search"
             if rows:
                 grouped = {}
                 for r in rows:
@@ -2103,6 +2114,11 @@ elif st.session_state.app_mode == "Search":
                 st.markdown(f"<div>Active Boosts: {pills}</div>", unsafe_allow_html=True)
 
             st.markdown("<h3 style='margin-top:40px;'>Top Prospects</h3>", unsafe_allow_html=True)
+
+            def _view_player(pid_val: str):
+                st.session_state["selected_player"] = pid_val
+                st.session_state["view_mode"] = "profile"
+                _set_qp_safe("player", pid_val)
 
             for player, clips in grouped.items():
                     try:
@@ -2174,11 +2190,8 @@ elif st.session_state.app_mode == "Search":
                         """
                         st.markdown(card_html, unsafe_allow_html=True)
                         btn_cols = st.columns([1, 1, 1, 2])
-                        if pid and btn_cols[0].button("View", key=f"btn_{pid}"):
-                            st.session_state["pending_selected_player"] = pid
-                            st.session_state["selected_player"] = pid
-                            _set_qp_safe("player", pid)
-                            st.rerun()
+                        if pid:
+                            btn_cols[0].button("View", key=f"view_{pid}", on_click=_view_player, args=(pid,))
 
                         from src.roster import add_player
                         if btn_cols[1].button("⭐ Shortlist", key=f"shortlist_{pid}"):
@@ -3039,6 +3052,7 @@ elif st.session_state.app_mode == "Search":
                 st.session_state["search_requested"] = False
                 st.session_state["last_rows"] = rows
                 st.session_state["search_results"] = rows
+                st.session_state["view_mode"] = "search"
                 _render_results(rows, query)
 
     with compare_tab:
