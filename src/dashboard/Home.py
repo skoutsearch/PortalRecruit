@@ -1180,6 +1180,7 @@ def _render_profile_overlay(player_id: str):
         with ai_tab:
             from src.analysis.clustering import get_cluster_label
             from src.analysis.fit import SYSTEM_PROFILES, calculate_system_fit, grade_fit
+            from src.visuals import generate_archetype_map
             st.markdown("### AI Archetype")
             archetype = get_cluster_label(profile.get("player_id") or pid)
             if archetype:
@@ -1189,9 +1190,51 @@ def _render_profile_overlay(player_id: str):
 
             st.markdown("### System Fit")
             system_name = st.selectbox("Select System", list(SYSTEM_PROFILES.keys()), key=f"system_fit_{pid}")
-            score = calculate_system_fit(profile.get("player_id") or pid, SYSTEM_PROFILES[system_name])
+            score = calculate_system_fit(profile.get("player_id") or pid, SYSTEM_PROFILES[system_name], system_name=system_name)
             st.metric("Fit Score", f"{score:.1f}")
             st.caption(f"Grade: {grade_fit(score)}")
+
+            st.markdown("### 🗺️ Archetype Galaxy")
+            st.caption(f"See where {title} falls in the universe of college basketball.")
+            try:
+                import chromadb
+                client = chromadb.PersistentClient(path=os.path.join(os.getcwd(), "data/vector_db"))
+                collection = client.get_collection(name="skout_plays")
+                res = collection.get(include=["embeddings", "metadatas"])
+                embeddings = res.get("embeddings")
+                if embeddings is None:
+                    embeddings = []
+                metas = res.get("metadatas")
+                if metas is None:
+                    metas = []
+                players = []
+                for emb, meta in zip(embeddings, metas):
+                    if not meta:
+                        continue
+                    pid_val = meta.get("player_id") or meta.get("player")
+                    if not pid_val:
+                        continue
+                    players.append({
+                        "player_id": pid_val,
+                        "name": meta.get("player_name") or meta.get("name"),
+                        "ppg": meta.get("ppg") or 0,
+                        "embedding": emb,
+                    })
+                labels = {}
+                try:
+                    labels = json.loads((REPO_ROOT / "data" / "cluster_labels.json").read_text())
+                except Exception:
+                    labels = {}
+                cluster_map = {}
+                try:
+                    cluster_map = json.loads((REPO_ROOT / "data" / "cluster_map.json").read_text())
+                except Exception:
+                    cluster_map = {}
+                cluster_labels = {pid: labels.get(str(cid)) or labels.get(int(cid)) or f"Cluster {cid}" for pid, cid in cluster_map.items()}
+                fig = generate_archetype_map(players, cluster_labels, selected_player=profile.get("player_id") or pid)
+                st.plotly_chart(fig, use_container_width=True)
+            except Exception:
+                st.info("Archetype map unavailable. Run patterns_check to generate clusters.")
 
         cache = st.session_state.get("player_meta_cache", {}) or {}
         meta_cache = cache.get(pid, {}) if pid else {}

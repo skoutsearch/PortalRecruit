@@ -113,3 +113,74 @@ def generate_tendency_comparison(player_a_clips, player_b_clips, label_a: str = 
         yaxis=dict(title="%"),
     )
     return fig
+
+
+def generate_archetype_map(players: list[dict], clusters: dict, selected_player: str | None = None):
+    import plotly.graph_objects as go
+    try:
+        from sklearn.decomposition import PCA
+        import numpy as np
+    except Exception:
+        return go.Figure()
+
+    if not players:
+        return go.Figure()
+
+    embeddings = [p.get("embedding") for p in players if p.get("embedding") is not None]
+    if not embeddings:
+        return go.Figure()
+
+    X = np.array(embeddings)
+    coords = PCA(n_components=2).fit_transform(X)
+
+    labels = []
+    names = []
+    ppgs = []
+    xs = []
+    ys = []
+    pids = []
+    for i, p in enumerate(players):
+        pid = p.get("player_id")
+        if p.get("embedding") is None:
+            continue
+        x, y = coords[i]
+        cluster = clusters.get(pid) or clusters.get(str(pid))
+        labels.append(cluster or "Unknown")
+        names.append(p.get("name") or "Unknown")
+        ppgs.append(p.get("ppg") or 0)
+        xs.append(float(x))
+        ys.append(float(y))
+        pids.append(pid)
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=xs,
+            y=ys,
+            mode="markers",
+            marker=dict(size=8),
+            text=[f"{n} | {l} | PPG {ppg}" for n, l, ppg in zip(names, labels, ppgs)],
+            hoverinfo="text",
+        )
+    )
+
+    if selected_player and selected_player in pids:
+        idx = pids.index(selected_player)
+        fig.add_trace(
+            go.Scatter(
+                x=[xs[idx]],
+                y=[ys[idx]],
+                mode="markers",
+                marker=dict(size=16, symbol="star", color="#f6c453"),
+                text=[f"{names[idx]} | {labels[idx]}"],
+                hoverinfo="text",
+            )
+        )
+
+    fig.update_layout(
+        margin=dict(l=10, r=10, t=10, b=10),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(family="Inter, sans-serif", color="#f3f6ff"),
+    )
+    return fig

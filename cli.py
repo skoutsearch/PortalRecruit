@@ -423,6 +423,9 @@ if __name__ == "__main__":
 
     patterns = sub.add_parser("patterns_check")
 
+    map_check = sub.add_parser("map_check")
+    map_check.add_argument("name")
+
     s_film = sub.add_parser("film_check")
     s_film.add_argument("name")
 
@@ -673,12 +676,36 @@ if __name__ == "__main__":
         conn.close()
         if row:
             pid = row[0]
-            five_out = calculate_system_fit(pid, SYSTEM_PROFILES["5-Out Motion"])
-            trad = calculate_system_fit(pid, SYSTEM_PROFILES["Traditional"])
+            five_out = calculate_system_fit(pid, SYSTEM_PROFILES["5-Out Motion"], system_name="5-Out Motion")
+            trad = calculate_system_fit(pid, SYSTEM_PROFILES["Traditional"], system_name="Traditional")
             print(f"Malik Williams 5-Out Motion Fit: {five_out:.1f}")
             print(f"Malik Williams Traditional Fit: {trad:.1f}")
         else:
             print("Malik Williams not found for fit test.")
+    elif args.command == "map_check":
+        from src.analysis.clustering import discover_archetypes, name_clusters
+        from src.analysis.fit import SYSTEM_PROFILES, calculate_system_fit
+        cluster_map = discover_archetypes(n_clusters=8)
+        labels = name_clusters(cluster_map)
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        cur.execute("SELECT player_id, full_name FROM players WHERE LOWER(full_name)=LOWER(?) LIMIT 1", (args.name,))
+        row = cur.fetchone()
+        if not row:
+            cur.execute("SELECT player_id, player_name FROM plays WHERE player_name LIKE ? LIMIT 1", (f"%{args.name.split()[-1]}%",))
+            row = cur.fetchone()
+        conn.close()
+        if not row:
+            print("Player not found in DB.")
+            sys.exit(1)
+        pid = row[0]
+        name = row[1] if len(row) > 1 else args.name
+        label = labels.get(cluster_map.get(pid)) or labels.get(int(cluster_map.get(pid, 0)))
+        print(f"AI Archetype for {name}: {label}")
+        five_out = calculate_system_fit(pid, SYSTEM_PROFILES["5-Out Motion"], system_name="5-Out Motion")
+        trad = calculate_system_fit(pid, SYSTEM_PROFILES["Traditional"], system_name="Traditional")
+        print(f"{name} 5-Out Motion Fit: {five_out:.1f}")
+        print(f"{name} Traditional Fit: {trad:.1f}")
     elif args.command == "film_check":
         from src.film import clean_clip_text, analyze_tendencies
         import sqlite3

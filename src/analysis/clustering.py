@@ -2,13 +2,18 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 from typing import Dict, List, Tuple
 
 import chromadb
 import numpy as np
 import sqlite3
+from dotenv import load_dotenv
 
 from src.search.semantic import semantic_search
+
+root_dir = Path(__file__).resolve().parent.parent.parent
+load_dotenv(root_dir / ".env")
 
 VECTOR_DB_PATH = os.path.join(os.getcwd(), "data/vector_db")
 DB_PATH = os.path.join(os.getcwd(), "data/skout.db")
@@ -95,6 +100,16 @@ def name_clusters(cluster_map: dict) -> dict:
 
     labels: dict[int, str] = {}
     api_key = os.getenv("OPENAI_API_KEY")
+    fallback_names = [
+        "Floor General",
+        "Paint Beast",
+        "Sniper",
+        "Switchable Wing",
+        "Rim Runner",
+        "Heliocentric Guard",
+        "Connector Big",
+        "Microwave Scorer",
+    ]
 
     for cid, pids in clusters.items():
         sample = pids[:5]
@@ -127,7 +142,7 @@ def name_clusters(cluster_map: dict) -> dict:
             except Exception:
                 pass
 
-        labels[cid] = f"Cluster {cid}"
+        labels[cid] = fallback_names[int(cid) % len(fallback_names)]
 
     with open(CLUSTER_LABELS_PATH, "w", encoding="utf-8") as f:
         json.dump(labels, f, indent=2)
